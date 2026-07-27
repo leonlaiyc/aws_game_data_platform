@@ -1,0 +1,72 @@
+# Experiment Orchestration
+
+Step Functions state machine (`aurora-games-experiment-lifecycle`) driving an experiment through:
+
+```
+assignment -> srm_check -> [Choice] -> monitoring (Map, one iteration per day) -> analysis -> readout
+                              |
+                              +-- SRM violation --> mark stopped_early --> end (no analysis/readout)
+```
+
+## Steps
+
+1. **Assignment** (`lambda/assignment`) - deterministic hash-based split (`md5(experiment_id:seed:player_id)`)
+   over the audience's eligible players (site-level, active in the last 7 days - see the
+   simplification note in `feature_registry/FEATURES.md`). Writes
+   `gold_experiment_assignments/<experiment_id>.jsonl`.
+2. **SRM check** (`lambda/srm_check`) - chi-square goodness-of-fit test, 2-variant only. Pure
+   computation (no AWS calls); p-value via `erfc` since chi-square at df=1 is exactly the square
+   of a standard normal. `p_value < 0.01` hard-fails the experiment (`stopped_early`,
+   `stop_reason` prefixed `srm_violation:`) - stricter than the usual 0.05 since this check runs
+   on every experiment and a false positive kills a real one.
+3. **Monitoring** (`lambda/monitoring_check`) - a Step Functions `Map` state replays each day in
+   the experiment's window (the demo's dates are historical, so "waiting" is instant); the *same*
+   Lambda is also wired to an EventBridge hourly schedule (`{"scheduled": true}` input) that scans
+   every currently-running experiment against today's real date - that's the actual always-on
+   production path this project is simulating. On a guardrail breach: conditional DynamoDB update
+   to `stopped_early` + SNS alert.
+4. **Analysis** (`lambda/analysis`) - reads **only** `gold_player_features` joined against this
+   experiment's assignments (never recomputes aggregates from Bronze/Silver). Two-sample z-test
+   (normal CDF via `math.erf`) for the OEC metric's significance, plus guardrail status at the
+   same analysis date (the first breach date if monitoring caught one, else the last planned day).
+5. **Readout** (`lambda/readout`) - Bedrock Nova Lite drafts a 4-section report. The prompt embeds
+   the exact analysis numbers and instructs the model to use only those; a lightweight
+   post-generation regex check flags any number in the output that isn't one of the supplied
+   figures (or part of the experiment's own name) - not a full grounding verifier, just a cheap
+   sanity check, recorded as `readout.grounding_check_passed`.
+
+`mark_state` is a small shared Lambda for the two transitions that need nothing but a conditional
+DynamoDB update: SRM hard-fail and natural completion after the monitoring loop finishes clean.
+
+## Starting an execution
+
+`POST /experiments/{id}/start` (see `registry/README.md`) with `{"as_of_date", "duration_days"}` -
+the registry API computes the day-by-day `check_dates` list and calls `StartExecution` directly
+(no EventBridge hop for this trigger - see `registry_stack.py` for why the state machine ARN is a
+fixed name rather than a CDK cross-stack reference).
+
+## A Lake Formation gotcha worth knowing
+
+Even with `AdministratorAccess`-equivalent IAM policies granting `glue:GetPartition` etc., Lambda
+executions failed with `Insufficient permissions ... glue:GetPartition ... on resource: catalog`.
+This AWS account has **Lake Formation** governing the Glue Data Catalog; new tables do inherit an
+`IAM_ALLOWED_PRINCIPALS` grant by default, but no principal could evaluate against it because the
+account had zero registered **Data Lake Administrators**. Fix:
+
+```bash
+aws lakeformation put-data-lake-settings --data-lake-settings '{"DataLakeAdmins": [...]}'
+aws lakeformation grant-permissions --principal '{"DataLakePrincipalIdentifier": "<lambda-role-arn>"}' \
+  --resource '{"Database": {"Name": "aurora_games_lake"}}' --permissions DESCRIBE
+aws lakeformation grant-permissions --principal '{"DataLakePrincipalIdentifier": "<lambda-role-arn>"}' \
+  --resource '{"Table": {"DatabaseName": "aurora_games_lake", "TableWildcard": {}}}' --permissions SELECT DESCRIBE
+```
+
+Done once per new Lambda role that queries Athena (`assignment`, `monitoring_check`, `analysis`
+here) - IAM policies alone aren't sufficient in an account where Lake Formation is active.
+
+## Verified end to end
+
+A clean-winner run (2026-05-15, 10-day window, guardrail threshold set impossibly loose so it
+never breaches): 319 players split 159/160 (SRM p=0.955), all 10 monitoring days clean, analysis
+and a grounded Bedrock readout completed, final state `analyzed`. SRM-fail and guardrail-breach
+paths are exercised by `demo/` (see that module's README).

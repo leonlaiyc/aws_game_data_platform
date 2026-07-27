@@ -7,11 +7,14 @@ from aws_cdk import (
     CfnOutput,
     aws_apigateway as apigateway,
     aws_dynamodb as dynamodb,
+    aws_iam as iam,
     aws_lambda as _lambda,
     aws_lambda_event_sources as lambda_event_sources,
     aws_s3 as s3,
 )
 from constructs import Construct
+
+from infra.orchestration_stack import STATE_MACHINE_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 REGISTRY_LAMBDA_DIR = REPO_ROOT / "module2-experimentation-platform" / "registry" / "lambda"
@@ -39,16 +42,28 @@ class RegistryStack(Stack):
             stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
         )
 
+        state_machine_arn = f"arn:aws:states:{self.region}:{self.account}:stateMachine:{STATE_MACHINE_NAME}"
+
         api_lambda = _lambda.Function(
             self,
             "ExperimentsApiHandler",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.handler",
             code=_lambda.Code.from_asset(str(REGISTRY_LAMBDA_DIR / "api")),
-            environment={"EXPERIMENTS_TABLE_NAME": self.experiments_table.table_name},
+            environment={
+                "EXPERIMENTS_TABLE_NAME": self.experiments_table.table_name,
+                "ORCHESTRATION_STATE_MACHINE_ARN": state_machine_arn,
+            },
             timeout=Duration.seconds(10),
         )
         self.experiments_table.grant_read_write_data(api_lambda)
+        # Referenced by ARN pattern (not a CDK object reference) to avoid a
+        # circular stack dependency - OrchestrationStack already depends on
+        # this stack's experiments_table, so it can't also be a constructor
+        # input here. See orchestration_stack.py's STATE_MACHINE_NAME.
+        api_lambda.add_to_role_policy(
+            iam.PolicyStatement(actions=["states:StartExecution"], resources=[state_machine_arn])
+        )
 
         export_lambda = _lambda.Function(
             self,

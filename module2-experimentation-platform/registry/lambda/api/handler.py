@@ -12,12 +12,15 @@ import os
 import random
 import time
 import uuid
+from datetime import date, timedelta
 from decimal import Decimal
 
 import boto3
 
 dynamodb = boto3.resource("dynamodb")
 table = dynamodb.Table(os.environ["EXPERIMENTS_TABLE_NAME"])
+sfn = boto3.client("stepfunctions")
+STATE_MACHINE_ARN = os.environ["ORCHESTRATION_STATE_MACHINE_ARN"]
 
 REQUIRED_CREATE_FIELDS = ["name", "game_id", "client_site_id", "variants", "oec_metric"]
 UPDATABLE_DRAFT_FIELDS = {"name", "audience", "variants", "oec_metric", "guardrail_metrics"}
@@ -103,7 +106,15 @@ def update_experiment(experiment_id: str, body: dict) -> dict:
     return get_experiment(experiment_id)
 
 
-def start_experiment(experiment_id: str) -> dict:
+def start_experiment(experiment_id: str, body: dict) -> dict:
+    as_of_date_str = body.get("as_of_date")
+    duration_days = body.get("duration_days")
+    if not as_of_date_str or not duration_days:
+        return _response(400, {"error": "start requires 'as_of_date' (YYYY-MM-DD) and 'duration_days'"})
+
+    as_of_date = date.fromisoformat(as_of_date_str)
+    check_dates = [(as_of_date + timedelta(days=n)).isoformat() for n in range(1, int(duration_days) + 1)]
+
     try:
         table.update_item(
             Key={"experiment_id": experiment_id},
@@ -119,6 +130,16 @@ def start_experiment(experiment_id: str) -> dict:
         )
     except table.meta.client.exceptions.ConditionalCheckFailedException:
         return _response(409, {"error": "experiment must be in 'draft' state to start"})
+
+    sfn.start_execution(
+        stateMachineArn=STATE_MACHINE_ARN,
+        name=f"{experiment_id}-{uuid.uuid4().hex[:8]}",
+        input=json.dumps({
+            "experiment_id": experiment_id,
+            "as_of_date": as_of_date_str,
+            "check_dates": check_dates,
+        }),
+    )
     return get_experiment(experiment_id)
 
 
@@ -173,7 +194,7 @@ def handler(event, context):
     if resource == "/experiments/{id}" and method == "DELETE":
         return delete_experiment(experiment_id)
     if resource == "/experiments/{id}/start" and method == "POST":
-        return start_experiment(experiment_id)
+        return start_experiment(experiment_id, body)
     if resource == "/experiments/{id}/stop" and method == "POST":
         return stop_experiment(experiment_id, body)
 

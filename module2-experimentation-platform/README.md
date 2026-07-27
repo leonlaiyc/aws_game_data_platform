@@ -9,5 +9,5 @@ Architecture -> Implementation -> Summary once all sub-modules are complete.
 |---|---|
 | [feature_registry](feature_registry/) — player_features Gold table, single source of truth | Done |
 | [registry](registry/) — DynamoDB experiment registry, CRUD API, Athena export | Done |
-| orchestration — Step Functions lifecycle (assignment, SRM, monitoring, analysis, readout) | In progress |
+| [orchestration](orchestration/) — Step Functions lifecycle (assignment, SRM, monitoring, analysis, readout) | Done |
 | demo — 2-3 concurrent experiments end to end | Not started |
