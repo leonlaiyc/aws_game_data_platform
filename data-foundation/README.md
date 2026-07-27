@@ -1,7 +1,35 @@
 # Data Foundation
 
-The shared Bronze/Silver/Gold lake every module reads from. Not one of the three pain-point
-modules itself, but the thing that makes all three possible with one source of truth.
+## Pain Point
+
+Aurora Games isn't one game — it's a B2B platform serving **multiple client sites** (independent
+operators, each embedding our games) across **multiple game providers**, in **different regions
+and currencies**. That combination creates three concrete problems a modern data platform has to
+solve, not just a lake:
+
+1. **Inconsistent data, one source of truth needed.** Every client site and every game emits
+   events through the same pipeline, but "DAU", "ARPU", and "retention" mean nothing unless
+   everyone — dashboards, analysts, an executive glancing at a report — agrees on exactly how
+   they're computed. Two teams computing "ARPU" differently isn't a data quality bug, it's a
+   definitions bug, and it erodes trust in every number after the first mismatch is discovered.
+2. **Clients must only ever see their own data.** Client sites are separate business customers.
+   A dashboard or ad hoc query must never be able to surface one client's numbers to another —
+   and that boundary can't depend on every future SQL query happening to include the right
+   `WHERE` clause.
+3. **Self-service, not a queue behind an analyst.** As more sites and games onboard, "email the
+   data team and wait" doesn't scale. The platform needs to make standard metrics queryable
+   without an analyst rewriting the same aggregation for the fifth client.
+
+This module — the shared Bronze/Silver/Gold lake every other module reads from — is the
+foundation for solving all three, with two concrete artifacts on top of the pipeline itself:
+
+- **[`KPI_DEFINITIONS.md`](KPI_DEFINITIONS.md)** — the single source of truth for what GGR, DAU,
+  ARPU, and D1/D7 retention mean, with explicit calculation logic and caveats. Same governance
+  philosophy as Module 2's `feature_registry/FEATURES.md`, one layer up (business metrics, not
+  player-level features) — see that file for how the two relate.
+- **[`governance/`](governance/)** — a working demonstration that one client site can only query
+  its own rows, enforced by an AWS Lake Formation row-level filter, not by application code that
+  a future bug could omit.
 
 ## Pipeline
 
@@ -23,9 +51,10 @@ event_simulator/  --(local JSONL)-->  S3 bronze/  --(Athena CTAS)-->  S3 silver/
    `event_ts` parsed to a real timestamp and FX converted to USD **once** (`bet_amount_usd`,
    `win_amount_usd`, `amount_usd`) so every downstream query reuses it instead of re-deriving it.
 4. **Gold**: small, purpose-built aggregate tables (not partitioned — a few hundred rows each,
-   so partitioning would only add overhead):
+   so partitioning would only add overhead). Column-by-column definitions live in
+   `KPI_DEFINITIONS.md`, not repeated here:
    - `gold_daily_kpi` — dt x client_site_id grain: DAU, sessions, new players, GGR, deposits,
-     withdrawals, ARPU (all USD).
+     withdrawals, ARPU (all USD). Also the table `governance/`'s client-isolation demo filters.
    - `gold_cohort_retention` — registration_date x client_site_id grain: D1/D7 retention.
 
 ## Running it
@@ -69,3 +98,5 @@ alarmed on day-to-day like DAU/GGR are.
 - `player_features` (the per-player feature registry used by modules 1 and 2) is **not** built
   here — it's owned by `module2-experimentation-platform/feature_registry/` since that's the
   module responsible for the "single source of truth" narrative around it.
+- The client-isolation demo in `governance/` filters `gold_daily_kpi` only, and its analyst IAM
+  roles use a simplified (account-root) trust policy — see that module's README for exact scope.

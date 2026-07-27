@@ -6,6 +6,7 @@ import aws_cdk as cdk
 from infra.foundation_stack import FoundationStack
 from infra.registry_stack import RegistryStack
 from infra.orchestration_stack import OrchestrationStack
+from infra.governance_stack import GovernanceStack
 
 app = cdk.App()
 
@@ -20,5 +21,6 @@ OrchestrationStack(
     app, "AuroraGamesOrchestrationStack", env=env,
     lake_bucket=foundation.lake_bucket, experiments_table=registry.experiments_table,
 )
+GovernanceStack(app, "AuroraGamesGovernanceStack", env=env, lake_bucket=foundation.lake_bucket)
 
 app.synth()

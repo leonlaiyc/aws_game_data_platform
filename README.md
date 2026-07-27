@@ -14,10 +14,16 @@ Fictional entities (games, client sites, player data) have no relation to any re
 
 | Module | Pain point | Status |
 |---|---|---|
-| [data-foundation](data-foundation/) | No reliable single source of event truth across client sites | Done |
-| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected | Not started |
+| [data-foundation](data-foundation/) | Multiple client sites/game providers, inconsistent metric definitions, and a data-isolation requirement need a governed platform, not just a lake | Done |
+| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected; batch-only monitoring misses same-hour incidents | Not started |
 | [module2-experimentation-platform](module2-experimentation-platform/) | No rigorous, guardrail-safe way to run product experiments | Done |
-| [module3-support-chatbot](module3-support-chatbot/) | Partner integration support is slow, repetitive, and inconsistent | Not started |
+| module3-analytics-assistant *(was: support chatbot — repointed, see [[direction pivot]] note below)* | Execs/analysts ask cross-cut business questions no prebuilt dashboard answers, and every one interrupts an analyst for 20-40 minutes | Not started |
+
+> **Direction note (2026-07-27):** Module 3 was repointed from a partner-support RAG chatbot to an
+> NL analytics assistant (semantic layer + templated SQL, grounded, with a build-vs-buy analysis
+> against Amazon Quick) to better match a Sr. Analytics Specialist SA target role. Module 1 gained
+> a short-lived, cost-controlled streaming path alongside its batch detection. Full narrative
+> rewrite lands in Phase 4; this line is a placeholder so the table doesn't mislead in the meantime.
 
 ## Region & cost
 
@@ -41,6 +47,8 @@ infra/                              CDK app (Python) — all infrastructure as c
 data-foundation/
   event_simulator/                  Synthetic B2B gaming event generator
   lake/                             S3 Bronze/Silver/Gold layout, Glue Catalog DDL, example Athena queries
+  KPI_DEFINITIONS.md                Single source of truth for GGR/DAU/ARPU/retention calculation logic
+  governance/                       Client-data-isolation demo (Lake Formation row-level filters)
 module1-anomaly-detection/
   data_anomaly/                     EWMA-based retention/revenue anomaly detection -> SNS
   arbitrage_detection/              Rule-based multi-account / abnormal deposit-withdraw detection
