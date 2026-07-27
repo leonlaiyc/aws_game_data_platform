@@ -1,7 +1,7 @@
 # Module 2 — Lightweight Internal Experimentation Platform
 
-Status: in progress (Phase 2a — priority module). Will follow Pain Point -> Reasoning ->
-Architecture -> Implementation -> Summary once all sub-modules are complete.
+Status: built and verified end to end (Phase 2a — priority module). Narrative pass (Pain Point ->
+Reasoning -> Architecture -> Implementation -> Summary) still pending for Phase 4.
 
 ## Sub-modules
 
@@ -10,4 +10,4 @@ Architecture -> Implementation -> Summary once all sub-modules are complete.
 | [feature_registry](feature_registry/) — player_features Gold table, single source of truth | Done |
 | [registry](registry/) — DynamoDB experiment registry, CRUD API, Athena export | Done |
 | [orchestration](orchestration/) — Step Functions lifecycle (assignment, SRM, monitoring, analysis, readout) | Done |
-| demo — 2-3 concurrent experiments end to end | Not started |
+| [demo](demo/) — 2-3 concurrent experiments end to end (clean winner, guardrail auto-stop, SRM catch) | Done |

@@ -51,7 +51,10 @@ Write a short report with exactly these 4 sections:
 Every number you write must be one of the numbers given above, unchanged."""
 
 
-_NUMBER_RE = r"-?\b\d+\.?\d*\b"
+# Scientific notation (e.g. Python's str(1e-06) == "1e-06") must match as one
+# token - without the optional exponent group, "1e-06" splits into "1" and
+# "-06", and "-06" isn't a real figure, just a regex parsing artifact.
+_NUMBER_RE = r"-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b"
 
 
 def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:

@@ -16,7 +16,7 @@ Fictional entities (games, client sites, player data) have no relation to any re
 |---|---|---|
 | [data-foundation](data-foundation/) | No reliable single source of event truth across client sites | Done |
 | [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected | Not started |
-| [module2-experimentation-platform](module2-experimentation-platform/) | No rigorous, guardrail-safe way to run product experiments | In progress |
+| [module2-experimentation-platform](module2-experimentation-platform/) | No rigorous, guardrail-safe way to run product experiments | Done |
 | [module3-support-chatbot](module3-support-chatbot/) | Partner integration support is slow, repetitive, and inconsistent | Not started |
 
 ## Region & cost
