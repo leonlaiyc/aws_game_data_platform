@@ -45,41 +45,54 @@ and `data-foundation/event_simulator`'s output stays untouched.
 ```
 Result: Clean winner
   state: analyzed
-  control: n=56 mean=5.6488  treatment: n=79 mean=28.3699
-  lift: 402.23%  p_value: 1.5e-05  significant: True
+  control: n=78 mean=3.795  treatment: n=57 mean=25.2025
+  lift: 564.1%  p_value: 0.000123  significant: True
   guardrail_status: sessions_7d ok
   grounding_check_passed: True
 
   ### Conclusion
-  The treatment group showed a substantial and statistically significant increase in the OEC
-  metric compared to the control group.
+  The results indicate a very large increase in the OEC metric, but the small sample size and
+  suspiciously large effect size raise concerns about the stability and authenticity of this
+  finding. It is essential to verify the data integrity and experimental setup before drawing
+  firm conclusions.
   ### Key Stats
-  - Control group: n=56, mean=5.6488
-  - Treatment group: n=79, mean=28.3699
-  - Lift: 402.23%
-  - Statistical significance: p-value=1.5e-05 (significant at alpha=0.05)
+  - Control group: n=78, mean=3.795
+  - Treatment group: n=57, mean=25.2025
+  - Lift: 564.1%
+  - Statistical significance: p-value=0.000123 (significant at alpha=0.05)
   ### Guardrail Status
-  - sessions_7d: treatment value 1.7342 vs min threshold 0.0 -> ok
+  - sessions_7d: treatment value 1.5789 vs min threshold 0.0 -> ok
+  ### Caveats
+  - [SMALL_SAMPLE] (warning) control_n=78, treatment_n=57, floor=100
+  - [SUSPICIOUSLY_LARGE_EFFECT] (warning) lift_pct=564.0963409842127, threshold_pct=100.0
   ### Next-round Recommendation
-  Further investigate the factors contributing to this increase and consider implementing
-  similar changes in other games.
+  Conduct a follow-up experiment with larger sample sizes to validate these findings and
+  ensure data accuracy.
+
+  coverage_check: {conclusion_word_count: 46, flags_in_prompt: true,
+                   conclusion_non_trivial: true, conclusion_min_words_expected: 32}
 
 Result: Guardrail auto-stop
   state: analyzed
-  stop_reason: guardrail_breach: ggr_usd_7d=-101.8037 vs min threshold 0.0
-  control: n=74 mean=3.6338  treatment: n=82 mean=-101.8037
+  stop_reason: guardrail_breach: ggr_usd_7d=-98.2912 vs min threshold 0.0
+  control: n=72 mean=-0.3853  treatment: n=84 mean=-98.2912
   grounding_check_passed: True
+  (same two Caveats fired here too: SMALL_SAMPLE, SUSPICIOUSLY_LARGE_EFFECT - both addressed
+  in the Conclusion without restating any figure)
 
 Result: SRM violation
   state: stopped_early
-  stop_reason: srm_violation: p_value=0.00604 chi2=7.5385 (threshold 0.01)
+  stop_reason: srm_violation: p_value=0.000415 chi2=12.4615 (threshold 0.01)
   (never reached monitoring/analysis/readout - correct: SRM hard-fail skips them)
 ```
 
-Notice the "Conclusion"/"Next-round Recommendation" text above contains **zero numbers** - every
-figure in the report (Key Stats, Guardrail Status) is rendered by our own code from
-`analysis_result`, not written by Bedrock. See `orchestration/README.md` for why this replaced the
-original "let the LLM write everything, then scan for anomalies" design.
+Notice the "Conclusion"/"Next-round Recommendation" text above contains **zero numbers**, yet it
+explicitly names both caveats in plain language ("small sample size", "suspiciously large effect
+size") - Bedrock was *required* to address every flag `analysis_result.flags` raised, not left to
+decide on its own whether either was worth mentioning. Every figure in the report (Key Stats,
+Guardrail Status, and the raw Caveats evidence) is rendered by our own code, not written by
+Bedrock. See `orchestration/README.md` for the full rationale and the division of labor between
+deterministic code (numbers, significance, caveat triggers) and the LLM (synthesis only).
 
 Real bugs caught and fixed while getting a clean run here, all instructive:
 - The grounding-check regex split scientific notation (`1e-06`/`1.5e-05`, a very common p-value
@@ -93,6 +106,10 @@ Real bugs caught and fixed while getting a clean run here, all instructive:
   structural guarantee. Replaced with a design where Bedrock only ever writes qualitative text
   (no figures at all, verified above), and the numeric sections are code-rendered - a number can't
   be hallucinated in the sections that matter most because the LLM never writes them.
+- That redesign still left a residual risk of *omission* - nothing stopped the LLM from silently
+  not mentioning an important caveat (e.g. a huge lift from a tiny, imbalanced sample). Fixed by
+  having the analysis Lambda emit deterministic `flags` and requiring the readout prompt to
+  address every one of them, verified above.
 
 ## Cleaning up demo data
 

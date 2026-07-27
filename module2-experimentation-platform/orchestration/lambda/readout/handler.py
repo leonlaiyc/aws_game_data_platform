@@ -1,24 +1,37 @@
 """Step 5: generates the experiment readout.
 
 Every number in the final report is traceable to our own code, not to the
-LLM - the report is assembled from two kinds of parts:
+LLM - the report is assembled from three kinds of parts:
 
-- "Key Stats" and "Guardrail Status" are rendered directly from
-  analysis_result by _render_key_stats/_render_guardrail_status. Bedrock
-  never sees these as something to reproduce; there is no way for it to
-  get a figure here wrong, because it doesn't write these sections at all.
+- "Key Stats", "Guardrail Status", and "Caveats" are rendered directly
+  from analysis_result by _render_key_stats/_render_guardrail_status/
+  _render_caveats. Bedrock never sees these as something to reproduce;
+  there is no way for it to get a figure here wrong, because it doesn't
+  write these sections at all. Caveats (analysis_result["flags"]) are
+  themselves computed by deterministic rules in the analysis Lambda
+  (imbalanced groups, tiny samples, a guardrail that passed but is close,
+  a suspiciously large effect, wide uncertainty) - the same "code owns
+  correctness" principle applied to what gets flagged, not just to the
+  numbers.
 - "Conclusion" and "Next-round Recommendation" are the only LLM-authored
   parts (qualitative judgment - is this a good result? what should happen
-  next?), and the prompt explicitly asks for a verdict in words, not a
-  restatement of the figures.
+  next?). The prompt requires the Conclusion to address every flag - the
+  LLM is not free to decide whether a caveat is worth mentioning, only
+  how to phrase it. It still writes no numbers at all.
 
-This is a stronger guarantee than scanning the model's output for
-numbers after the fact (the previous design): a number in "Key Stats"
-can't be wrong because we wrote it ourselves, rather than checking
-whether it happens to match something we allowed. The grounding check
-below still runs - as a secondary safety net - on just the two
-LLM-authored fields, in case the model ignores the instruction and
-restates a figure anyway.
+Division of labor: deterministic code owns everything requiring
+correctness and auditability (the numbers, the significance decision, and
+now the caveat triggers); the LLM is confined to what it's reliable at -
+synthesis and audience-appropriate communication, weaving code-governed
+facts into prose a decision-maker can read in seconds. This isn't
+distrust of the LLM - it's placing it where it's reliable. An assistant
+that also judges and reports numbers is one nobody dares use in a
+high-trust setting, because one hallucination voids the whole report; an
+assistant confined to trustworthy language synthesis is one that actually
+gets used daily.
+
+The grounding check below still runs as a secondary safety net on just
+the LLM-authored fields, in case the model restates a figure anyway.
 """
 import json
 import os
@@ -40,6 +53,16 @@ def _build_prompt(experiment: dict, analysis_result: dict) -> str:
         for g in analysis_result["guardrail_status"]
     ) or "(none defined)"
     significance = "significant" if analysis_result["significant"] else "not significant"
+    flags = analysis_result.get("flags", [])
+
+    if flags:
+        flag_lines = "\n".join(f"- [{f['code']}] {f['message']}" for f in flags)
+        flag_instruction = (
+            "Your Conclusion MUST address every one of the following caveats, in your own words - "
+            "you are not free to omit any of them, only to phrase them naturally:\n" + flag_lines
+        )
+    else:
+        flag_instruction = "No caveats were raised for this result - you may note it was a clean read."
 
     return f"""You are writing the qualitative portions of an internal experiment readout for a
 B2B gaming analytics team. The numeric results below are shown to you for context only - they
@@ -55,8 +78,10 @@ Lift: {analysis_result['lift_pct']}%, {significance} at alpha={SIGNIFICANCE_ALPH
 Guardrails:
 {guardrail_lines}
 
+{flag_instruction}
+
 Respond with ONLY a JSON object, no markdown fences, with exactly these two keys:
-{{"conclusion": "1-2 sentences, qualitative judgment of the result",
+{{"conclusion": "2-4 sentences: qualitative judgment of the result, addressing every caveat listed above",
   "recommendation": "1-2 sentences, what to do next round"}}"""
 
 
@@ -92,11 +117,28 @@ def _render_guardrail_status(analysis_result: dict) -> str:
     return "\n".join(lines) if lines else "(no guardrail metrics defined)"
 
 
+def _render_caveats(analysis_result: dict) -> str:
+    flags = analysis_result.get("flags", [])
+    if not flags:
+        return "(none - no caveat rules were triggered for this result)"
+    lines = []
+    for f in flags:
+        evidence = ", ".join(f"{k}={v}" for k, v in f["evidence"].items())
+        lines.append(f"- [{f['code']}] ({f['severity']}) {evidence}")
+    return "\n".join(lines)
+
+
 # Scientific notation (e.g. Python's str(1e-06) == "1e-06") must match as one
 # token - without the optional exponent group, "1e-06" splits into "1" and
 # "-06", and "-06" isn't a real figure, just a regex parsing artifact.
 _NUMBER_RE = r"-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b"
 _IGNORED_SMALL_INTS = {"1", "2"}  # harmless if the model numbers its own sentences
+
+# Coarse coverage heuristic (not literal keyword matching, which would be
+# fragile against paraphrasing): expect roughly this many extra words per
+# caveat the Conclusion is required to address.
+_BASE_MIN_WORDS = 12
+_WORDS_PER_FLAG = 10
 
 
 def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:
@@ -115,34 +157,60 @@ def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:
 
 def _grounding_check(llm_text: str, experiment: dict, analysis_result: dict) -> tuple:
     """Secondary safety net over the LLM-authored conclusion/recommendation
-    only - Key Stats and Guardrail Status are code-rendered and don't need
-    checking, they're correct by construction."""
+    only - Key Stats, Guardrail Status, and Caveats are code-rendered and
+    don't need checking, they're correct by construction."""
     allowed = _allowed_numbers(experiment, analysis_result)
     found = re.findall(_NUMBER_RE, llm_text)
     suspicious = [n for n in found if n not in allowed and n not in _IGNORED_SMALL_INTS]
     return (len(suspicious) == 0), suspicious
 
 
+def _coverage_check(prompt: str, conclusion: str, flags: list) -> dict:
+    """Two cheap, mechanical checks mirroring the numeric grounding guard,
+    but for completeness rather than correctness:
+    - flags_in_prompt: did our own code actually pass every flag to the
+      model (a self-check against a silent bug dropping one, not a check
+      on the LLM)?
+    - conclusion_non_trivial: is the Conclusion long enough to plausibly
+      have addressed all of them, given how many were required? This is a
+      coarse word-count heuristic, not literal keyword matching (which
+      would be fragile against paraphrasing) - it catches a degenerate
+      one-line non-answer, not a subtly incomplete one.
+    """
+    flags_in_prompt = all(f["code"] in prompt for f in flags)
+    min_words = _BASE_MIN_WORDS + _WORDS_PER_FLAG * len(flags)
+    conclusion_non_trivial = len(conclusion.split()) >= min_words
+    return {
+        "flags_in_prompt": flags_in_prompt,
+        "conclusion_word_count": len(conclusion.split()),
+        "conclusion_min_words_expected": min_words,
+        "conclusion_non_trivial": conclusion_non_trivial,
+    }
+
+
 def handler(event, context):
     experiment_id = event["experiment_id"]
     experiment = event["assignment"]["experiment"]
     analysis_result = event["analysis_result"]
+    flags = analysis_result.get("flags", [])
 
     prompt = _build_prompt(experiment, analysis_result)
     resp = bedrock.converse(
         modelId=MODEL_ID,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 300, "temperature": 0.1},
+        inferenceConfig={"maxTokens": 400, "temperature": 0.1},
     )
     raw_text = resp["output"]["message"]["content"][0]["text"]
     conclusion, recommendation, parsed_ok = _parse_llm_json(raw_text)
 
     grounding_ok, suspicious = _grounding_check(conclusion + " " + recommendation, experiment, analysis_result)
+    coverage = _coverage_check(prompt, conclusion, flags)
 
     report_text = (
         f"### Conclusion\n{conclusion}\n\n"
         f"### Key Stats\n{_render_key_stats(analysis_result)}\n\n"
         f"### Guardrail Status\n{_render_guardrail_status(analysis_result)}\n\n"
+        f"### Caveats\n{_render_caveats(analysis_result)}\n\n"
         f"### Next-round Recommendation\n{recommendation}"
     )
 
@@ -151,6 +219,8 @@ def handler(event, context):
         "grounding_check_passed": grounding_ok,
         "suspicious_numbers": suspicious,
         "llm_response_parsed": parsed_ok,
+        "flags_count": len(flags),
+        "coverage_check": coverage,
         "generated_at": now_iso(),
         "model_id": MODEL_ID,
     }
