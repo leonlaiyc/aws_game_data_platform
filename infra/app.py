@@ -4,6 +4,7 @@ import os
 import aws_cdk as cdk
 
 from infra.foundation_stack import FoundationStack
+from infra.registry_stack import RegistryStack
 
 app = cdk.App()
 
@@ -12,6 +13,7 @@ env = cdk.Environment(
     region=os.getenv("CDK_DEFAULT_REGION"),
 )
 
-FoundationStack(app, "AuroraGamesFoundationStack", env=env)
+foundation = FoundationStack(app, "AuroraGamesFoundationStack", env=env)
+RegistryStack(app, "AuroraGamesRegistryStack", env=env, lake_bucket=foundation.lake_bucket)
 
 app.synth()

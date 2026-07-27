@@ -1,0 +1,93 @@
+from pathlib import Path
+
+from aws_cdk import (
+    Duration,
+    RemovalPolicy,
+    Stack,
+    CfnOutput,
+    aws_apigateway as apigateway,
+    aws_dynamodb as dynamodb,
+    aws_lambda as _lambda,
+    aws_lambda_event_sources as lambda_event_sources,
+    aws_s3 as s3,
+)
+from constructs import Construct
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REGISTRY_LAMBDA_DIR = REPO_ROOT / "module2-experimentation-platform" / "registry" / "lambda"
+
+TABLE_NAME = "aurora-games-experiments"
+
+
+class RegistryStack(Stack):
+    """DynamoDB experiment registry + a CRUD API (API Gateway + Lambda) +
+    a Streams-triggered exporter that keeps a queryable snapshot in S3 for
+    Athena dashboarding. This is the metadata/state layer module2's Step
+    Functions orchestration reads and writes as an experiment moves through
+    draft -> running -> (stopped_early | completed) -> analyzed."""
+
+    def __init__(self, scope: Construct, construct_id: str, lake_bucket: s3.IBucket, **kwargs) -> None:
+        super().__init__(scope, construct_id, **kwargs)
+
+        self.experiments_table = dynamodb.Table(
+            self,
+            "ExperimentsTable",
+            table_name=TABLE_NAME,
+            partition_key=dynamodb.Attribute(name="experiment_id", type=dynamodb.AttributeType.STRING),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+            stream=dynamodb.StreamViewType.NEW_AND_OLD_IMAGES,
+        )
+
+        api_lambda = _lambda.Function(
+            self,
+            "ExperimentsApiHandler",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset(str(REGISTRY_LAMBDA_DIR / "api")),
+            environment={"EXPERIMENTS_TABLE_NAME": self.experiments_table.table_name},
+            timeout=Duration.seconds(10),
+        )
+        self.experiments_table.grant_read_write_data(api_lambda)
+
+        export_lambda = _lambda.Function(
+            self,
+            "ExperimentsExportHandler",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset(str(REGISTRY_LAMBDA_DIR / "export")),
+            environment={"LAKE_BUCKET_NAME": lake_bucket.bucket_name},
+            timeout=Duration.seconds(10),
+        )
+        lake_bucket.grant_read_write(export_lambda, "gold/experiments_export/*")
+        export_lambda.add_event_source(
+            lambda_event_sources.DynamoEventSource(
+                self.experiments_table,
+                starting_position=_lambda.StartingPosition.TRIM_HORIZON,
+                batch_size=10,
+                retry_attempts=2,
+            )
+        )
+
+        api = apigateway.RestApi(
+            self,
+            "ExperimentsApi",
+            rest_api_name="aurora-games-experiments-api",
+            deploy_options=apigateway.StageOptions(stage_name="prod"),
+        )
+        integration = apigateway.LambdaIntegration(api_lambda)
+
+        experiments = api.root.add_resource("experiments")
+        experiments.add_method("POST", integration)
+        experiments.add_method("GET", integration)
+
+        experiment_item = experiments.add_resource("{id}")
+        experiment_item.add_method("GET", integration)
+        experiment_item.add_method("PATCH", integration)
+        experiment_item.add_method("DELETE", integration)
+
+        experiment_item.add_resource("start").add_method("POST", integration)
+        experiment_item.add_resource("stop").add_method("POST", integration)
+
+        CfnOutput(self, "ExperimentsApiUrl", value=api.url)
+        CfnOutput(self, "ExperimentsTableName", value=self.experiments_table.table_name)
