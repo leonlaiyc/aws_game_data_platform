@@ -7,9 +7,9 @@ transitions - SRM result, guardrail auto-stop, analysis, readout - are
 written directly to DynamoDB by the Step Functions orchestration
 (module2-experimentation-platform/orchestration), not through this API.
 """
+import hashlib
 import json
 import os
-import random
 import time
 import uuid
 from datetime import date, timedelta
@@ -28,6 +28,13 @@ UPDATABLE_DRAFT_FIELDS = {"name", "audience", "variants", "oec_metric", "guardra
 
 def _now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _derive_seed(experiment_id: str) -> int:
+    # Deterministic (not random) on purpose: reproducible from experiment_id
+    # alone, so anything that needs to know the assignment split in advance
+    # (e.g. demo data setup) can replicate it without an extra round-trip.
+    return int(hashlib.md5(experiment_id.encode()).hexdigest(), 16) % (2**31 - 1) + 1
 
 
 def _json_default(obj):
@@ -125,7 +132,7 @@ def start_experiment(experiment_id: str, body: dict) -> dict:
                 ":running": "running",
                 ":draft": "draft",
                 ":now": _now(),
-                ":seed": random.randint(1, 2**31 - 1),
+                ":seed": _derive_seed(experiment_id),
             },
         )
     except table.meta.client.exceptions.ConditionalCheckFailedException:
