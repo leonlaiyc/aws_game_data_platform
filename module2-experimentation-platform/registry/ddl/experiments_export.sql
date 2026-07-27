@@ -17,6 +17,7 @@ CREATE EXTERNAL TABLE experiments_export (
     variants          array<struct<name: string, weight: double>>,
     oec_metric        string,
     guardrail_metrics array<struct<metric: string, direction: string, threshold: double>>,
+    related_experiment_id string,
     assignment_seed   bigint,
     created_at        string,
     updated_at        string,

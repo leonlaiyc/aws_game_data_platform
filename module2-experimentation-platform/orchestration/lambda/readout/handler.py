@@ -1,10 +1,26 @@
-"""Step 5: Bedrock (Nova Lite) generates a structured report draft, grounded
-in the analysis step's numbers - the prompt supplies the exact figures and
-instructs the model to use only those, and a lightweight post-generation
-check flags any number in the output that isn't one of the supplied values
-(not a full NLI-grade grounding verifier, just a cheap regex sanity check -
-documented as a known limitation).
+"""Step 5: generates the experiment readout.
+
+Every number in the final report is traceable to our own code, not to the
+LLM - the report is assembled from two kinds of parts:
+
+- "Key Stats" and "Guardrail Status" are rendered directly from
+  analysis_result by _render_key_stats/_render_guardrail_status. Bedrock
+  never sees these as something to reproduce; there is no way for it to
+  get a figure here wrong, because it doesn't write these sections at all.
+- "Conclusion" and "Next-round Recommendation" are the only LLM-authored
+  parts (qualitative judgment - is this a good result? what should happen
+  next?), and the prompt explicitly asks for a verdict in words, not a
+  restatement of the figures.
+
+This is a stronger guarantee than scanning the model's output for
+numbers after the fact (the previous design): a number in "Key Stats"
+can't be wrong because we wrote it ourselves, rather than checking
+whether it happens to match something we allowed. The grounding check
+below still runs - as a secondary safety net - on just the two
+LLM-authored fields, in case the model ignores the instruction and
+restates a figure anyway.
 """
+import json
 import os
 import re
 
@@ -17,44 +33,70 @@ bedrock = boto3.client("bedrock-runtime")
 MODEL_ID = "amazon.nova-lite-v1:0"
 SIGNIFICANCE_ALPHA = 0.05
 
-# List-marker digits ("1.", "2.", ...) in the requested 4-section report
-# format are not analysis figures and would otherwise false-positive as
-# "invented numbers".
-_IGNORED_SMALL_INTS = {"1", "2", "3", "4"}
-
 
 def _build_prompt(experiment: dict, analysis_result: dict) -> str:
     guardrail_lines = "\n".join(
         f"- {g['metric']}: treatment value {g['treatment_mean']} vs {g['direction']} threshold {g['threshold']} -> {g['status']}"
         for g in analysis_result["guardrail_status"]
     ) or "(none defined)"
+    significance = "significant" if analysis_result["significant"] else "not significant"
 
-    return f"""You are writing an internal experiment readout for a B2B gaming analytics team.
-Use ONLY the numbers given below. Do not invent, estimate, or reformat any figure not listed here.
+    return f"""You are writing the qualitative portions of an internal experiment readout for a
+B2B gaming analytics team. The numeric results below are shown to you for context only - they
+will be printed separately, verbatim, by our own reporting code. Do NOT restate exact figures
+(no percentages, means, p-values, or counts) anywhere in your response - describe magnitude and
+direction in words instead (e.g. "a large, statistically significant increase").
 
 Experiment: {experiment['name']}
 OEC metric: {analysis_result['oec_metric']}
-Control group: n={analysis_result['control_n']}, mean={analysis_result['control_mean']}
-Treatment group: n={analysis_result['treatment_n']}, mean={analysis_result['treatment_mean']}
-Lift: {analysis_result['lift_pct']}%
-Statistical significance: p-value={analysis_result['p_value']} ({'significant' if analysis_result['significant'] else 'not significant'} at alpha={SIGNIFICANCE_ALPHA})
-
-Guardrail metrics:
+Control: n={analysis_result['control_n']}, mean={analysis_result['control_mean']}
+Treatment: n={analysis_result['treatment_n']}, mean={analysis_result['treatment_mean']}
+Lift: {analysis_result['lift_pct']}%, {significance} at alpha={SIGNIFICANCE_ALPHA}
+Guardrails:
 {guardrail_lines}
 
-Write a short report with exactly these 4 sections:
-1. Conclusion (1-2 sentences)
-2. Key stats (restate the numbers above)
-3. Guardrail status
-4. Next-round recommendation
+Respond with ONLY a JSON object, no markdown fences, with exactly these two keys:
+{{"conclusion": "1-2 sentences, qualitative judgment of the result",
+  "recommendation": "1-2 sentences, what to do next round"}}"""
 
-Every number you write must be one of the numbers given above, unchanged."""
+
+def _parse_llm_json(text: str) -> tuple:
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        stripped = stripped.strip("`")
+        if stripped.lower().startswith("json"):
+            stripped = stripped[4:]
+        stripped = stripped.strip()
+    try:
+        obj = json.loads(stripped)
+        return obj.get("conclusion", "").strip(), obj.get("recommendation", "").strip(), True
+    except (json.JSONDecodeError, AttributeError):
+        return stripped, "", False
+
+
+def _render_key_stats(analysis_result: dict) -> str:
+    significance = "significant" if analysis_result["significant"] else "not significant"
+    return (
+        f"- Control group: n={analysis_result['control_n']}, mean={analysis_result['control_mean']}\n"
+        f"- Treatment group: n={analysis_result['treatment_n']}, mean={analysis_result['treatment_mean']}\n"
+        f"- Lift: {analysis_result['lift_pct']}%\n"
+        f"- Statistical significance: p-value={analysis_result['p_value']} ({significance} at alpha={SIGNIFICANCE_ALPHA})"
+    )
+
+
+def _render_guardrail_status(analysis_result: dict) -> str:
+    lines = [
+        f"- {g['metric']}: treatment value {g['treatment_mean']} vs {g['direction']} threshold {g['threshold']} -> {g['status']}"
+        for g in analysis_result["guardrail_status"]
+    ]
+    return "\n".join(lines) if lines else "(no guardrail metrics defined)"
 
 
 # Scientific notation (e.g. Python's str(1e-06) == "1e-06") must match as one
 # token - without the optional exponent group, "1e-06" splits into "1" and
 # "-06", and "-06" isn't a real figure, just a regex parsing artifact.
 _NUMBER_RE = r"-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b"
+_IGNORED_SMALL_INTS = {"1", "2"}  # harmless if the model numbers its own sentences
 
 
 def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:
@@ -67,19 +109,16 @@ def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:
     for g in analysis_result["guardrail_status"]:
         values += [g["treatment_mean"], g["threshold"]]
     allowed = {str(v) for v in values if v is not None}
-    # A digit that's part of the experiment's own name (e.g. an internal
-    # "-2" suffix) is an identifier echoed back, not an invented figure.
     allowed |= set(re.findall(_NUMBER_RE, experiment.get("name", "")))
     return allowed
 
 
-def _grounding_check(report_text: str, experiment: dict, analysis_result: dict) -> tuple:
+def _grounding_check(llm_text: str, experiment: dict, analysis_result: dict) -> tuple:
+    """Secondary safety net over the LLM-authored conclusion/recommendation
+    only - Key Stats and Guardrail Status are code-rendered and don't need
+    checking, they're correct by construction."""
     allowed = _allowed_numbers(experiment, analysis_result)
-    # \b boundaries matter here: metric names like "ggr_usd_7d" contain a
-    # literal digit that isn't a figure the model reported - "_" is a \w
-    # character in regex, so there's no boundary between it and the "7",
-    # and an unanchored digit match would wrongly flag it as invented.
-    found = re.findall(_NUMBER_RE, report_text)
+    found = re.findall(_NUMBER_RE, llm_text)
     suspicious = [n for n in found if n not in allowed and n not in _IGNORED_SMALL_INTS]
     return (len(suspicious) == 0), suspicious
 
@@ -93,15 +132,25 @@ def handler(event, context):
     resp = bedrock.converse(
         modelId=MODEL_ID,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 500, "temperature": 0.1},
+        inferenceConfig={"maxTokens": 300, "temperature": 0.1},
     )
-    report_text = resp["output"]["message"]["content"][0]["text"]
-    grounding_ok, suspicious = _grounding_check(report_text, experiment, analysis_result)
+    raw_text = resp["output"]["message"]["content"][0]["text"]
+    conclusion, recommendation, parsed_ok = _parse_llm_json(raw_text)
+
+    grounding_ok, suspicious = _grounding_check(conclusion + " " + recommendation, experiment, analysis_result)
+
+    report_text = (
+        f"### Conclusion\n{conclusion}\n\n"
+        f"### Key Stats\n{_render_key_stats(analysis_result)}\n\n"
+        f"### Guardrail Status\n{_render_guardrail_status(analysis_result)}\n\n"
+        f"### Next-round Recommendation\n{recommendation}"
+    )
 
     readout = {
         "report_text": report_text,
         "grounding_check_passed": grounding_ok,
         "suspicious_numbers": suspicious,
+        "llm_response_parsed": parsed_ok,
         "generated_at": now_iso(),
         "model_id": MODEL_ID,
     }

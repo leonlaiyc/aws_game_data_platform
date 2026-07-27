@@ -29,11 +29,17 @@ assignment -> srm_check -> [Choice] -> monitoring (Map, one iteration per day) -
    experiment's assignments (never recomputes aggregates from Bronze/Silver). Two-sample z-test
    (normal CDF via `math.erf`) for the OEC metric's significance, plus guardrail status at the
    same analysis date (the first breach date if monitoring caught one, else the last planned day).
-5. **Readout** (`lambda/readout`) - Bedrock Nova Lite drafts a 4-section report. The prompt embeds
-   the exact analysis numbers and instructs the model to use only those; a lightweight
-   post-generation regex check flags any number in the output that isn't one of the supplied
-   figures (or part of the experiment's own name) - not a full grounding verifier, just a cheap
-   sanity check, recorded as `readout.grounding_check_passed`.
+5. **Readout** (`lambda/readout`) - assembles a 4-section report from two different sources, not
+   one LLM call writing the whole thing. "Key Stats" and "Guardrail Status" are rendered directly
+   from `analysis_result` by our own code - Bedrock never sees these as something to reproduce, so
+   there's no way for a figure to be wrong there. Bedrock (Nova Lite) only writes "Conclusion" and
+   "Next-round Recommendation" - explicitly instructed to give a qualitative verdict in words, not
+   to restate any figure - returned as structured JSON (`{"conclusion": ..., "recommendation":
+   ...}`) rather than free-form prose. A regex-based grounding check still runs as a secondary
+   safety net over just those two LLM-authored fields, in case the model restates a number anyway;
+   recorded as `readout.grounding_check_passed`. This is a stronger guarantee than checking a
+   fully-LLM-written report after the fact (the original design) - a number can't be hallucinated
+   in the sections that matter most, because the LLM never writes them.
 
 `mark_state` is a small shared Lambda for the two transitions that need nothing but a conditional
 DynamoDB update: SRM hard-fail and natural completion after the monitoring loop finishes clean.

@@ -28,7 +28,7 @@ Base URL: the `ExperimentsApiUrl` CDK output (`AuroraGamesRegistryStack`).
 | POST | `/experiments` | Create (state=`draft`). Requires `name`, `game_id`, `client_site_id`, `variants`, `oec_metric`. |
 | GET | `/experiments` | List all. |
 | GET | `/experiments/{id}` | Get one. |
-| PATCH | `/experiments/{id}` | Edit `name`/`audience`/`variants`/`oec_metric`/`guardrail_metrics` — only while `draft` (409 otherwise). |
+| PATCH | `/experiments/{id}` | Edit `name`/`audience`/`variants`/`oec_metric`/`guardrail_metrics`/`related_experiment_id` — only while `draft` (409 otherwise). |
 | DELETE | `/experiments/{id}` | Only while `draft` (409 otherwise) — history isn't deletable once an experiment has run. |
 | POST | `/experiments/{id}/start` | `draft -> running`. Sets `assignment_seed` (for the orchestration's deterministic hash split) and `started_at`. |
 | POST | `/experiments/{id}/stop` | `running -> stopped_early \| completed`. Body: `{"final_state": "...", "reason": "..."}`. |
@@ -56,6 +56,28 @@ curl -X POST "$API_URL/experiments" -H "Content-Type: application/json" -d '{
 ```sql
 SELECT experiment_id, name, state, oec_metric, stop_reason FROM experiments_export;
 ```
+
+## Iterative experiments (`related_experiment_id`)
+
+Experiments are rarely one-shot - a payout tweak might get re-tested v1, v2, v3 before shipping.
+Each iteration is still its own `experiment_id` with its own full lifecycle (the state machine
+doesn't change), but an optional `related_experiment_id` on create/update points back at the prior
+iteration, so a whole series can be traced in Athena without relying on naming conventions:
+
+```sql
+-- Walk a whole iteration chain starting from a known experiment_id
+WITH RECURSIVE chain AS (
+    SELECT experiment_id, name, related_experiment_id, state, 0 AS depth
+    FROM experiments_export WHERE experiment_id = 'exp_...'
+    UNION ALL
+    SELECT e.experiment_id, e.name, e.related_experiment_id, e.state, c.depth + 1
+    FROM experiments_export e JOIN chain c ON e.experiment_id = c.related_experiment_id
+)
+SELECT * FROM chain ORDER BY depth;
+```
+
+(Athena/Trino's `WITH RECURSIVE` requires engine v3 - if unavailable, a fixed-depth self-join
+covers the common case of a handful of iterations.)
 
 ## A boto3/DynamoDB gotcha worth knowing
 

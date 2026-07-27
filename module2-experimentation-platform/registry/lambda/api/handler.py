@@ -23,7 +23,7 @@ sfn = boto3.client("stepfunctions")
 STATE_MACHINE_ARN = os.environ["ORCHESTRATION_STATE_MACHINE_ARN"]
 
 REQUIRED_CREATE_FIELDS = ["name", "game_id", "client_site_id", "variants", "oec_metric"]
-UPDATABLE_DRAFT_FIELDS = {"name", "audience", "variants", "oec_metric", "guardrail_metrics"}
+UPDATABLE_DRAFT_FIELDS = {"name", "audience", "variants", "oec_metric", "guardrail_metrics", "related_experiment_id"}
 
 
 def _now() -> str:
@@ -70,6 +70,11 @@ def create_experiment(body: dict) -> dict:
         "variants": body["variants"],
         "oec_metric": body["oec_metric"],
         "guardrail_metrics": body.get("guardrail_metrics", []),
+        # Optional link to a prior iteration of the same underlying question
+        # (e.g. "payout tweak v2" pointing back at "v1") - experiments are
+        # rarely one-shot, so this lets Athena trace a whole series without
+        # relying on naming conventions.
+        "related_experiment_id": body.get("related_experiment_id"),
         "created_at": _now(),
         "updated_at": _now(),
     }
