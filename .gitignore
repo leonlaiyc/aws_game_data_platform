@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# CDK
+infra/cdk.out/
+infra/.cdk.staging/
+infra/**/*.js
+infra/**/*.d.ts
+!infra/**/jest.config.js
+
+# Node
+node_modules/
+
+# Local data / generated artifacts (never commit simulated event data or lake exports)
+data-foundation/event_simulator/output/
+*.jsonl
+*.parquet
+local_lake/
+
+# Env / secrets
+.env
+*.pem
+.aws-sam/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

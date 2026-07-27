@@ -1,0 +1,71 @@
+# Data Foundation
+
+The shared Bronze/Silver/Gold lake every module reads from. Not one of the three pain-point
+modules itself, but the thing that makes all three possible with one source of truth.
+
+## Pipeline
+
+```
+event_simulator/  --(local JSONL)-->  S3 bronze/  --(Athena CTAS)-->  S3 silver/  --(Athena CTAS)-->  S3 gold/
+                                       (JSON, gzip)                   (Parquet)                       (Parquet)
+```
+
+1. **`event_simulator/`** generates synthetic B2B gaming events (funnel, sessions, bets,
+   deposits/withdrawals, bonuses, registrations) for a fictional platform ("Aurora Games"),
+   including two scripted scenarios with known ground truth written to `scenario_manifest.json`:
+   - a one-week retention/revenue drop on `site_b`
+   - a 6-account arbitrage ring sharing device/IP fingerprints on `site_a`
+2. **Bronze** (`s3://<bucket>/bronze/dt=YYYY-MM-DD/events.jsonl.gz`): raw events, one JSON object
+   per line, gzip-compressed, Hive-style date partitions. Table uses **partition projection**
+   (see `lake/ddl/01_bronze_events.sql`) so Athena computes valid partitions from a date range
+   instead of requiring `MSCK REPAIR TABLE` or per-day `ADD PARTITION` calls.
+3. **Silver** (`s3://<bucket>/silver/events/`): same grain as Bronze, but Parquet/Snappy, with
+   `event_ts` parsed to a real timestamp and FX converted to USD **once** (`bet_amount_usd`,
+   `win_amount_usd`, `amount_usd`) so every downstream query reuses it instead of re-deriving it.
+4. **Gold**: small, purpose-built aggregate tables (not partitioned — a few hundred rows each,
+   so partitioning would only add overhead):
+   - `gold_daily_kpi` — dt x client_site_id grain: DAU, sessions, new players, GGR, deposits,
+     withdrawals, ARPU (all USD).
+   - `gold_cohort_retention` — registration_date x client_site_id grain: D1/D7 retention.
+
+## Running it
+
+```bash
+# 1. Generate events (writes under event_simulator/output/, gitignored)
+py -m event_simulator.cli
+
+# 2. Deploy the lake infra (from infra/, once)
+cd ../infra && cdk deploy
+
+# 3. Upload bronze, build silver/gold, run example queries
+cd ../data-foundation && ./.venv/Scripts/python.exe lake/build_lake.py
+```
+
+`build_lake.py` is idempotent: it clears the previous Silver/Gold S3 output before rebuilding, so
+re-running after a simulator change or scenario tweak just works.
+
+## Example queries (`lake/queries/`)
+
+- `dau_and_ggr_by_site.sql` — daily KPIs, most recent days first.
+- `retention_drop_check.sql` — D1/D7 retention by cohort for `site_b`.
+- `arbitrage_ring_check.sql` — devices shared across an abnormal number of distinct players.
+
+### A note on signal strength
+
+Querying `gold_daily_kpi` for `site_b` around the drop window shows DAU falling from the
+190-234 baseline to 91-118 for exactly the scripted week, then recovering — a clean signal at
+this event volume. `gold_cohort_retention` shows the same effect but noisily: daily cohorts are
+only ~15-30 players, too small a sample for a daily rate to be a reliable alarm signal. This is
+why module 1's EWMA anomaly detector will watch **DAU and GGR from `gold_daily_kpi`** as the
+primary daily signal; retention cohorts are better reviewed at a coarser (weekly) cadence, not
+alarmed on day-to-day like DAU/GGR are.
+
+## Known simplifications (see ARCHITECTURE.md for full rationale)
+
+- FX rates are a static table (`event_simulator/fx.py`), not live — cross-currency accuracy isn't
+  what this project demonstrates.
+- No real balance ledger: deposit/withdrawal amounts are independently sampled, not reconciled
+  against a running player balance.
+- `player_features` (the per-player feature registry used by modules 1 and 2) is **not** built
+  here — it's owned by `module2-experimentation-platform/feature_registry/` since that's the
+  module responsible for the "single source of truth" narrative around it.
