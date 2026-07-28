@@ -112,6 +112,14 @@ def _publish_alert(result: dict):
         Subject=f"Anomaly detected: {result['client_site_id']} on {result['as_of_date']}",
         Message=f"EWMA anomaly detection flagged {result['client_site_id']} on {result['as_of_date']}:\n\n"
                 + "\n".join(lines),
+        # Structured, non-breaking addition alongside the human-readable Message
+        # above: module3-analytics-assistant's first_look_report subscribes to
+        # this same topic and needs client_site_id/as_of_date without parsing
+        # free text.
+        MessageAttributes={
+            "client_site_id": {"DataType": "String", "StringValue": result["client_site_id"]},
+            "as_of_date": {"DataType": "String", "StringValue": result["as_of_date"]},
+        },
     )
 
 

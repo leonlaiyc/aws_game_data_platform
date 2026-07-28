@@ -17,7 +17,7 @@ Fictional entities (games, client sites, player data) have no relation to any re
 | [data-foundation](data-foundation/) | Multiple client sites/game providers, inconsistent metric definitions, and a data-isolation requirement need a governed platform, not just a lake | Done |
 | [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected; batch-only monitoring misses same-hour incidents | Done |
 | [module2-experimentation-platform](module2-experimentation-platform/) | No rigorous, guardrail-safe way to run product experiments | Done |
-| module3-analytics-assistant *(was: support chatbot — repointed, see [[direction pivot]] note below)* | Execs/analysts ask cross-cut business questions no prebuilt dashboard answers, and every one interrupts an analyst for 20-40 minutes | Not started |
+| [module3-analytics-assistant](module3-analytics-assistant/) *(was: support chatbot — repointed, see [[direction pivot]] note below)* | Execs/analysts ask cross-cut business questions no prebuilt dashboard answers, and every one interrupts an analyst for 20-40 minutes | Done |
 
 > **Direction note (2026-07-27):** Module 3 was repointed from a partner-support RAG chatbot to an
 > NL analytics assistant (semantic layer + templated SQL, grounded, with a build-vs-buy analysis

@@ -78,11 +78,50 @@ feature registry, and Amazon Q Business -> direct Bedrock (Nova Lite) report gen
 
 ## Module 3 — Analytics NL Assistant *(repointed 2026-07-27, was "Support Chatbot")*
 
-TBD (Phase 3). Semantic layer + parameterized Athena SQL templates (no free-form text-to-SQL),
-grounded in `KPI_DEFINITIONS.md`; must document build-vs-buy against Amazon Quick with a
-usage-volume cost crossover, and the templates-vs-text-to-SQL trade-off. The original
-document-RAG/support-chatbot concept is dropped, not deferred — no vector store (S3 Vectors) is
-needed for this design.
+See [module3-analytics-assistant/README.md](module3-analytics-assistant/README.md) for the full
+Pain -> Architecture write-up, verified demo output, and the build-vs-buy analysis against Amazon
+Quick with a usage-volume cost crossover. The original document-RAG/support-chatbot concept was
+dropped, not deferred — no vector store (S3 Vectors) is needed for this design.
+
+### Templates vs. free-form text-to-SQL
+
+The model never writes SQL. It classifies a question and extracts slots (metric, site, date
+range) from a closed set, re-validated against a whitelist before being substituted into one of 5
+hand-written, reviewed SQL templates (`semantic_layer/templates.py`). This is strictly less
+capable than text-to-SQL — it can only ever answer the 5 KPIs it has a template for — in exchange
+for a hard, structural guarantee: every number in an `answerable` response is a real query result,
+never a model-generated figure, and every template is auditable against `KPI_DEFINITIONS.md`
+before it ships. Free-form text-to-SQL over a real production schema is also a real injection
+surface (a crafted question steering generated SQL) that a closed template set with
+whitelisted-only substitution simply doesn't have.
+
+### A Guardrails false-positive, and why it matters for this module specifically
+
+Bedrock Guardrails' `PROMPT_ATTACK` filter initially flagged **every** request — including
+completely benign questions — at HIGH confidence, because the first implementation put the whole
+system prompt (metric catalog, output schema, classification rules) into the same `user`-role
+turn as the question. A dense block of imperative instructions in the user turn is exactly the
+shape of an injected prompt trying to hijack the model, so the filter couldn't distinguish our own
+trusted instructions from an attack. Moving the static instructions into `converse()`'s `system`
+parameter and leaving only the raw question in `messages` fixed it — this is the architecturally
+correct separation regardless of Guardrails, and a genuine injection attempt still correctly fires
+the guardrail afterward (verified in the demo). Worth calling out on its own because it's a
+concrete, non-obvious lesson about how Guardrails' attack heuristics actually work, not just a bug
+fix.
+
+### Cost: why "how many questions per month" isn't the right crossover variable
+
+Amazon Quick's realistic cost floor (a $250/month per-account infra fee once Q&A/Pro is enabled,
+plus a $250/month minimum question-capacity tier) is roughly $500+/month regardless of usage.
+Verified Nova Lite pricing ($0.06/million input tokens, $0.24/million output tokens) puts this
+module's marginal cost at roughly $0.00005 per question, with Athena/Lambda/API Gateway cost
+similarly negligible at this project's data volume — so the custom stack never "loses" to Quick on
+raw per-question economics at any realistic volume. The real trade-off is scope, not volume: Quick
+sells a complete BI platform (dashboards, broad ad hoc NL Q&A across any connected source, zero
+semantic-layer engineering); a narrow, hard-grounded set of 5 governed KPIs is exactly the case
+where that platform is overkill and a thin custom layer is both cheaper and more correct. See the
+README for the full write-up and the resulting real-client recommendation (Quick as the primary
+BI surface, a thin custom layer only for the Module 1 alert -> first-look-report integration).
 
 ## Deliberately excluded services
 

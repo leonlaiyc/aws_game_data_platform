@@ -9,6 +9,7 @@ from infra.orchestration_stack import OrchestrationStack
 from infra.governance_stack import GovernanceStack
 from infra.anomaly_stack import AnomalyStack
 from infra.streaming_stack import StreamingStack
+from infra.analytics_assistant_stack import AnalyticsAssistantStack
 
 app = cdk.App()
 
@@ -26,5 +27,6 @@ OrchestrationStack(
 GovernanceStack(app, "AuroraGamesGovernanceStack", env=env, lake_bucket=foundation.lake_bucket)
 AnomalyStack(app, "AuroraGamesAnomalyStack", env=env, lake_bucket=foundation.lake_bucket)
 StreamingStack(app, "AuroraGamesStreamingStack", env=env)
+AnalyticsAssistantStack(app, "AuroraGamesAnalyticsAssistantStack", env=env, lake_bucket=foundation.lake_bucket)
 
 app.synth()
