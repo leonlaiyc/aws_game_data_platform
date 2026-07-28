@@ -15,7 +15,7 @@ Fictional entities (games, client sites, player data) have no relation to any re
 | Module | Pain point | Status |
 |---|---|---|
 | [data-foundation](data-foundation/) | Multiple client sites/game providers, inconsistent metric definitions, and a data-isolation requirement need a governed platform, not just a lake | Done |
-| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected; batch-only monitoring misses same-hour incidents | Not started |
+| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage go undetected; batch-only monitoring misses same-hour incidents | Done |
 | [module2-experimentation-platform](module2-experimentation-platform/) | No rigorous, guardrail-safe way to run product experiments | Done |
 | module3-analytics-assistant *(was: support chatbot — repointed, see [[direction pivot]] note below)* | Execs/analysts ask cross-cut business questions no prebuilt dashboard answers, and every one interrupts an analyst for 20-40 minutes | Not started |
 
@@ -28,8 +28,10 @@ Fictional entities (games, client sites, player data) have no relation to any re
 ## Region & cost
 
 - Deployed in **ap-northeast-1 (Tokyo)**.
-- Fully serverless (no Kinesis Data Streams, no OpenSearch Serverless, no provisioned Redshift/EMR) —
-  idle cost is near $0. See [docs/cost-analysis.md](docs/cost-analysis.md) (populated in Phase 4).
+- Fully serverless (no OpenSearch Serverless, no provisioned Redshift/EMR) — idle cost is near $0.
+  Module 1 includes one short-lived Kinesis Data Streams path, deployed and torn down around its
+  own demo only — never part of the steady-state architecture (see `ARCHITECTURE.md`).
+  See [docs/cost-analysis.md](docs/cost-analysis.md) (populated in Phase 4).
 - See [ARCHITECTURE.md](ARCHITECTURE.md) for per-module design rationale.
 
 ## Prerequisites (handled by the project owner, not automated here)
@@ -52,6 +54,7 @@ data-foundation/
 module1-anomaly-detection/
   data_anomaly/                     EWMA-based retention/revenue anomaly detection -> SNS
   arbitrage_detection/              Rule-based multi-account / abnormal deposit-withdraw detection
+  streaming/                        Short-lived Kinesis real-time RTP/volume detection (deploy/demo/destroy)
   demo/                             Scripted anomaly scenario, runnable end to end
 module2-experimentation-platform/   Lightweight internal experimentation platform (priority module)
   registry/                        DynamoDB experiment registry + CRUD API

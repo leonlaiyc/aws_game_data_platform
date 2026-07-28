@@ -10,7 +10,66 @@ See [data-foundation/README.md](data-foundation/README.md).
 
 ## Module 1 — Anomaly & Arbitrage Detection
 
-TBD (Phase 2b).
+See [module1-anomaly-detection/README.md](module1-anomaly-detection/README.md) for the Pain ->
+Architecture write-up. This section covers the batch-vs-streaming dual-path trade-off in full,
+since that's the piece with the most AWS-SA-relevant nuance.
+
+### Why batch alone is insufficient, and why streaming alone would be overkill
+
+The steady-state architecture is **daily batch** (`data_anomaly/`, `arbitrage_detection/`): cheap,
+simple, and adequate for the two pain points this module targets - a retention drop or an
+arbitrage ring both play out over hours to days, not seconds. A once-daily EWMA check catches
+either well within the window where a human would still consider the response "quick." Batch alone
+becomes insufficient only for a different class of problem: a payout/RTP bug or an exploit that
+drains value in minutes, where "worst case, we notice tomorrow morning" is a real, unacceptable
+loss. That's the one scenario `streaming/` demonstrates real-time detection for - not because
+streaming is generally better, but because it's the right tool for that specific failure mode.
+Running everything as streaming would mean paying Kinesis's per-shard-hour cost permanently for
+problems that don't need sub-minute detection - the wrong trade-off at this project's cost target.
+
+### Event-time vs. processing-time
+
+`streaming/lambda/aggregator/handler.py` buckets by **processing time** - when the Lambda actually
+runs - not by each event's own `event_ts`. This is a deliberate simplification: it needs no
+watermarking or "how long do we wait for stragglers" logic, at the cost of accuracy when
+event-time and processing-time diverge (e.g. a producer buffering and sending a burst of
+older-timestamped events all at once - as this project's own demo does). A system needing correct
+event-time semantics - "this spike really happened at 14:03, even though we didn't process it
+until 14:05" - would need a real windowing engine (Kinesis Data Analytics / Managed Flink) that
+tracks watermarks and can hold a window open for a bounded amount of allowed lateness before
+closing it. That's a permanent, non-trivial cost addition (Flink/KDA has its own persistent
+runtime charge) which this project's throughput doesn't justify.
+
+### Late-arriving data
+
+Neither path currently re-opens a closed window for a late record. Batch: `gold_daily_kpi` is
+rebuilt from a fixed CTAS each run, so a late-arriving event before the next rebuild is simply
+included next time - "late" mostly resolves itself by the next day's batch. Streaming: a record
+processed after its window has expired (DynamoDB TTL) starts a *new* window rather than correcting
+the old one - the historical aggregate for that minute is permanently whatever was captured before
+TTL eviction. Acceptable for this demo's timescales; a production system with a real lateness
+requirement would need the same watermarking mechanism noted above.
+
+### Duplicate events
+
+Kinesis + Lambda event source mappings are **at-least-once**, not exactly-once - a retried batch
+(e.g. after a transient Lambda error) can reprocess already-counted records. No de-duplication is
+implemented in `streaming/`'s rolling-window counters (would need tracking processed sequence
+numbers or a per-event idempotency key) - documented as a known gap appropriate for a short demo,
+not a production posture. The batch path doesn't have this problem: Athena CTAS re-derives Gold
+tables from Silver each run, so a duplicate Bronze event would need to be a duplicate *source*
+event to double-count, not a pipeline-level concern.
+
+### Avoiding false alerts
+
+Three separate mechanisms across this module, each solving a different false-positive risk:
+- **EWMA's k-sigma threshold** (3σ, not 2σ) trades detection speed for fewer false positives on
+  ordinary day-to-day DAU/GGR noise.
+- **Arbitrage detection requires two independent signals** (device fan-out *and* an abnormal
+  cash-out ratio) rather than either alone - see `module1-anomaly-detection/README.md`.
+- **Streaming's alert de-duplication** (a conditional DynamoDB update) ensures one alert per
+  breached window, not one per Kinesis batch for as long as the breach persists - verified in the
+  demo (270 events across multiple batches produced exactly one SNS message).
 
 ## Module 2 — Experimentation Platform
 
