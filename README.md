@@ -14,32 +14,42 @@ is not implemented, [ARCHITECTURE.md](ARCHITECTURE.md) names it as a gap rather 
 
 ## This is one system, not four demos
 
-The modules form a closed loop. That loop is the point of the project:
+Follow a single real incident through it — the scripted `site_b` DAU drop the demos actually use.
+Steps marked **[auto]** are wired together in code; steps marked **[human]** are where a person
+decides something. The distinction matters, and blurring it is how architecture diagrams start
+lying:
 
 ```
-                    ┌──────────────────────────────────────────┐
-                    │         data-foundation                  │
-                    │   governed multi-tenant lake +           │
-                    │   KPI_DEFINITIONS.md as source of truth  │
-                    └────────────────┬─────────────────────────┘
-                                     │ feeds
-                    ┌────────────────▼─────────────────────────┐
-                    │  Module 1 — Detect                       │
-                    │  something moved that shouldn't have     │
-                    └────────────────┬─────────────────────────┘
-                                     │ SNS alert
-                    ┌────────────────▼─────────────────────────┐
-                    │  Module 3 — Investigate & self-serve     │
-                    │  a pre-investigated report, and NL Q&A   │
-                    └────────────────┬─────────────────────────┘
-                                     │ hypothesis
-                    ┌────────────────▼─────────────────────────┐
-                    │  Module 2 — Optimize                     │
-                    │  prove the fix works before trusting it  │
-                    └────────────────┬─────────────────────────┘
-                                     │ validated change
-                                     └──────────► back into the foundation's numbers
+  site_b's DAU falls 55% on 2026-06-10
+    │
+ 1. [auto]   Module 1's daily EWMA check flags it, publishes an SNS alert
+    │
+ 2. [auto]   Module 3 is subscribed to that topic. It drills down before anyone
+    │        asks: per-game GGR breakdown, 7-day baseline comparison, and a
+    │        co-movement check ("DAU and GGR fell together - looks like a broad
+    │        usage change, not a payout bug")
+    │
+ 3. [human]  An analyst reads it and wants a follow-up: "what about retention?"
+    │        They ask Module 3 directly instead of queueing behind an analyst
+    │
+ 4. [human]  They form a hypothesis: "onboarding got too long"
+    │        and register an experiment in Module 2
+    │
+ 5. [auto]   Module 2 runs assignment -> SRM check -> guardrail monitoring ->
+    │        analysis -> a readout whose every number is code-rendered
+    │
+ 6. [human]  The business ships the winning variant
+    │
+    └──────▶ next month's gold_daily_kpi reflects it, and the loop closes
 ```
+
+**The claim is not that data flows in a circle.** Steps 3, 4 and 6 are human judgement, and step 6
+closes the loop through the product, not through a pipeline. What the platform automates is 1, 2
+and 5 — the detection, the first-pass investigation, and the statistical rigour — which is exactly
+the work that is repetitive, easy to skip under time pressure, and damaging when skipped.
+
+Module 4 sits alongside rather than inside this loop: it absorbs inbound partner questions so that
+the escalations reaching this team are the ones that actually need it.
 
 Detection without investigation is just noise. Investigation without a way to validate a fix is
 just opinion. See [`diagrams/`](diagrams/) for the rendered architecture diagrams.

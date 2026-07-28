@@ -11,10 +11,16 @@ not an aspirational design.
 
 ## 1. The platform as one closed loop
 
-The four pieces are not four separate demos. They form a loop: the governed foundation feeds
-detection, detection hands off to investigation, investigation produces a hypothesis, and the
-experimentation platform validates that hypothesis before a change is trusted — which then shows
-up back in the foundation's numbers.
+The four pieces are not four separate demos. They form a loop — but only some of its edges are
+system-to-system.
+
+**Solid arrows are wired in code** (an SNS subscription, a query, a scheduled trigger). **Dashed
+arrows are human decisions**: an analyst choosing to investigate further, forming a hypothesis, or
+the business shipping a validated change. The loop closes through the product, not through a
+pipeline, and drawing both as the same kind of arrow would claim an integration that doesn't exist.
+
+The honest summary: the platform automates detection, first-pass investigation, and statistical
+rigour. It deliberately leaves judgement to people.
 
 ```mermaid
 flowchart LR
@@ -49,12 +55,13 @@ flowchart LR
     LAKE --> EWMA
     LAKE --> ARB
     LAKE --> ASK
-    EWMA -->|"SNS alert"| FLR
+    EWMA -->|"SNS alert - wired in code"| FLR
     FLR -->|"pre-investigated report"| ANALYST
     ASK -->|"grounded answer"| ANALYST
     ARB -->|"flagged players"| ANALYST
-    ANALYST -->|"forms a hypothesis"| EXP
-    EXP -->|"validated change<br/>+ traceable readout"| ANALYST
+    ANALYST -.->|"human: forms a hypothesis"| EXP
+    EXP -->|"traceable readout"| ANALYST
+    ANALYST -.->|"human: business ships the change"| LAKE
 
     KPI -.->|governs| LAKE
     KPI -.->|governs| ASK
