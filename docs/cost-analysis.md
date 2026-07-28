@@ -105,6 +105,18 @@ These are the numbers to reach for when someone asks "what does one more user co
 | One Module 3 NL question | **~$0.00005** (≈500 input + ~100 output tokens on Nova Lite, at $0.06/M in and $0.24/M out) plus a sub-cent Athena query |
 | One Module 2 experiment readout | Fractions of a cent — one Bedrock call over an already-computed analysis result |
 | One first-look report | ~3 Athena queries + one Bedrock call ≈ **under $0.01** |
+| One Module 4 partner question, answered | **~$0.0002** — the whole 7.8 KB corpus (~2,000 tokens) goes in-context on every request |
+| One Module 4 question, refused before the model | **~$0.000002** — an `ApplyGuardrail` call, or zero if the scope check rejects it first |
+
+Module 4's answered-question cost is roughly **4x** Module 3's, purely because passing the entire
+corpus in-context trades tokens for infrastructure. That is the trade working as intended: ~$0.0002
+per question buys the removal of a vector store, its ingestion pipeline, and its idle cost. It stops
+being a good trade at roughly a 50x larger corpus, where per-question token cost would exceed what a
+retrieval layer costs to run.
+
+Note also the ordering effect: the two cheapest categories (`BLOCKED_CONTENT` and `OUT_OF_SCOPE`)
+are decided **before** any model call, so abuse and off-topic traffic — the volume most likely to
+spike — is also the volume that costs essentially nothing to reject.
 
 At **20,000 NL questions per month** the Bedrock cost is still about **$1**. This is why the
 build-vs-buy comparison against Amazon Quick does not turn on question volume — see below.

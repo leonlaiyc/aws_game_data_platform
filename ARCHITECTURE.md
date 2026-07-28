@@ -196,6 +196,65 @@ where that platform is overkill and a thin custom layer is both cheaper and more
 README for the full write-up and the resulting real-client recommendation (Quick as the primary
 BI surface, a thin custom layer only for the Module 1 alert -> first-look-report integration).
 
+## Module 4 — Partner Integration Support Chatbot
+
+See [module4-partner-support-chatbot/README.md](module4-partner-support-chatbot/README.md) for the
+full write-up. Three points carry the most SA-relevant reasoning.
+
+### Ordering a classification pipeline is a security decision, not a performance one
+
+The four "cannot answer" categories are evaluated in a fixed order, and an early implementation got
+it wrong in a way worth recording. To avoid paying for model inference on off-topic questions, the
+cheap lexical scope check ran before the model call — and since Guardrails was attached to that
+model call, a prompt-injection attempt got classified `OUT_OF_SCOPE` rather than `BLOCKED_CONTENT`.
+
+The user-visible behaviour was fine: both categories refuse. **The audit trail was wrong**, and
+that is the actual failure — a security-relevant event filed under "topic mismatch" is a security
+event that nobody will ever search for or alert on. The fix was the standalone **`ApplyGuardrail`**
+API, which evaluates content against a guardrail *without* invoking a model, restoring the specified
+order while keeping the cost saving. General lesson: when a pipeline's ordering encodes a policy,
+reordering it for cost is a policy change.
+
+### Replacing retrieval relevance with a deterministic signal
+
+With no vector store (the corpus fits in-context), there is no similarity score to threshold on.
+The substitute is a lexical overlap ratio **plus a curated anchor-term requirement**. The anchor
+requirement is not belt-and-braces — it exists because overlap ratio alone let *"Who won the
+football match last night?"* score 0.40, above threshold, because "match" appears in the corpus in
+"your totals do not match".
+
+That failure is the honest characterisation of the whole trade: a bag-of-words score cannot
+separate incidental word collision from topical relevance, and no threshold value fixes it. The
+curated anchor list closes the gap at a maintenance cost that is acceptable for four documents and
+would not be for four hundred. **This is the concrete point at which a vector store starts earning
+its cost** — not corpus size in bytes, but the moment vocabulary curation stops being tractable.
+
+### Where provenance is shown, and where it is suppressed
+
+The project applies opposite rules in two places, correctly:
+
+| | Module 2 readout | Module 4 chatbot |
+|---|---|---|
+| Audience | Analysts and execs **inside** the company | External integration **partners** |
+| Numeric/source citation | **Shown** — traceability is the product | **Suppressed** — internal doc structure is an information leak |
+| Where grounding is verified | In the visible output | In the audit track only |
+
+Same governance philosophy, opposite surface behaviour, and the deciding variable is who is reading.
+A rule like "always cite your sources" applied uniformly across both would be wrong in one of them.
+
+The suppression is enforced by a code-level validator, not by the prompt, and there is verified
+evidence for why: asked to cite sources, the model produced an internal document ID despite explicit
+instructions not to, and the validator replaced the response before it reached the partner.
+
+### Prompt management: build vs. managed
+
+Prompt templates and all fixed copy live in a versioned `prompts/` directory, making a wording
+change a reviewable code change. **Amazon Bedrock Prompt Management** is the managed alternative;
+the trigger to adopt it is organisational rather than technical — non-engineers needing to edit copy
+without a pull request, or prompt A/B testing with rollback independent of deployment. Same shape as
+the Amazon Quick decision in Module 3: the managed service is bought for the workflow, not the
+capability.
+
 ## Deliberately excluded services
 
 - **Kinesis Data Streams** — not needed for the steady-state architecture; our SLA tolerance

@@ -37,7 +37,14 @@ flowchart LR
         EXP["Experiment lifecycle<br/>Step Functions"]
     end
 
+    subgraph M4["Module 4 — Deflect"]
+        BOT["Partner support chatbot<br/>in-context corpus"]
+    end
+
     ANALYST(["Analyst / client success"])
+    PARTNER(["External integration partner"])
+    PARTNER --> BOT
+    BOT -->|"escalation ticket<br/>only when it must"| ANALYST
 
     LAKE --> EWMA
     LAKE --> ARB
@@ -211,7 +218,65 @@ in the response comes from a query result rendered by Python.
 
 ---
 
-## 6. Trust boundary
+## 6. Module 4 — deciding whether to answer at all
+
+```mermaid
+flowchart TB
+    Q["Partner question"]
+
+    G{"1. ApplyGuardrail<br/>on the raw question"}
+    R{"2. domain relevance<br/>ratio + anchor term"}
+    C{"3. underspecified?<br/>env-sensitive / too vague"}
+    M["Nova Lite<br/>whole corpus in-context"]
+    S{"4. context_sufficient?"}
+
+    Q --> G
+    G -->|intervened| B1["BLOCKED_CONTENT<br/>fixed refusal, no explanation"]
+    G -->|clear| R
+    R -->|below threshold| B2["OUT_OF_SCOPE<br/>no escalation - not a support issue"]
+    R -->|in domain| C
+    C -->|yes| B3["CLARIFICATION_NEEDED<br/>ask before consuming an engineer"]
+    C -->|no| M --> S
+    S -->|no| B4["ESCALATION<br/>ticket + senior team"]
+    S -->|yes| OK["ANSWERED"]
+```
+
+Guardrails runs **first**, on the raw question, via the standalone `ApplyGuardrail` API rather than
+as a side effect of the model call. An earlier version checked scope first to save inference cost,
+which filed prompt-injection attempts as `OUT_OF_SCOPE` — the refusal looked fine, the audit trail
+was wrong.
+
+### The five-slot response
+
+```mermaid
+flowchart LR
+    subgraph CODE["Code-owned - fixed copy, versioned"]
+        G1["1. greeting<br/>first turn only"]
+        A1["2. acknowledgment<br/>problem vs question"]
+        C1["5. closing<br/>selected by outcome"]
+    end
+
+    subgraph LLM["Model-owned"]
+        AB["3. answer_body"]
+    end
+
+    subgraph SUPPRESSED["4. sources - not a user-facing slot"]
+        AUD["full provenance -> audit track only"]
+    end
+
+    G1 --> ASM["assembled reply"]
+    A1 --> ASM
+    AB --> VAL{"validator:<br/>structure + leakage guard"}
+    VAL -->|pass| ASM
+    VAL -->|fail| FB["pure-template escalation"]
+    C1 --> ASM
+    AUD -.->|debug/admin mode only| OPS(["Operator"])
+```
+
+Four visible slots, one of them model-authored. Tone and brand consistency are structural rather
+than requested.
+
+## 7. Trust boundary
 
 ```mermaid
 flowchart TB

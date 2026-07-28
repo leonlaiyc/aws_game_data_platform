@@ -67,6 +67,7 @@ checks as a secondary net rather than the primary defense.
 | [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage rings go undetected for weeks; batch-only monitoring misses same-hour incidents | Done |
 | [module2-experimentation-platform](module2-experimentation-platform/) | No central view of which concurrent experiments are live, which already tripped a guardrail, and which are on their third iteration | Done |
 | [module3-analytics-assistant](module3-analytics-assistant/) | Analysts field cross-cut business questions no prebuilt dashboard answers, and every anomaly alert starts a drill-down from scratch | Done |
+| [module4-partner-support-chatbot](module4-partner-support-chatbot/) | Integration engineers answer the same partner questions every week, and the questions that genuinely need an engineer queue behind the ones that don't | Done |
 
 **Highlights worth reading the code for:**
 
@@ -82,6 +83,12 @@ checks as a secondary net rather than the primary defense.
 - **A real Guardrails false positive, documented** — `PROMPT_ATTACK` blocked 100% of requests until
   the system prompt was moved out of the user turn. See
   [module3's README](module3-analytics-assistant/README.md).
+- **A leak the model actually attempted, caught by code** — told not to cite sources, it emitted an
+  internal document ID anyway. A validator replaced the response before the partner saw it. The
+  prompt asked; only the code enforced.
+- **The same governance rule producing opposite behaviour** — Module 2 shows its citations because
+  the reader is an internal analyst; Module 4 suppresses them because the reader is an external
+  partner. Same philosophy, and the deciding variable is the audience.
 
 ---
 
@@ -121,6 +128,10 @@ python module2-experimentation-platform/demo/run_demo.py
 
 ```bash
 python module3-analytics-assistant/demo/run_demo.py
+```
+
+```bash
+python module4-partner-support-chatbot/demo/run_demo.py
 ```
 
 The scripted scenarios (a site_b retention drop, a site_a six-account arbitrage ring) are baked
@@ -163,6 +174,12 @@ module3-analytics-assistant/
   lambda/ask_answer/                Capability A — NL Q&A, six deterministic outcomes
   lambda/first_look_report/         Capability B — alert-triggered drill-down report
   demo/                             All six outcomes + a real alert-triggered report
+
+module4-partner-support-chatbot/
+  lambda/chat/knowledge_base/       In-context corpus (no vector store, by design)
+  lambda/chat/prompts/              Versioned prompt + all code-owned fixed copy
+  lambda/chat/config.py             Every classifier threshold, with its rationale
+  demo/                             All four fallback categories + the leakage guard
 ```
 
 ---
