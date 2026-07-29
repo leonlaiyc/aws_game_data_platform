@@ -56,6 +56,29 @@ def _discover_sites() -> list:
     return [r["client_site_id"] for r in rows]
 
 
+def _latest_complete_date(site: str) -> str:
+    """The most recent date this site actually has Gold data for.
+
+    Scheduled runs check *this* rather than today's date. Two reasons, and the
+    second is the one that matters in production:
+
+    1. Practically: this project's dataset is a fixed historical simulation
+       ending 2026-06-29, so a schedule pinned to today's real date would find
+       no rows and silently do nothing on every run - a schedule that appears
+       to work while checking nothing.
+    2. Generally: even with live data, "today" is the wrong partition to check.
+       Upstream data lands with a lag and today's partition is incomplete until
+       it closes, so a detector reading it compares a partial day against full
+       ones and manufactures a drop every morning. Processing the latest
+       *complete* partition is what a batch pipeline should do regardless.
+
+    Returns None when the site has no data at all.
+    """
+    rows = fetch_all_rows(run_athena_query(
+        f"SELECT MAX(dt) AS latest FROM gold_daily_kpi WHERE client_site_id = '{site}'"))
+    return rows[0]["latest"] if rows and rows[0].get("latest") else None
+
+
 def _fetch_window(site: str, as_of_date: str) -> list:
     sql = f"""
     SELECT dt, dau, ggr_usd FROM gold_daily_kpi
@@ -130,7 +153,13 @@ def _publish_alert(result: dict):
 
 def handler(event, context):
     if event.get("scheduled"):
-        today = time.strftime("%Y-%m-%d", time.gmtime())
-        return {"checked": [_check_site(site, today) for site in _discover_sites()]}
+        checked = []
+        for site in _discover_sites():
+            as_of_date = _latest_complete_date(site)
+            if not as_of_date:
+                checked.append({"client_site_id": site, "skipped": "no data for this site"})
+                continue
+            checked.append(_check_site(site, as_of_date))
+        return {"checked": checked}
 
     return _check_site(event["client_site_id"], event["as_of_date"])

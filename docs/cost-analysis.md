@@ -17,31 +17,68 @@ Every service selection in [ARCHITECTURE.md](../ARCHITECTURE.md) follows from th
 
 ---
 
-## Observed cost to date — and why it is not the whole story
+## Observed cost — settled figures for the project's entire lifetime
 
-Pulled from Cost Explorer for 2026-07-01 → 2026-07-28 (the project's entire lifetime; first commit
-was 2026-07-26):
+Built and deployed over 2026-07-26 → 2026-07-29. Settled Cost Explorer figures for July:
 
-| Service | Unblended cost |
+| | |
 |---|---|
-| Amazon S3 | $0.0000003 |
-| Amazon DynamoDB | $0.0000000002 |
-| AWS Data Transfer | −$0.0000003 |
-| **Everything else** | **$0 recorded** |
+| **Gross usage** | **$0.1156** |
+| Free Tier credits | −$0.1156 |
+| **Net charged** | **~$0.00** |
 
-**Three caveats, because reporting this as "$0" would be misleading:**
+### Reading the two numbers correctly
 
-1. **Cost Explorer lags roughly 24 hours.** The figures above were pulled on 2026-07-28, so
-   2026-07-28's usage — which includes the Kinesis streaming stack's entire lifetime and all of
-   Module 3's deployment and testing — **is not yet reflected**. The Kinesis charge in particular
-   is a real, non-zero amount that has not landed yet (estimated below).
-2. **This account benefits from AWS Free Tier allowances** on Lambda, API Gateway, SNS, DynamoDB and
-   CloudWatch. A real client account past its first 12 months would not. **Every modeled figure
-   below deliberately ignores Free Tier**, so the numbers transfer to a real engagement.
-3. **Athena, Bedrock and Lambda usage here is genuinely tiny**, so several line items round below
-   Cost Explorer's display precision rather than being truly zero.
+The billing console reports **$0.12 for the month** while Cost Explorer's default view reports
+essentially zero. Both are right and neither is the number to quote:
 
-**Re-check after 2026-07-30** for the settled figure including the Kinesis charge.
+- The console figure is **usage before credits**.
+- Cost Explorer's default `UnblendedCost` is **net of credits**.
+
+Grouping by `RECORD_TYPE` separates them (`Usage` $0.1156, `Credit` −$0.1156). **The gross figure is
+the one that transfers to a client**, because their account will not have these credits. Reporting
+the net "$0" would be true of this account and useless to anyone else — which is why every model in
+this document deliberately ignores Free Tier.
+
+### Where the $0.1156 went
+
+| Service | Gross usage | Note |
+|---|---|---|
+| **AWS Cost Explorer API** | **$0.0400** | **The largest single line item — see below** |
+| Amazon S3 | $0.0360 | Dominated by request count, not the 42 MB stored |
+| Amazon Bedrock | $0.0234 | Every demo run across Modules 2, 3 and 4 |
+| Amazon Athena | $0.0114 | ~every query in every demo and every lake rebuild |
+| Amazon API Gateway | $0.0030 | |
+| Amazon Kinesis | $0.0012 | The entire streaming demo |
+| Amazon DynamoDB | $0.0006 | |
+| CloudWatch, Secrets Manager | $0.00005 | |
+
+### Three things this actually taught, which the model did not predict
+
+**1. Investigating the cost cost more than running the platform.** The Cost Explorer API bills
+**$0.01 per request**, and querying it a handful of times while writing this document produced the
+single largest line item — more than S3, Bedrock and Athena individually, and 33x the entire Kinesis
+demo. It is a real and easily-missed cost of cost-consciousness itself, and a genuine argument for
+using the free Billing console or a scheduled export rather than ad hoc API calls when the amounts
+under investigation are this small.
+
+**2. The Kinesis estimate was ~20x too conservative.** This document previously estimated
+$0.02–0.04 based on an assumed 1–2 hour stack lifetime. Actual: **$0.0012**. The deploy-demo-destroy
+cycle was far shorter than the estimate assumed. The teardown discipline is still correct — the
+*rate* is what matters, and $14/shard-month is the number that justifies it — but the estimate
+should have been derived from the actual window rather than a guess at it.
+
+**3. S3 request charges, not storage, dominate at this scale.** $0.036 against 42 MB stored. Every
+Athena query writes result objects, every CTAS rewrites a prefix, and each of those is billable
+requests. At small data volumes the instinct to optimise storage is misdirected; request count is
+the lever.
+
+### What the model got right
+
+The modeled steady state ("well under $0.10/month") plus the streaming demo lands almost exactly on
+the observed $0.1156 — but note **this month included all the development and demo activity**, not a
+steady state. A month of the scheduled workload alone, with no demos and no Cost Explorer calls,
+would be a small fraction of this.
 
 ---
 
@@ -68,8 +105,12 @@ torn down inside a single session.
 |---|---|
 | Shards | 1 |
 | Approximate lifetime | ~1–2 hours |
-| **Estimated charge** | **~$0.02 – $0.04** |
+| **Actual charge (settled)** | **$0.0012** |
 | If left running for a month | **~$14.24/shard-month** (730 h × $0.0195) |
+
+The four orders of magnitude between those two rows is the whole point. The demo cost nothing
+because it lasted minutes; the same stack forgotten for a month costs more than everything else in
+this project combined, several times over.
 
 That last row is the entire justification for the teardown discipline. Two things enforce it beyond
 good intentions:

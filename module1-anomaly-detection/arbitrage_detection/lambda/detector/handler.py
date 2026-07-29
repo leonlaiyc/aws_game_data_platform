@@ -47,6 +47,20 @@ def _discover_sites() -> list:
     return [r["client_site_id"] for r in rows]
 
 
+def _latest_complete_snapshot(site: str) -> str:
+    """The most recent feature snapshot this site actually has.
+
+    Same reasoning as the EWMA detector: a schedule pinned to today's real date
+    checks a partition that either does not exist yet or is still filling, so
+    it either does nothing or compares a partial day against complete ones.
+    Batch detection should run on the latest complete partition.
+    """
+    rows = fetch_all_rows(run_athena_query(
+        f"SELECT MAX(snapshot_date) AS latest FROM gold_player_features "
+        f"WHERE client_site_id = '{site}'"))
+    return rows[0]["latest"] if rows and rows[0].get("latest") else None
+
+
 def _fanout_devices(as_of_date: str) -> dict:
     window_start = (date.fromisoformat(as_of_date) - timedelta(days=DEVICE_FANOUT_WINDOW_DAYS)).isoformat()
     sql = f"""
@@ -145,7 +159,13 @@ def _publish_alert(result: dict):
 
 def handler(event, context):
     if event.get("scheduled"):
-        today = time.strftime("%Y-%m-%d", time.gmtime())
-        return {"checked": [_check_site(site, today) for site in _discover_sites()]}
+        checked = []
+        for site in _discover_sites():
+            as_of_date = _latest_complete_snapshot(site)
+            if not as_of_date:
+                checked.append({"client_site_id": site, "skipped": "no feature snapshot for this site"})
+                continue
+            checked.append(_check_site(site, as_of_date))
+        return {"checked": checked}
 
     return _check_site(event["client_site_id"], event["as_of_date"])

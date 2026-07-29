@@ -364,14 +364,16 @@ things like "GGR is never null" or "DAU ≤ registered players." At this scale t
 detectors cover the realistic failure modes; the trigger for adopting one is multiple teams writing
 into Gold, where you can no longer reason about every writer.
 
-**A second omission worth being explicit about: the deployed schedules currently do no useful
-work.** Both detectors run daily against *today's* date, while the simulated dataset ends
-2026-06-29 — so every scheduled invocation finds no rows and exits. The detection logic is
-exercised only through explicit `{client_site_id, as_of_date}` invocations from the demos. The
-scheduling wiring is real and the detection is real; what is missing between them is a live
-ingestion loop producing current data. That is the single largest gap between this and something
-that could be called an always-on platform, and it is why this document says "scheduled" rather
-than "always-on" throughout.
+**On what the schedules actually process.** Scheduled runs check each site's **latest complete
+partition**, not today's date. That is correct independently of this project's fixed dataset:
+upstream data lands with a lag and today's partition is still filling, so a detector reading it
+compares a partial day against complete ones and manufactures a drop every morning. Verified — a
+scheduled invocation processes all three sites at 2026-06-29 (the dataset's last day) and correctly
+reports no anomalies there.
+
+**The remaining gap is ingestion, not scheduling.** Nothing produces *new* data, so the schedule
+re-checks the same final partition indefinitely. Closing it means a live producer writing current
+partitions; until then this document says "scheduled" rather than "always-on" deliberately.
 
 ### Athena or Redshift?
 

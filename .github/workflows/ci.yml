@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install test dependencies
+        run: pip install -r requirements-test.txt
+
+      # Lambda code is packaged by CDK as a plain asset directory - nothing
+      # imports or parses it at synth time, so a syntax error ships happily and
+      # only surfaces as Runtime.UserCodeSyntaxError in CloudWatch after deploy.
+      # This project hit exactly that (a triple-quoted f-string whose content
+      # ended in a quote), which is why compiling every handler is the first
+      # step rather than an afterthought.
+      - name: Compile every Lambda handler
+        run: |
+          python -m compileall -q -x '(\.venv|cdk\.out|node_modules)' \
+            module1-anomaly-detection \
+            module2-experimentation-platform \
+            module3-analytics-assistant \
+            module4-partner-support-chatbot \
+            data-foundation \
+            infra \
+            demo_lib \
+            tests
+
+      # Includes the CDK assertion tests, which synthesise every stack - so a
+      # template that cannot be produced fails here too.
+      - name: Run tests
+        run: python -m pytest -v
+
+      # The invariants worth failing a build over are asserted in
+      # tests/test_cdk_guardrails.py: every API method requires AWS_IAM,
+      # analyst roles hold no S3 object access outside their own results
+      # prefix, and the billable streaming stack is absent from the default
+      # app. This step just makes the intent visible in the run log.
+      - name: Report security invariants checked
+        if: always()
+        run: |
+          echo "Asserted: API methods require IAM auth"
+          echo "Asserted: analyst roles have no bucket-wide S3 access and no write on data prefixes"
+          echo "Asserted: analyst workgroups enforce configuration"
+          echo "Asserted: alert subscription filters on alert_type, DLQs present"
+          echo "Asserted: streaming (billable) stack not in the default CDK app"

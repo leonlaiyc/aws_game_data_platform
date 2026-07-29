@@ -1,0 +1,7 @@
+# Everything needed to run the test suite. No AWS account or credentials
+# required - the CDK assertion tests synthesise templates locally and the unit
+# tests import Lambda handlers directly.
+aws-cdk-lib>=2.262.0,<3.0.0
+constructs>=10.5.0,<11.0.0
+boto3>=1.34.0
+pytest>=8.0.0
