@@ -35,4 +35,5 @@ Thumbs.db
 
 # Internal development docs - never published
 docs/handoff-for-review-*.md
+docs/acceptance-handoff-*.md
 docs/progress-report-*.md
