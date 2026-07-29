@@ -1,5 +1,12 @@
 """One-time (idempotent) setup for the client-data-isolation demo:
 
+0. Registers the Gold table's S3 location with Lake Formation. Without this,
+   Lake Formation cannot vend credentials for the underlying objects, so
+   Athena falls back to the caller's own IAM permissions - which is why an
+   earlier version of governance_stack.py "needed" to grant analyst roles
+   direct S3 access on the whole lake, quietly making the row filters
+   decorative. Registration is what allows those roles to hold *no* S3
+   permission on the data while Athena still works.
 1. Revokes the IAM_ALLOWED_PRINCIPALS compatibility grant on gold_daily_kpi.
    Every new Glue table gets this grant by default (see
    module2-experimentation-platform/orchestration/README.md's Lake
@@ -24,6 +31,7 @@ STACK_NAME = "AuroraGamesFoundationStack"
 GOVERNANCE_STACK_NAME = "AuroraGamesGovernanceStack"
 DATABASE_NAME = "aurora_games_lake"
 TABLE_NAME = "gold_daily_kpi"
+GOLD_TABLE_PREFIX = "gold/daily_kpi/"
 CLIENT_SITES = ["site_a", "site_b", "site_c"]
 
 session = boto3.Session()
@@ -35,6 +43,26 @@ sts = session.client("sts")
 def stack_outputs(stack_name: str) -> dict:
     resp = cfn.describe_stacks(StackName=stack_name)
     return {o["OutputKey"]: o["OutputValue"] for o in resp["Stacks"][0]["Outputs"]}
+
+
+def register_data_location():
+    """Registers only the Gold table's prefix, not the whole bucket.
+
+    Registering the bucket root would put bronze/ and silver/ under Lake
+    Formation management too, which would require re-granting every pipeline
+    Lambda that currently reads them - a much larger blast radius for no gain,
+    since the isolation demo only concerns this one table.
+    """
+    location = f"s3://{stack_outputs(STACK_NAME)['LakeBucketName']}/{GOLD_TABLE_PREFIX}"
+    try:
+        lakeformation.register_resource(ResourceArn=_s3_arn(location), UseServiceLinkedRole=True)
+        print(f"Registered {location} with Lake Formation.")
+    except lakeformation.exceptions.AlreadyExistsException:
+        print(f"{location} already registered with Lake Formation, skipping.")
+
+
+def _s3_arn(s3_uri: str) -> str:
+    return "arn:aws:s3:::" + s3_uri.removeprefix("s3://")
 
 
 def revoke_iam_allowed_principals():
@@ -90,6 +118,7 @@ def main():
     account_id = sts.get_caller_identity()["Account"]
     governance_outputs = stack_outputs(GOVERNANCE_STACK_NAME)
 
+    register_data_location()
     revoke_iam_allowed_principals()
 
     for site in CLIENT_SITES:

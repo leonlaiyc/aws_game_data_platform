@@ -91,18 +91,24 @@ class RegistryStack(Stack):
             deploy_options=apigateway.StageOptions(stage_name="prod"),
         )
         integration = apigateway.LambdaIntegration(api_lambda)
+        # Every method requires SigV4-signed IAM credentials. This API mutates
+        # experiment state - an unauthenticated caller could start, stop or
+        # delete a running experiment - so leaving it open (the API Gateway
+        # default of authorizationType NONE) was a straightforward mistake, not
+        # a documented trade-off.
+        auth = {"authorization_type": apigateway.AuthorizationType.IAM}
 
         experiments = api.root.add_resource("experiments")
-        experiments.add_method("POST", integration)
-        experiments.add_method("GET", integration)
+        experiments.add_method("POST", integration, **auth)
+        experiments.add_method("GET", integration, **auth)
 
         experiment_item = experiments.add_resource("{id}")
-        experiment_item.add_method("GET", integration)
-        experiment_item.add_method("PATCH", integration)
-        experiment_item.add_method("DELETE", integration)
+        experiment_item.add_method("GET", integration, **auth)
+        experiment_item.add_method("PATCH", integration, **auth)
+        experiment_item.add_method("DELETE", integration, **auth)
 
-        experiment_item.add_resource("start").add_method("POST", integration)
-        experiment_item.add_resource("stop").add_method("POST", integration)
+        experiment_item.add_resource("start").add_method("POST", integration, **auth)
+        experiment_item.add_resource("stop").add_method("POST", integration, **auth)
 
         CfnOutput(self, "ExperimentsApiUrl", value=api.url)
         CfnOutput(self, "ExperimentsTableName", value=self.experiments_table.table_name)

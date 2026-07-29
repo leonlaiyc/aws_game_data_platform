@@ -11,6 +11,8 @@ from aws_cdk import (
 )
 from constructs import Construct
 
+from infra.foundation_stack import OPERATOR_ROLE_NAME
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE4_DIR = REPO_ROOT / "module4-partner-support-chatbot"
 
@@ -101,6 +103,7 @@ class SupportChatbotStack(Stack):
             environment={
                 "GUARDRAIL_ID": guardrail.attr_guardrail_id,
                 "GUARDRAIL_VERSION": guardrail_version.attr_version,
+                "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
             },
             timeout=Duration.seconds(30),
             memory_size=256,  # the whole corpus is loaded and held per container
@@ -119,7 +122,12 @@ class SupportChatbotStack(Stack):
             self, "SupportChatApi", rest_api_name="aurora-games-partner-support-api",
             deploy_options=apigateway.StageOptions(stage_name="prod"),
         )
-        api.root.add_resource("chat").add_method("POST", apigateway.LambdaIntegration(chat_fn))
+        api.root.add_resource("chat").add_method(
+            "POST", apigateway.LambdaIntegration(chat_fn),
+            # Also gates the audit track: debug output is now authorised by
+            # identity rather than by a boolean the caller sets on itself.
+            authorization_type=apigateway.AuthorizationType.IAM,
+        )
 
         CfnOutput(self, "ChatApiUrl", value=api.url)
         CfnOutput(self, "SupportChatFunctionName", value=chat_fn.function_name)

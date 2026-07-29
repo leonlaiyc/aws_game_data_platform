@@ -160,9 +160,21 @@ def _headline(site: str, as_of_date: str, comparison: dict) -> str:
 def handler(event, context):
     reports = []
     for record in event["Records"]:
-        attrs = record["Sns"]["MessageAttributes"]
-        site = attrs["client_site_id"]["Value"]
-        as_of_date = attrs["as_of_date"]["Value"]
+        attrs = record["Sns"].get("MessageAttributes") or {}
+
+        # Defensive even though an SNS filter policy already restricts this
+        # subscription to alert_type=data_anomaly. The filter is the primary
+        # control; this is the belt to its braces, because a subscription
+        # policy is edited in a different place from this code and the two can
+        # drift. Skipping a malformed message beats crashing the whole batch.
+        alert_type = (attrs.get("alert_type") or {}).get("Value")
+        site = (attrs.get("client_site_id") or {}).get("Value")
+        as_of_date = (attrs.get("as_of_date") or {}).get("Value")
+        if alert_type != "data_anomaly" or not site or not as_of_date:
+            print(json.dumps({"skipped": True, "reason": "unexpected alert envelope",
+                               "alert_type": alert_type, "has_site": bool(site),
+                               "has_date": bool(as_of_date)}))
+            continue
 
         comparison = _site_baseline_comparison(site, as_of_date)
         breakdown = _game_breakdown(site, as_of_date)

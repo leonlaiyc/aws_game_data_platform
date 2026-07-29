@@ -117,6 +117,11 @@ def _publish_alert(result: dict):
         # this same topic and needs client_site_id/as_of_date without parsing
         # free text.
         MessageAttributes={
+            # alert_type is the discriminator subscribers filter on; both
+            # publishers on this topic now send it, and schema_version exists
+            # so a future field change is additive rather than breaking.
+            "alert_type": {"DataType": "String", "StringValue": "data_anomaly"},
+            "schema_version": {"DataType": "String", "StringValue": "1"},
             "client_site_id": {"DataType": "String", "StringValue": result["client_site_id"]},
             "as_of_date": {"DataType": "String", "StringValue": result["as_of_date"]},
         },

@@ -77,6 +77,14 @@ class AnomalyStack(Stack):
                 resources=[f"arn:aws:athena:{self.region}:{self.account}:workgroup/{ATHENA_WORKGROUP_NAME}"],
             )
         )
+        # gold/daily_kpi/ is registered with Lake Formation for the tenant
+        # isolation demo, so reads of it are brokered by Lake Formation rather
+        # than by IAM alone - including from this detector, which has nothing
+        # to do with that demo. See analytics_assistant_stack for the same
+        # note: registering a location has account-wide blast radius.
+        fn.add_to_role_policy(
+            iam.PolicyStatement(actions=["lakeformation:GetDataAccess"], resources=["*"])
+        )
         fn.add_to_role_policy(
             iam.PolicyStatement(
                 actions=["glue:GetTable", "glue:GetTables", "glue:GetDatabase", "glue:GetPartition", "glue:GetPartitions"],

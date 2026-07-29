@@ -32,3 +32,7 @@ local_lake/
 Thumbs.db
 .vscode/
 .idea/
+
+# Internal development docs - never published
+docs/handoff-for-review-*.md
+docs/progress-report-*.md

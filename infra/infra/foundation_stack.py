@@ -12,6 +12,18 @@ from constructs import Construct
 GLUE_DATABASE_NAME = "aurora_games_lake"
 ATHENA_WORKGROUP_NAME = "aurora-games-wg"
 
+# The single internal-operator identity. Handlers that need to distinguish an
+# internal operator from an external caller match the caller's ARN against this
+# name - Module 3 for unrestricted tenant scope, Module 4 for access to the
+# audit track. Kept here so the stacks that create the role and the stacks that
+# authorise against it cannot drift apart.
+#
+# Matching on a role-name convention is a demo simplification. A real
+# deployment would carry the entitlement in a verified IdP claim rather than
+# inferring it from an ARN, because role names are not a security boundary the
+# moment anyone can create a role with a matching name.
+OPERATOR_ROLE_NAME = "aurora-games-operator"
+
 # Safety cap so a mistaken query can never scan more than this and rack up cost.
 # 1 GB at $5/TB scanned is $0.005 - a generous ceiling for a lake that is tens of MB.
 ATHENA_BYTES_SCANNED_CUTOFF = 1_073_741_824

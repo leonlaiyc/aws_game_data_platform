@@ -42,6 +42,10 @@ GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
 AS_OF_DATE = os.environ["AS_OF_DATE"]           # this project's data is a fixed historical simulation, not live
 DATA_MIN_DATE = os.environ["DATA_MIN_DATE"]
 DATA_MAX_DATE = os.environ["DATA_MAX_DATE"]
+# Regex matching IAM principals treated as internal operators (unrestricted).
+# Empty means "nobody" - the safe default, since a blank pattern must not
+# accidentally match every ARN.
+OPERATOR_PRINCIPAL_PATTERN = os.environ.get("OPERATOR_PRINCIPAL_PATTERN", "")
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -137,16 +141,56 @@ def _audit_log(question: str, parsed: dict, extra: dict = None):
     print(json.dumps({"audit": True, "question": question, "parsed": parsed, **(extra or {})}))
 
 
-def _response(result: dict) -> dict:
+class ScopeResolutionError(Exception):
+    """Raised when an authenticated caller cannot be mapped to a tenant."""
+
+
+_ANALYST_ROLE_RE = re.compile(r"aurora-games-analyst-(site_[a-z0-9_]+)")
+
+
+def _caller_scope(event) -> list:
+    """Tenant scope is derived from the authenticated IAM identity and from
+    nothing else.
+
+    It used to be read from the request body. With the API unauthenticated,
+    that meant a caller could name any site - or omit the field entirely and be
+    treated as unrestricted. The scope check was real; the input it checked was
+    attacker-controlled, which makes the check decorative.
+
+    Fails **closed**: an identity that maps to neither an analyst role nor an
+    allow-listed operator principal is refused rather than quietly granted
+    everything. Mapping by role-name convention is a demo simplification - a
+    real deployment would carry the tenant in a verified IdP claim rather than
+    inferring it from an ARN.
+    """
+    arn = (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn") or ""
+    match = _ANALYST_ROLE_RE.search(arn)
+    if match:
+        return [match.group(1)]
+    if OPERATOR_PRINCIPAL_PATTERN and re.search(OPERATOR_PRINCIPAL_PATTERN, arn):
+        return None  # internal operator: every site
+    raise ScopeResolutionError(f"caller identity is not mapped to any tenant scope: {arn or '<none>'}")
+
+
+def _response(result: dict, status: int = 200) -> dict:
     # API Gateway's LambdaIntegration defaults to proxy mode, which requires
     # this exact statusCode/body envelope rather than a raw application dict.
-    return {"statusCode": 200, "headers": {"Content-Type": "application/json"}, "body": json.dumps(result)}
+    return {"statusCode": status, "headers": {"Content-Type": "application/json"}, "body": json.dumps(result)}
 
 
 def handler(event, context):
     body = json.loads(event["body"]) if isinstance(event.get("body"), str) else (event.get("body") or event)
     question = body["question"]
-    caller_scope = body.get("caller_scope")  # e.g. ["site_a"] to restrict this caller to one site; None = unrestricted
+
+    try:
+        caller_scope = _caller_scope(event)
+    except ScopeResolutionError as e:
+        _audit_log(question, {"category": "scope_unresolved"}, {"reason": str(e)})
+        return _response(
+            {"category": "scope_blocked",
+             "answer": "Your credentials are not associated with a client site."},
+            status=403,
+        )
 
     resp = bedrock.converse(
         modelId=MODEL_ID,

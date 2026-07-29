@@ -67,6 +67,9 @@ bedrock = boto3.client("bedrock-runtime")
 MODEL_ID = "amazon.nova-lite-v1:0"
 GUARDRAIL_ID = os.environ["GUARDRAIL_ID"]
 GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
+# IAM principals allowed to see the audit track. Empty means nobody, which is
+# the correct default for a boundary this sensitive.
+OPERATOR_PRINCIPAL_PATTERN = os.environ.get("OPERATOR_PRINCIPAL_PATTERN", "")
 
 _HERE = Path(__file__).parent
 PROMPT_VERSION = "answer_body_v1"
@@ -285,6 +288,26 @@ _CODE_OWNED_COPY = {
 _SEEN_SESSIONS = set()
 
 
+def _debug_authorised(event) -> bool:
+    """Whether this caller may see the audit track.
+
+    Previously this was `body.get("debug")` - a boolean the caller set on
+    itself, on an unauthenticated endpoint. Any partner could have asked for
+    the full audit payload: the exact context passed to the model, the raw
+    model output, relevance scores, and the knowledge base document names the
+    user-facing path goes to such lengths to suppress. The suppression was
+    real; the exemption from it was self-service.
+
+    Authorisation now comes from the authenticated IAM identity. The README
+    documented the old behaviour as a known limitation, which was not good
+    enough - a documented hole in an access-control boundary is still a hole.
+    """
+    if not OPERATOR_PRINCIPAL_PATTERN:
+        return False
+    arn = (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn") or ""
+    return bool(re.search(OPERATOR_PRINCIPAL_PATTERN, arn))
+
+
 def _render(slots: dict) -> str:
     ordered = [slots.get("greeting"), slots.get("acknowledgment"),
                slots.get("answer_body"), slots.get("closing")]
@@ -295,7 +318,7 @@ def handler(event, context):
     body = json.loads(event["body"]) if isinstance(event.get("body"), str) else (event.get("body") or event)
     question = body["question"]
     session_id = body.get("session_id", "anonymous")
-    debug = bool(body.get("debug"))
+    debug = _debug_authorised(event)
 
     is_first_turn = session_id not in _SEEN_SESSIONS
     _SEEN_SESSIONS.add(session_id)
