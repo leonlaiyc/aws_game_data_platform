@@ -25,7 +25,7 @@ Three components, in increasing order of "how real-time":
 |---|---|---|---|
 | [`data_anomaly/`](data_anomaly/) | `gold_daily_kpi` | Daily (EventBridge) | EWMA-based control limit on DAU/GGR per site |
 | [`arbitrage_detection/`](arbitrage_detection/) | `silver_events` (device fan-out) + `gold_player_features` (behavior) | Daily (EventBridge) | Shared-device fan-out **combined with** abnormal cash-out ratio |
-| [`streaming/`](streaming/) | Kinesis (live) | Real-time | RTP/volume threshold on a rolling window — short-lived demo, not steady-state |
+| [`streaming/`](streaming/) | Kinesis (live) | Real-time | RTP/volume threshold on a tumbling per-minute window — short-lived demo, not steady-state |
 
 All three publish to SNS on a hit and write their evidence to S3 (`gold/anomaly_alerts/`,
 `gold/flagged_players/`) so findings are Athena-queryable, not just an email that scrolls away.

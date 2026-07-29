@@ -206,17 +206,45 @@ def handler(event, context):
     grounding_ok, suspicious = _grounding_check(conclusion + " " + recommendation, experiment, analysis_result)
     coverage = _coverage_check(prompt, conclusion, flags)
 
+    # The check has to be able to *reject*, not merely annotate.
+    #
+    # An earlier version recorded grounding_check_passed alongside the report
+    # and published the report regardless - which means a readout containing a
+    # number the model invented still reached the reader, carrying a flag
+    # nobody downstream was obliged to look at. A check whose failure changes
+    # nothing is documentation, not a control.
+    #
+    # On failure the LLM's prose is dropped entirely and the report falls back
+    # to code-rendered sections only. That is strictly less readable and
+    # strictly more trustworthy, which is the correct direction to fail in:
+    # every number in Key Stats, Guardrail Status and Caveats is rendered from
+    # the analysis result, so the fallback cannot contain an invented figure.
+    llm_text_accepted = grounding_ok and parsed_ok
+
+    if llm_text_accepted:
+        conclusion_section = f"### Conclusion\n{conclusion}\n\n"
+        recommendation_section = f"\n\n### Next-round Recommendation\n{recommendation}"
+    else:
+        reason = ("the grounding check found figures not present in the analysis result"
+                  if not grounding_ok else "the model's response could not be parsed")
+        conclusion_section = (
+            f"### Conclusion\n_Narrative summary withheld: {reason}. "
+            f"The code-rendered sections below are unaffected and complete._\n\n"
+        )
+        recommendation_section = ""
+
     report_text = (
-        f"### Conclusion\n{conclusion}\n\n"
+        f"{conclusion_section}"
         f"### Key Stats\n{_render_key_stats(analysis_result)}\n\n"
         f"### Guardrail Status\n{_render_guardrail_status(analysis_result)}\n\n"
-        f"### Caveats\n{_render_caveats(analysis_result)}\n\n"
-        f"### Next-round Recommendation\n{recommendation}"
+        f"### Caveats\n{_render_caveats(analysis_result)}"
+        f"{recommendation_section}"
     )
 
     readout = {
         "report_text": report_text,
         "grounding_check_passed": grounding_ok,
+        "llm_text_accepted": llm_text_accepted,
         "suspicious_numbers": suspicious,
         "llm_response_parsed": parsed_ok,
         "flags_count": len(flags),

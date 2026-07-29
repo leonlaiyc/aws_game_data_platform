@@ -52,9 +52,13 @@ bills-while-idle model**, and it was chosen knowingly, for one demo, then destro
 
 Verified pricing (checked before building, per this project's verify-before-build rule):
 
-- **Provisioned:** $0.015 per shard-hour, charged continuously regardless of traffic.
-- **On-Demand Standard:** $0.040 per stream-hour *plus* per-GB data charges — **more expensive at
-  idle** than provisioned, which is counter-intuitive and worth knowing.
+- **Provisioned:** **$0.0195 per shard-hour in ap-northeast-1 (Tokyo)**, charged continuously
+  regardless of traffic. (The widely-quoted $0.015 is the us-east-1 rate; Tokyo carries roughly a
+  30% premium. Worth stating because AWS pricing pages default to US regions and it is easy to
+  quote a number that is right for a region you are not deploying in — the same caveat applies to
+  the Bedrock rates below.)
+- **On-Demand Standard:** a higher per-stream-hour charge *plus* per-GB data charges — **more
+  expensive at idle** than provisioned, which is counter-intuitive and worth knowing.
 - **No free tier in either mode.**
 
 Decision: provisioned, 1 shard, in its own CDK stack with `RemovalPolicy.DESTROY`, deployed and
@@ -64,13 +68,19 @@ torn down inside a single session.
 |---|---|
 | Shards | 1 |
 | Approximate lifetime | ~1–2 hours |
-| **Estimated charge** | **~$0.02 – $0.03** |
-| If left running for a month | **~$10.95/shard-month** |
+| **Estimated charge** | **~$0.02 – $0.04** |
+| If left running for a month | **~$14.24/shard-month** (730 h × $0.0195) |
 
-That last row is the entire justification for the teardown discipline. Teardown was verified by
-directly listing the resources afterward (`aws kinesis list-streams` returning empty), not inferred
-from the destroy command having been issued — a distinction that matters, because a stack deletion
-that silently fails leaves a meter running that nobody is watching.
+That last row is the entire justification for the teardown discipline. Two things enforce it beyond
+good intentions:
+
+- The stack is **excluded from the default CDK app** behind a context flag, so `cdk deploy --all`
+  cannot create it. (It used to be in the default app while the docs described a deploy-demo-destroy
+  policy — a policy that only exists in prose is not a control.)
+- `run_streaming_demo.sh` deploys, demos, destroys, and then **verifies by listing streams
+  directly**, exiting non-zero if one survives. A `cdk destroy` that reports success while a
+  resource lingers is exactly the failure that costs money for weeks, so its exit code is not
+  treated as proof.
 
 ---
 
@@ -106,7 +116,12 @@ These are the numbers to reach for when someone asks "what does one more user co
 | One Module 2 experiment readout | Fractions of a cent — one Bedrock call over an already-computed analysis result |
 | One first-look report | ~3 Athena queries + one Bedrock call ≈ **under $0.01** |
 | One Module 4 partner question, answered | **~$0.0002** — the whole 7.8 KB corpus (~2,000 tokens) goes in-context on every request |
-| One Module 4 question, refused before the model | **~$0.000002** — an `ApplyGuardrail` call, or zero if the scope check rejects it first |
+| One Module 4 question, refused by Guardrails | an `ApplyGuardrail` call — billed per text unit *per policy evaluated*, so a guardrail with five content filters and two denied topics costs meaningfully more than a naive per-call estimate suggests. Still fractions of a cent, but not the ~$0.000002 an earlier version of this document claimed. |
+| One Module 4 question, refused as out of scope | **$0** — the lexical check runs before any Bedrock call |
+
+**Rate caveat:** the Nova Lite figures above are US-region rates. Tokyo is higher. The conclusion
+(negligible at this volume) is unaffected, but the arithmetic would need redoing before quoting
+these to a client.
 
 Module 4's answered-question cost is roughly **4x** Module 3's, purely because passing the entire
 corpus in-context trades tokens for infrastructure. That is the trade working as intended: ~$0.0002
@@ -134,8 +149,15 @@ Verified Amazon Quick (QuickSight) pricing:
 | Q Question Capacity | $250 / month for 500 questions ($0.50 overage; $0.30 at 60k/yr commitment) |
 | Per-account infrastructure fee (once Pro users or Q&A enabled) | **$250 / month** |
 
-Realistic floor: **~$500/month before anyone asks a single question.** Against a custom marginal
-cost of ~$0.00005/question, there is no volume at which Quick becomes cheaper per question.
+**Important qualification:** these two $250 charges are not universal. Per-user pricing is an
+alternative path, and a small team of Readers on a plain per-user plan pays far less than $500/month
+— the infrastructure fee and the question-capacity plan apply to particular configurations
+(Pro users, or Q&A enabled at capacity). Treating "$500/month floor" as the only possible Quick
+cost would overstate the case for building.
+
+The honest comparison: **for a handful of users, Quick can be tens of dollars a month, not
+hundreds** — and against a custom marginal cost of ~$0.00005/question, there is still no volume at
+which Quick wins on cost per question.
 
 **But cheaper-per-question is the wrong lens.** Quick sells a complete BI platform: dashboards, ad
 hoc exploration across any connected source, a polished end-user UI, and zero ongoing engineering

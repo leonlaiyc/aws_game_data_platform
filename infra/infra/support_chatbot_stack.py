@@ -92,7 +92,7 @@ class SupportChatbotStack(Stack):
             self, "SupportGuardrailVersion", guardrail_identifier=guardrail.attr_guardrail_id,
         )
 
-        chat_fn = _lambda.Function(
+        self.chat_fn = chat_fn = _lambda.Function(
             self, "SupportChat",
             runtime=_lambda.Runtime.PYTHON_3_12,
             handler="handler.handler",

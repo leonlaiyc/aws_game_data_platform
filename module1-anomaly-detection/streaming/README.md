@@ -2,7 +2,7 @@
 
 Demonstrates real-time RTP (return-to-player) and volume anomaly detection alongside
 `data_anomaly/`'s steady-state batch detection: `simulator -> Kinesis (1 shard) -> Lambda ->
-DynamoDB rolling window -> SNS`.
+DynamoDB tumbling per-minute window -> SNS`.
 
 **This is a capability demonstration, not part of the steady-state architecture.** The batch path
 remains the default; see `ARCHITECTURE.md` for the full dual-path trade-off discussion (why batch
@@ -12,7 +12,7 @@ duplicate events, false-alert avoidance).
 ## Why this is its own stack, deployed and destroyed on demand
 
 **Kinesis Data Streams has no "pay only when used" mode** (verified 2026-07-28): Provisioned
-bills $0.015/shard-hour continuously regardless of traffic; On-Demand Standard bills a separate
+bills $0.0195/shard-hour in ap-northeast-1 continuously regardless of traffic; On-Demand Standard bills a separate
 fixed $0.040/stream-hour *plus* per-GB data-in — actually pricier at idle. No free tier at all.
 Every hour this stack exists costs money whether or not a demo is running. `AuroraGamesStreamingStack`
 is therefore kept entirely separate from the always-on stacks (`Foundation`/`Registry`/
@@ -56,7 +56,7 @@ ensures later batches that are still over threshold don't each send their own me
 
 ## Design notes
 
-- **Aggregation via Lambda + a DynamoDB rolling window, not Kinesis Data Analytics / Managed
+- **Aggregation via Lambda + a DynamoDB tumbling window, not Kinesis Data Analytics / Managed
   Flink.** A real windowing engine would be the production answer at meaningful throughput or if
   accurate event-time semantics were required; it also has its own persistent runtime cost, which
   doesn't fit a short-lived demo. The DynamoDB atomic-counter pattern here is simple, cheap

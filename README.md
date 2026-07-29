@@ -82,8 +82,10 @@ checks as a secondary net rather than the primary defense.
 **Highlights worth reading the code for:**
 
 - **Catalog-level tenant isolation** — Lake Formation row-level filters mean an analyst role is
-  *physically unable* to read another client's rows, verified by assuming each role via STS.
-  Application-level filtering would be one forgotten `WHERE` clause from a leak.
+  *physically unable* to read another client's rows — verified by assuming each role via STS and
+  checking **both** directions: the Athena path returns only its own site, and a direct
+  `GetObject` on the underlying Parquet is denied. Application-level filtering would be one
+  forgotten `WHERE` clause from a leak.
 - **Two independent signals required before flagging fraud** — device fan-out alone is a shared
   family computer; an abnormal cash-out ratio alone is a lucky winner. Only both together flag.
 - **Caveats the model cannot skip** — Module 2 computes caveat flags deterministically in code and
@@ -106,11 +108,12 @@ checks as a secondary net rather than the primary defense.
 
 - Deployed in **ap-northeast-1 (Tokyo)**.
 - **Steady-state cost is well under $0.10/month**; idle cost is effectively zero. No always-on
-  compute anywhere — no EC2, NAT Gateway, RDS, or provisioned cluster.
+  compute anywhere — no EC2, NAT Gateway, RDS, or provisioned cluster. An AWS Budgets notification
+  fires at $5, forecast and actual.
 - The one deliberate exception is Module 1's Kinesis streaming path, which has **no free tier and
-  bills per shard-hour**. It lives in its own CDK stack and is deployed, demoed, and destroyed in a
-  single session (~$0.02–0.03), with teardown verified by listing resources afterward rather than
-  assumed.
+  bills per shard-hour** (~$14/month if left running). It is excluded from the default CDK app
+  behind a context flag, so `cdk deploy --all` cannot create it, and its demo script verifies
+  teardown by listing streams directly rather than trusting the destroy exit code.
 - Full breakdown, verified unit prices, the Amazon Quick build-vs-buy analysis, and a 100x
   projection: [docs/cost-analysis.md](docs/cost-analysis.md).
 
@@ -122,7 +125,18 @@ checks as a secondary net rather than the primary defense.
 cd infra && cdk deploy --all
 ```
 
-Then, in order — each demo runs end-to-end against real deployed infrastructure:
+That deploys everything except the billable streaming stack, which needs
+`-c enable_streaming=true` and should be run via
+`module1-anomaly-detection/streaming/run_streaming_demo.sh` (deploy → demo → destroy → verify).
+
+Then run the tests, which need no AWS account:
+
+```bash
+python -m pytest
+```
+
+Then the demos, each end-to-end against real deployed infrastructure and each exiting non-zero on
+failure:
 
 ```bash
 python data-foundation/governance/verify_isolation.py

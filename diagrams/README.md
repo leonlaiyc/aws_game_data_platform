@@ -108,11 +108,14 @@ flowchart TB
 buffering service would be pure overhead and permanent cost. See
 [ARCHITECTURE.md](../ARCHITECTURE.md) for the scale threshold at which that flips.
 
-**Isolation is enforced at the catalog, not in application code.** Each analyst role is
-physically unable to read another client's rows — verified by assuming each role via STS and
-confirming it sees only its own site
-([`data-foundation/governance/verify_isolation.py`](../data-foundation/governance/verify_isolation.py)).
-Application-level filtering would be a bug away from a cross-tenant leak; this is not.
+**Isolation is enforced at the catalog, not in application code.** Analyst roles hold no S3
+permission on the data at all - Athena reads it via Lake Formation credential vending, so the
+filtered path is the only path.
+[`verify_isolation.py`](../data-foundation/governance/verify_isolation.py) checks both directions:
+each role sees only its own site through Athena, **and** a direct `GetObject` on the underlying
+Parquet is denied. The second check is the one that matters - a row filter only covers the query
+engine, so a role that also holds plain S3 permissions reads the unfiltered file while every Athena
+query still looks correctly filtered.
 
 ---
 
@@ -120,7 +123,7 @@ Application-level filtering would be a bug away from a cross-tenant leak; this i
 
 ```mermaid
 flowchart LR
-    subgraph BATCH["Steady state — batch (always on)"]
+    subgraph BATCH["Steady state — batch (EventBridge daily)"]
         EB1["EventBridge<br/>daily schedule"]
         EWMA["data_anomaly<br/>EWMA, k=3σ"]
         ARB["arbitrage_detection<br/>two independent signals"]
@@ -130,7 +133,7 @@ flowchart LR
 
     subgraph STREAM["Short-lived demo only — deployed, demoed, destroyed"]
         KIN["Kinesis Data Streams<br/>1 shard, provisioned"]
-        AGG["aggregator Lambda<br/>rolling window"]
+        AGG["aggregator Lambda<br/>tumbling per-minute window"]
         DDB["DynamoDB<br/>atomic counters + TTL"]
         KIN --> AGG
         AGG <--> DDB

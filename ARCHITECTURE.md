@@ -126,11 +126,14 @@ retrieval engine we don't use would be the wrong fit at any price.
 
 Two mechanisms, deliberately separated:
 
-- **Code renders every number.** The Key Stats and Guardrail Status sections are built by Python
-  from the analysis result. The model receives them and writes only `conclusion` and
-  `recommendation` as qualitative prose. A regex-based grounding check runs afterward as a
-  *secondary* safety net — it catches drift, but the guarantee comes from the model never being
-  asked to produce a figure in the first place.
+- **Code renders every number.** The Key Stats, Guardrail Status and Caveats sections are built by
+  Python from the analysis result. The model receives them and writes only `conclusion` and
+  `recommendation` as qualitative prose, so it is never asked to produce a figure. A regex-based
+  grounding check runs afterward and **can reject**: if the model's prose contains a number absent
+  from the analysis result, that prose is dropped and the report falls back to code-rendered
+  sections only. Less readable, and incapable of carrying an invented figure — the right direction
+  to fail in. (A check that only annotates its own failure while publishing anyway is documentation,
+  not a control.)
 - **Code decides which caveats must be addressed.** `analysis` computes deterministic flags
   (`SAMPLE_IMBALANCE`, `SMALL_SAMPLE`, `GUARDRAIL_NEAR_THRESHOLD`, `SUSPICIOUSLY_LARGE_EFFECT`,
   `WIDE_UNCERTAINTY`) from thresholds in code. The prompt lists every flag present and requires the
@@ -203,17 +206,20 @@ full write-up. Three points carry the most SA-relevant reasoning.
 
 ### Ordering a classification pipeline is a security decision, not a performance one
 
-The four "cannot answer" categories are evaluated in a fixed order, and an early implementation got
-it wrong in a way worth recording. To avoid paying for model inference on off-topic questions, the
-cheap lexical scope check ran before the model call — and since Guardrails was attached to that
-model call, a prompt-injection attempt got classified `OUT_OF_SCOPE` rather than `BLOCKED_CONTENT`.
+The four "cannot answer" categories are evaluated in a fixed order, and the ordering carries policy
+rather than just efficiency.
 
-The user-visible behaviour was fine: both categories refuse. **The audit trail was wrong**, and
-that is the actual failure — a security-relevant event filed under "topic mismatch" is a security
-event that nobody will ever search for or alert on. The fix was the standalone **`ApplyGuardrail`**
-API, which evaluates content against a guardrail *without* invoking a model, restoring the specified
-order while keeping the cost saving. General lesson: when a pipeline's ordering encodes a policy,
-reordering it for cost is a policy change.
+The trap is specific and easy to walk into: attach Guardrails via `converse`'s `guardrailConfig`
+(the documented way), then move the cheap lexical scope check ahead of the model call to avoid
+paying for inference on off-topic questions (the obvious optimisation). Together those two
+reasonable decisions make Guardrails run *last*. A prompt-injection attempt contains no domain
+vocabulary, so it is rejected as `OUT_OF_SCOPE` and recorded that way.
+
+User-visible behaviour is unaffected — both categories refuse. **The audit trail is wrong**, which
+is the actual failure: a security-relevant event filed under "topic mismatch" is one nobody will
+search for or alert on. The standalone **`ApplyGuardrail`** API resolves it, evaluating content
+against a guardrail without invoking a model — correct order and cost saving together. The general
+form: when a pipeline's ordering encodes policy, reordering it for cost is a policy change.
 
 ### Replacing retrieval relevance with a deterministic signal
 
@@ -263,14 +269,18 @@ capability.
   teardown after its demo) purely to demonstrate the capability — this doesn't change the
   steady-state batch default. Migration path if sub-second ingestion were ever a permanent need:
   swap the batch writer for a Kinesis producer + Firehose.
-- **OpenSearch Serverless, and vector stores generally** — OpenSearch Serverless has an hourly OCU
-  floor (~$175/month minimum) regardless of usage, which alone would break this project's
-  near-zero-idle-cost constraint. But the deeper reason is that **no module needs retrieval at
-  all**: Module 3 answers from a semantic layer of pre-approved SQL templates over structured Gold
-  tables, not from documents. A vector store would be infrastructure in search of a problem here.
-  **Migration trigger:** a genuine document corpus too large to fit in-context (partner integration
-  guides, support runbooks) would justify one — and S3 Vectors, not OpenSearch Serverless, would be
-  the cost-appropriate starting point at that scale.
+- **OpenSearch Serverless, and vector stores generally** — the reason is **not** cost, and a
+  cost-based argument here would now be out of date: the next generation of OpenSearch Serverless
+  (GA 2026-05-28) decouples compute from storage and scales compute to zero after 10 minutes of
+  inactivity, so the old "~$175/month OCU floor" objection no longer holds. Storage still bills
+  while idle, but the standby compute charge does not.
+
+  The actual reason is that **no module needs retrieval at all**. Module 3 answers from a semantic
+  layer of pre-approved SQL templates over structured Gold tables, and Module 4's corpus is four
+  documents that fit in-context in full. A vector store would be infrastructure in search of a
+  problem. **Migration trigger:** a document corpus large enough that passing it in-context stops
+  being viable — and, per Module 4's write-up, the practical limit arrives earlier than the token
+  cost suggests, when curating domain vocabulary by hand stops being tractable.
 - **Provisioned Redshift / EMR** — data volume (tens of MB) doesn't justify a provisioned cluster;
   Athena's per-query pricing ($5/TB scanned) costs fractions of a cent at this scale.
 
@@ -312,17 +322,30 @@ of Gold tables or the number of teams writing them makes reading the SQL impract
 
 ### What happens when a transform job fails, or data arrives late?
 
-**Failure:** the Silver/Gold build is a rebuild-from-source CTAS, not an incremental append, which
-makes it idempotent — a failed or partially-completed run is fixed by re-running it, with no
-compensating cleanup and no risk of double-counting. This is the main reason the pipeline is
-tolerable to operate without an orchestrator like Step Functions or MWAA sitting over it.
+**Failure:** the Silver/Gold build is a rebuild-from-source CTAS, not an incremental append, so
+re-running it converges to the same result with no compensating cleanup and no double-counting.
+That is the main reason the pipeline is tolerable to operate without an orchestrator like Step
+Functions or MWAA over it.
+
+**One caveat on calling that "idempotent", stated because the word implies more safety than the
+implementation delivers:** `build_lake.py` deletes the published prefix before writing the
+replacement, so a failure *between* those steps leaves the table empty rather than stale. The end
+state of a successful run is deterministic; the intermediate state is not, and there is no atomic
+swap. A production version would write to a new prefix and repoint the table (or use a table format
+with atomic commits — Iceberg — which is the real answer at scale).
 
 **Late data:** batch resolves it implicitly — because Gold is rebuilt from the full Silver history
 each run, an event that lands after a given day's build is simply included the next time. The
-streaming path does *not*: a record arriving after its rolling window has expired via DynamoDB TTL
-starts a new window rather than correcting the closed one. That's acceptable for a demo and stated
-as a known limitation; a real lateness requirement needs watermarking (Managed Flink), which carries
-a permanent runtime cost this project's throughput doesn't justify.
+streaming path does *not*: a record arriving after its window has expired via DynamoDB TTL starts a
+new window rather than correcting the closed one. Acceptable for a demo; a real lateness requirement
+needs watermarking (Managed Flink), which carries a permanent runtime cost this project's throughput
+doesn't justify.
+
+**Precision on the window type**, since it is easy to state loosely: it is a **tumbling** window
+keyed on the processing-time UTC minute — not sliding, and not event-time. Each minute is a distinct
+bucket that never overlaps its neighbours, so a burst straddling a minute boundary is split across
+two buckets and may breach a threshold in neither. A sliding window would catch that, at the cost of
+retaining per-event timestamps rather than one counter per bucket.
 
 ### What data-quality checks exist?
 
@@ -340,6 +363,15 @@ Three, at different layers, and one deliberate omission:
 things like "GGR is never null" or "DAU ≤ registered players." At this scale the CTAS plus the
 detectors cover the realistic failure modes; the trigger for adopting one is multiple teams writing
 into Gold, where you can no longer reason about every writer.
+
+**A second omission worth being explicit about: the deployed schedules currently do no useful
+work.** Both detectors run daily against *today's* date, while the simulated dataset ends
+2026-06-29 — so every scheduled invocation finds no rows and exits. The detection logic is
+exercised only through explicit `{client_site_id, as_of_date}` invocations from the demos. The
+scheduling wiring is real and the detection is real; what is missing between them is a live
+ingestion loop producing current data. That is the single largest gap between this and something
+that could be called an always-on platform, and it is why this document says "scheduled" rather
+than "always-on" throughout.
 
 ### Athena or Redshift?
 
@@ -372,20 +404,35 @@ terms, so most of the architecture holds. What changes:
 3. **The direct-to-S3 ingestion assumption breaks.** Many small files per client per day is the
    classic small-file problem. That is the point where **Firehose** earns its cost — buffering and
    compacting on the way in, rather than a compaction job cleaning up afterward.
-4. **What does not change:** Lake Formation isolation, the KPI/semantic-layer governance, Module 3's
-   template approach, and the Lambda-based detectors all scale without redesign. The detectors read
-   Gold aggregates, whose size grows with days and sites, not with event volume.
+4. **What does not change:** Lake Formation isolation, the KPI/semantic-layer governance, and
+   Module 3's template approach all scale without redesign, because they read Gold aggregates whose
+   size grows with days × sites rather than with event volume.
+5. **What does change, and is easy to overlook:** the two detectors are *not* alike in this respect.
+   `data_anomaly` reads only `gold_daily_kpi` and is genuinely insensitive to event volume.
+   `arbitrage_detection` reads `silver_events` directly for its device fan-out signal, and
+   `gold_player_features` is itself rebuilt from the full event history — so both scan
+   proportionally to the number of events and players. At 100x the fan-out query is the one to
+   watch, and the fix is a pre-aggregated device→player Gold table rather than scanning Silver per
+   run. Claiming "the detectors scale without changes" would be true of one of them and wrong about
+   the other.
 
 ### Monitoring, alerting, retry, rollback, backfill
 
-- **Monitoring/alerting:** business-level anomalies go to SNS via Module 1. Infrastructure-level
-  monitoring is Lambda's default CloudWatch metrics and logs, with full structured audit logging in
-  Module 3's classification path. **Honest gap:** there are no CloudWatch alarms on operational
-  metrics (Lambda error rate, Step Functions execution failures) — a real deployment needs them, and
-  this is the first thing to add before calling any of it production-ready.
-- **Retry:** Step Functions provides per-state retry for Module 2. Lambda's async invocation retry
-  covers the SNS-triggered path. **Gap:** no dead-letter queues, so a poison-pill SNS message is
-  dropped after retries rather than parked for inspection.
+- **Monitoring/alerting:** business-level anomalies go to SNS via Module 1. Operational alarms live
+  in `AuroraGamesObservabilityStack` and all publish to one topic: Lambda errors and throttles per
+  function, Step Functions execution failures, DLQ depth, and an AWS Budgets forecast/actual
+  notification at $5. Alarms treat missing data as not-breaching, because these functions are
+  schedule-driven and "hasn't run in five minutes" is the normal state.
+  **Remaining gaps:** no synthetic canary proving the APIs still answer correctly, and no alarm on
+  data freshness in the lake.
+  *(Cost note: AWS Budgets rather than a CloudWatch alarm on `AWS/Billing`, because that namespace
+  only publishes in us-east-1 and CDK refuses a cross-region alarm outright. Budgets is
+  region-agnostic and forecasts rather than only reacting.)*
+- **Retry:** Step Functions provides per-state retry for Module 2. The SNS-triggered path has both a
+  subscription DLQ (SNS could not deliver) and an invocation DLQ via a Lambda failure destination
+  (delivered, then threw), each alarmed on depth. **Gap:** the API-fronted Lambdas are synchronous
+  and have no DLQ — a failed request returns 5xx to the caller and is not retained anywhere beyond
+  logs.
 - **Rollback:** everything is CDK, so infrastructure rollback is CloudFormation's. Data rollback is
   the CTAS idempotency property — re-running from Silver reproduces Gold deterministically.
 - **Backfill:** the same mechanism as a normal run. Both detectors accept an explicit

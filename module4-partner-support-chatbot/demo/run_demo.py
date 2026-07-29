@@ -5,17 +5,27 @@ Covers all four "cannot answer" categories plus the normal answered path, the
 first-turn-only greeting, and - the interesting one - the data-leakage guard
 catching the model citing an internal document ID despite being told not to.
 
-Requires: AuroraGamesSupportChatbotStack deployed.
+The API requires IAM authorisation, so requests are SigV4-signed. The demo
+signs as the operator role, because the audit track shown below is gated on
+identity - a partner cannot ask for it, which is the point of splitting
+provenance into two tracks in the first place.
+
+Requires: AuroraGamesSupportChatbotStack and AuroraGamesGovernanceStack deployed.
 """
 import json
 import re
-import urllib.request
+import sys
+from pathlib import Path
 
 import boto3
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "demo_lib"))
+from signed_request import assume, signed_post  # noqa: E402
 
 STACK_NAME = "AuroraGamesSupportChatbotStack"
 
 cfn = boto3.client("cloudformation")
+operator = assume("aurora-games-operator", "m4-demo")
 
 LEAK_PATTERNS = {
     "internal document ID": r"AG-[A-Z]{3}-\d{3}",
@@ -30,14 +40,12 @@ def api_url() -> str:
     return {o["OutputKey"]: o["OutputValue"] for o in outputs}["ChatApiUrl"]
 
 
-def chat(url: str, question: str, session_id: str, debug: bool = False) -> dict:
-    payload = {"question": question, "session_id": session_id, "debug": debug}
-    req = urllib.request.Request(
-        f"{url}chat", data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json"}, method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=40) as resp:
-        return json.loads(resp.read())
+def chat(url: str, question: str, session_id: str) -> dict:
+    # No debug flag: whether the audit track comes back is decided by which
+    # identity signed this request, not by anything in the payload.
+    _, result = signed_post(operator, f"{url}chat",
+                            {"question": question, "session_id": session_id})
+    return result
 
 
 def section(title: str):
@@ -45,7 +53,7 @@ def section(title: str):
 
 
 def show(url, label, question, session_id, expect):
-    result = chat(url, question, session_id, debug=True)
+    result = chat(url, question, session_id)
     audit = result.get("audit", {})
     got = result["category"]
     status = "PASS" if got == expect else f"MISMATCH (expected {expect})"
@@ -72,7 +80,7 @@ def show(url, label, question, session_id, expect):
     return result, audit, got == expect
 
 
-def main():
+def main() -> int:
     url = api_url()
     results = []
 
@@ -138,7 +146,8 @@ def main():
 
     section("Result")
     print(f"{sum(results)}/{len(results)} checks passed")
+    return 0 if all(results) else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

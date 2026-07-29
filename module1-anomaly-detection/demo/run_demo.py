@@ -13,6 +13,7 @@ feature_registry/build_feature_registry.py) so the scripted scenarios are
 present in gold_daily_kpi/gold_player_features/silver_events.
 """
 import json
+import sys
 
 import boto3
 
@@ -41,8 +42,9 @@ def section(title: str):
     print(f"\n{'=' * 70}\n{title}\n{'=' * 70}")
 
 
-def main():
+def main() -> int:
     outputs = stack_outputs(STACK_NAME)
+    failures = []
 
     section("1. Anomaly detection: site_b's scripted retention/revenue drop")
     result = invoke(outputs["AnomalyDetectorFunctionName"], {"client_site_id": "site_b", "as_of_date": "2026-06-10"})
@@ -65,4 +67,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
