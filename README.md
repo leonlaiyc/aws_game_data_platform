@@ -122,7 +122,8 @@ checks as a secondary net rather than the primary defense.
   platform, which is documented rather than quietly dropped.
 - Full breakdown, verified unit prices, the Amazon Quick build-vs-buy analysis, and a 100x
   projection: [docs/cost-analysis.md](docs/cost-analysis.md). Operational responses:
-  [docs/runbook.md](docs/runbook.md).
+  [docs/runbook.md](docs/runbook.md). Attack surface and service levels:
+  [docs/threat-model.md](docs/threat-model.md).
 
 ---
 
@@ -184,6 +185,7 @@ tests/                              pytest: CDK security assertions + unit tests
 diagrams/                           Architecture diagrams (Mermaid, renders on GitHub)
 docs/cost-analysis.md               Verified unit prices, settled observed costs, 100x projection
 docs/runbook.md                     What each alarm means and what to do about it
+docs/threat-model.md                Who would attack this, whether it holds, and the SLOs
 
 data-foundation/
   event_simulator/                  Synthetic B2B gaming event generator, with scripted scenarios

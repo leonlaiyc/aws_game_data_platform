@@ -88,7 +88,16 @@ class RegistryStack(Stack):
             self,
             "ExperimentsApi",
             rest_api_name="aurora-games-experiments-api",
-            deploy_options=apigateway.StageOptions(stage_name="prod"),
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                # Rate limiting is a *cost* control here as much as an availability
+                # one. Every request past the classifier costs Bedrock tokens, so an
+                # authenticated caller with a loop turns this endpoint into someone
+                # else's free LLM on our bill. IAM auth answers "who are you"; it
+                # says nothing about "how often".
+                throttling_rate_limit=10,
+                throttling_burst_limit=20,
+            ),
         )
         integration = apigateway.LambdaIntegration(api_lambda)
         # Every method requires SigV4-signed IAM credentials. This API mutates

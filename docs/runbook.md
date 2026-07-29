@@ -158,5 +158,8 @@ Named rather than left as an implied promise:
   on stale data and nothing would say so.
 - **No on-call rotation or paging.** The topic has no subscribers by default; add one before
   treating any of this as monitored.
-- **No SLOs.** There are no stated availability or latency targets to measure against, so "is this
-  healthy?" currently has no numeric answer.
+- **SLOs are stated but mostly not instrumented.** [threat-model.md](threat-model.md) defines the
+  targets; the alarms detect failure rather than degradation, so a system that is slow-but-working
+  raises nothing.
+- **No CloudTrail.** No record of AWS control-plane actions - who assumed a role, changed a policy,
+  or deleted a stack. Application-level decision logging is thorough; this is the layer below it.

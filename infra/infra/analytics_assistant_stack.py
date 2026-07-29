@@ -105,6 +105,19 @@ class AnalyticsAssistantStack(Stack):
             },
             timeout=Duration.seconds(30),
             layers=[ask_answer_layer],
+            # NOTE: reserved_concurrent_executions would be the right control
+            # here - a per-function ceiling on concurrent Bedrock spend and on
+            # how much of the account's concurrency pool one endpoint can take.
+            # It cannot be set in this account: the total Lambda concurrency
+            # limit is 10, and AWS requires at least 10 to remain unreserved, so
+            # any reservation is rejected outright.
+            #
+            # The practical effect is that the account-wide limit of 10 is the
+            # only concurrency ceiling, and it is *shared* - a burst against
+            # this endpoint can starve the detectors and the experiment
+            # lifecycle. API Gateway throttling above is what actually caps the
+            # burst; a production account with a normal limit should add the
+            # reservation as well. See docs/threat-model.md.
         )
         self._grant_lake_read(self.ask_answer_fn, lake_bucket)
         self.ask_answer_fn.add_to_role_policy(
@@ -117,7 +130,16 @@ class AnalyticsAssistantStack(Stack):
 
         api = apigateway.RestApi(
             self, "AnalyticsAssistantApi", rest_api_name="aurora-games-analytics-assistant-api",
-            deploy_options=apigateway.StageOptions(stage_name="prod"),
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                # Rate limiting is a *cost* control here as much as an availability
+                # one. Every request past the classifier costs Bedrock tokens, so an
+                # authenticated caller with a loop turns this endpoint into someone
+                # else's free LLM on our bill. IAM auth answers "who are you"; it
+                # says nothing about "how often".
+                throttling_rate_limit=10,
+                throttling_burst_limit=20,
+            ),
         )
         # IAM auth is not just access control here - it is the tenant boundary.
         # The handler derives which client site the caller may query from the

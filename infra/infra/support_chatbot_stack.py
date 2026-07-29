@@ -107,6 +107,19 @@ class SupportChatbotStack(Stack):
             },
             timeout=Duration.seconds(30),
             memory_size=256,  # the whole corpus is loaded and held per container
+            # NOTE: reserved_concurrent_executions would be the right control
+            # here - a per-function ceiling on concurrent Bedrock spend and on
+            # how much of the account's concurrency pool one endpoint can take.
+            # It cannot be set in this account: the total Lambda concurrency
+            # limit is 10, and AWS requires at least 10 to remain unreserved, so
+            # any reservation is rejected outright.
+            #
+            # The practical effect is that the account-wide limit of 10 is the
+            # only concurrency ceiling, and it is *shared* - a burst against
+            # this endpoint can starve the detectors and the experiment
+            # lifecycle. API Gateway throttling above is what actually caps the
+            # burst; a production account with a normal limit should add the
+            # reservation as well. See docs/threat-model.md.
         )
         chat_fn.add_to_role_policy(
             iam.PolicyStatement(
@@ -120,7 +133,16 @@ class SupportChatbotStack(Stack):
 
         api = apigateway.RestApi(
             self, "SupportChatApi", rest_api_name="aurora-games-partner-support-api",
-            deploy_options=apigateway.StageOptions(stage_name="prod"),
+            deploy_options=apigateway.StageOptions(
+                stage_name="prod",
+                # Rate limiting is a *cost* control here as much as an availability
+                # one. Every request past the classifier costs Bedrock tokens, so an
+                # authenticated caller with a loop turns this endpoint into someone
+                # else's free LLM on our bill. IAM auth answers "who are you"; it
+                # says nothing about "how often".
+                throttling_rate_limit=10,
+                throttling_burst_limit=20,
+            ),
         )
         api.root.add_resource("chat").add_method(
             "POST", apigateway.LambdaIntegration(chat_fn),

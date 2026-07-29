@@ -425,8 +425,10 @@ terms, so most of the architecture holds. What changes:
   function, Step Functions execution failures, DLQ depth, and an AWS Budgets forecast/actual
   notification at $5. Alarms treat missing data as not-breaching, because these functions are
   schedule-driven and "hasn't run in five minutes" is the normal state.
-  **Remaining gaps:** no synthetic canary proving the APIs still answer correctly, and no alarm on
-  data freshness in the lake.
+  **Remaining gaps:** no synthetic canary proving the APIs still answer correctly, no alarm on data
+  freshness in the lake, and no CloudTrail — so there is no record of AWS control-plane actions.
+  See [docs/threat-model.md](docs/threat-model.md), which enumerates the attack surface row by row
+  and states the SLOs; note that most latency objectives there are stated but not yet instrumented.
   *(Cost note: AWS Budgets rather than a CloudWatch alarm on `AWS/Billing`, because that namespace
   only publishes in us-east-1 and CDK refuses a cross-region alarm outright. Budgets is
   region-agnostic and forecasts rather than only reacting.)*
