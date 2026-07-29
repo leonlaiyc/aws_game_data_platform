@@ -128,13 +128,12 @@ def _publish_alert(result: dict):
         Subject=f"Arbitrage suspects flagged: {result['client_site_id']} on {result['as_of_date']}",
         Message=f"{len(result['flagged_players'])} player(s) flagged on {result['client_site_id']} "
                 f"as of {result['as_of_date']}:\n\n" + "\n".join(lines),
-        # This publisher previously sent no MessageAttributes at all, while
-        # module3's first_look_report - subscribed to the same topic - indexed
-        # into them unconditionally. Every arbitrage alert therefore crashed
-        # that consumer, and with no DLQ the message was retried and then
-        # dropped. A shared topic is an interface: adding a consumer that
-        # assumes a field means every publisher owes that field, or the
-        # subscription must filter on a type discriminator. Both, here.
+        # Gotcha: a shared SNS topic is an interface. When a new subscriber
+        # (module3's first_look_report) started reading MessageAttributes, this
+        # publisher owed them too - otherwise that consumer throws on every
+        # arbitrage alert. Either every publisher sends the agreed envelope or
+        # the subscription filters on a type discriminator; this topic does
+        # both, and alert_type is what the filter policy matches on.
         MessageAttributes={
             "alert_type": {"DataType": "String", "StringValue": "arbitrage"},
             "schema_version": {"DataType": "String", "StringValue": "1"},

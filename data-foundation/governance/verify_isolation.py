@@ -6,15 +6,12 @@ holding all 3 sites' rows) through Athena and sees only its own site.
 **Negative test:** the same role attempts to read the underlying Parquet
 directly from S3, and must be denied.
 
-The negative test is the point of this script. An earlier version only ran the
-positive one, watched the row filter work, and concluded that a role was
-"physically unable" to read another tenant's data. It wasn't: the roles held
-`grant_read_write` on the whole lake bucket, so a plain `GetObject` bypassed
-Lake Formation entirely. The positive test passed the whole time.
-
-**A positive test on the intended path cannot substantiate a claim about
-every other path.** If a design claims something is impossible, the test has
-to attempt the thing.
+**Why the negative test matters.** A row filter is only as good as the set of
+paths it covers, and it applies to the Athena path only. If the role also holds
+plain S3 permissions on the data - easy to add by accident, since it looks like
+something Athena needs - every Athena query still comes back correctly filtered
+while `GetObject` returns the unfiltered file. Testing only the intended path
+cannot tell those two situations apart, so this script attempts the bypass too.
 
 Exits non-zero if any check fails, so it is usable as a gate rather than
 something a human has to read carefully.

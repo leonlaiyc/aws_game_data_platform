@@ -24,38 +24,28 @@ class GovernanceStack(Stack):
     gold_daily_kpi, enforced by a Lake Formation row-level Data Filter (not
     by application logic - see data-foundation/governance/README.md).
 
-    ## The bug this stack used to contain, and what it teaches
-
-    An earlier version granted each analyst role `grant_read_write` on the
-    entire lake bucket, with a comment cheerfully explaining that this was
-    to "read the underlying Parquet". That made the row-level filter
-    **decorative**: a role could simply `aws s3 cp` the Gold objects and read
-    every tenant's rows - and, because the grant included write, modify them.
-    Meanwhile the isolation test only ever exercised the Athena path, saw it
-    correctly filtered, and reported success.
-
-    The lesson is about verification, not about IAM: an absolute claim
-    ("physically unable to read another tenant's data") requires testing the
-    *bypass* path, not just the intended one. A positive test on the happy
-    path cannot substantiate a negative claim. `verify_isolation.py` now
-    asserts the direct-S3 read is denied, which is the test that should have
-    existed before the claim was ever written down.
-
-    ## How isolation actually works now
+    ## How isolation works
 
     Analyst roles hold **no S3 permission on the data at all**. Athena reaches
     the underlying objects through Lake Formation credential vending
     (`lakeformation:GetDataAccess` against a registered location), so the only
     path to the data applies the row filter by construction. Each role also
     gets its own Athena workgroup writing to its own results prefix, so one
-    tenant's query output is not readable by another - previously they all
-    shared one prefix that every role could read.
+    tenant's query output is not readable by another.
 
     Those per-site workgroups set `enforce_work_group_configuration=True`,
     unlike the shared pipeline workgroup. The pipeline one has it off because
     CTAS needs to specify its own `external_location`; analysts never run
     CTAS, so here enforcement is exactly right - it stops a caller redirecting
     results somewhere the isolation boundary doesn't cover.
+
+    **Gotcha - granting the role S3 access defeats the whole mechanism.** It is
+    tempting to add `lake_bucket.grant_read` "so Athena can read the Parquet".
+    Athena doesn't need it (Lake Formation vends the credentials), and adding
+    it hands the role a direct `GetObject` path that no row filter applies to.
+    The filter still looks correct in every Athena query while the data is
+    readable another way, so test the bypass, not just the intended path -
+    `verify_isolation.py` does both.
 
     This stack only creates IAM roles and workgroups. The Lake Formation
     location registration, Data Filters and grants are NOT CDK resources:
@@ -147,17 +137,13 @@ class GovernanceStack(Stack):
                                      resources=[f"arn:aws:execute-api:{self.region}:{self.account}:*/*/*/*"])
             )
 
-            # DELIBERATELY NOT `lake_bucket.grant_read_write(role)`.
+            # No S3 permission on bronze/, silver/ or gold/ - deliberately.
+            # Athena reads those objects with credentials Lake Formation vends
+            # after applying the row filter, so the filtered path is the only
+            # path. See the class docstring's gotcha note before adding any
+            # bucket grant here.
             #
-            # The role gets no S3 permission on bronze/, silver/ or gold/ at
-            # all. Athena reads the underlying objects using credentials Lake
-            # Formation vends after applying the row filter, so the filtered
-            # path is the ONLY path. Granting the role direct S3 access - as an
-            # earlier version did - would let it bypass the filter entirely
-            # with a plain GetObject, which is precisely what the negative test
-            # in verify_isolation.py now asserts is impossible.
-            #
-            # The one S3 permission it does need is its own query results.
+            # The one S3 permission the role does need is its own query results.
             role.add_to_policy(
                 iam.PolicyStatement(
                     actions=["s3:GetObject", "s3:PutObject", "s3:AbortMultipartUpload"],

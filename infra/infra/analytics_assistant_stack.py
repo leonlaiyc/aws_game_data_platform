@@ -202,12 +202,12 @@ class AnalyticsAssistantStack(Stack):
                 resources=[f"arn:aws:athena:{self.region}:{self.account}:workgroup/{ATHENA_WORKGROUP_NAME}"],
             )
         )
-        # Required because gold/daily_kpi/ is a Lake-Formation-registered
-        # location. Registering a location changes the access path for EVERY
-        # consumer of it, not only the roles you were trying to constrain -
-        # these Lambdas broke with "Insufficient permissions" the moment the
-        # registration landed, despite their IAM policies being unchanged.
-        # Worth knowing before registering anything in a live account.
+        # Required because gold/daily_kpi/ is registered with Lake Formation.
+        # Gotcha: registering a location changes the access path for EVERY
+        # consumer of it, not just the roles being constrained. Existing
+        # Lambdas start failing with "Insufficient permissions to execute the
+        # query" while their IAM policies are untouched. Plan the grant list
+        # before registering a location in a live account.
         fn.add_to_role_policy(
             iam.PolicyStatement(actions=["lakeformation:GetDataAccess"], resources=["*"])
         )

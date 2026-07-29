@@ -27,7 +27,16 @@ OrchestrationStack(
 )
 GovernanceStack(app, "AuroraGamesGovernanceStack", env=env, lake_bucket=foundation.lake_bucket)
 AnomalyStack(app, "AuroraGamesAnomalyStack", env=env, lake_bucket=foundation.lake_bucket)
-StreamingStack(app, "AuroraGamesStreamingStack", env=env)
+# Kinesis bills per shard-hour with no free tier, so this stack is NOT part of
+# the default app: `cdk deploy --all` must never be able to leave a meter
+# running. It is only synthesised when explicitly asked for:
+#
+#     cdk deploy AuroraGamesStreamingStack -c enable_streaming=true
+#
+# Use module1-anomaly-detection/streaming/run_streaming_demo.sh, which deploys,
+# demos, destroys, and then verifies the stream is actually gone.
+if app.node.try_get_context("enable_streaming") in ("true", True):
+    StreamingStack(app, "AuroraGamesStreamingStack", env=env)
 AnalyticsAssistantStack(app, "AuroraGamesAnalyticsAssistantStack", env=env, lake_bucket=foundation.lake_bucket)
 SupportChatbotStack(app, "AuroraGamesSupportChatbotStack", env=env)
 

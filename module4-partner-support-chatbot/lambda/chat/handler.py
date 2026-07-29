@@ -291,16 +291,13 @@ _SEEN_SESSIONS = set()
 def _debug_authorised(event) -> bool:
     """Whether this caller may see the audit track.
 
-    Previously this was `body.get("debug")` - a boolean the caller set on
-    itself, on an unauthenticated endpoint. Any partner could have asked for
-    the full audit payload: the exact context passed to the model, the raw
-    model output, relevance scores, and the knowledge base document names the
-    user-facing path goes to such lengths to suppress. The suppression was
-    real; the exemption from it was self-service.
-
-    Authorisation now comes from the authenticated IAM identity. The README
-    documented the old behaviour as a known limitation, which was not good
-    enough - a documented hole in an access-control boundary is still a hole.
+    **Gotcha:** a `debug` flag in the request body is the natural way to build
+    this and it quietly undoes the provenance suppression the rest of the
+    module implements - the audit payload carries the exact context passed to
+    the model, the raw model output, and the knowledge base document names that
+    the user-facing path deliberately strips. Anything that reveals more than
+    the default response has to be authorised by identity, not by a field the
+    caller fills in.
     """
     if not OPERATOR_PRINCIPAL_PATTERN:
         return False

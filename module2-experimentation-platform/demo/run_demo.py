@@ -6,13 +6,16 @@
 2. guardrail_breach   - site_c/game_02: treatment gets injected heavy-loss
                         events -> should auto-stop early via the guardrail
                         monitor, with an SNS alert.
-3. srm_violation      - site_b: no data injection; this script instead
-                        creates/deletes draft experiments (cheap, no Athena
-                        calls) until the REAL, unmodified hash-based
-                        assignment happens to produce a skewed split for a
-                        small population - demonstrating the SRM check
-                        catches a genuinely bad randomization, not a staged
-                        one.
+3. srm_violation      - site_b: a deliberately broken randomizer whose split
+                        logic disagrees with the experiment's declared 50/50
+                        weights, producing a deterministic ~33/67 split. Fed
+                        to the deployed SRM check, which rejects it.
+
+                        The split is computed, not searched for: re-running
+                        gives byte-identical counts. (Selecting experiments
+                        until one happens to look skewed would demonstrate
+                        multiple-comparisons cherry-picking rather than a
+                        randomization bug - the opposite of the point.)
 
 Requires: infra deployed, data-foundation lake + feature_registry +
 orchestration Athena tables already built at least once (this script
@@ -20,6 +23,7 @@ rebuilds silver_events and gold_player_features itself after injecting
 demo data, so a prior full build isn't strictly required, but the base
 bronze events from event_simulator.cli must already exist in S3).
 """
+import json
 import random
 import subprocess
 import sys
@@ -64,35 +68,51 @@ def compute_split_p_value(experiment_id: str, seed: int, player_ids: list, varia
     return chi2_p_value_df1(chi2), counts
 
 
-def find_srm_experiment(api_url: str, database: str, workgroup: str) -> str:
-    section("Scenario 3 setup: hunting for a naturally skewed SRM split (site_b, small early population)")
+def buggy_assign_variant(experiment_id: str, seed: int, player_id: str, variants: list) -> str:
+    """A deliberately broken randomizer, modelling a real and common class of
+    assignment bug: **the split logic and the declared weights are maintained
+    in two different places and have drifted apart.**
+
+    The experiment config says 50/50. This assignment code says "treatment if
+    the hash is divisible by 3", which is a perfectly uniform, perfectly
+    deterministic ~33/67 split. Nothing here is random or flaky - it is simply
+    wrong, and wrong in a way that looks entirely reasonable in code review.
+
+    That is what SRM is for: nobody notices the config and the code disagree,
+    but the arrival counts do.
+    """
+    import hashlib
+    digest = hashlib.md5(f"{experiment_id}:{seed}:{player_id}".encode()).hexdigest()
+    return variants[1]["name"] if int(digest, 16) % 3 == 0 else variants[0]["name"]
+
+
+def setup_srm_experiment(api_url: str, database: str, workgroup: str) -> tuple:
+    section("Scenario 3 setup: a genuinely broken randomizer (site_b)")
     player_ids = lib.eligible_players(database, workgroup, "site_b", SRM_AS_OF_DATE)
     print(f"Eligible population for site_b on {SRM_AS_OF_DATE}: {len(player_ids)} players")
 
     variants = [{"name": "control", "weight": 0.5}, {"name": "treatment", "weight": 0.5}]
-    for attempt in range(1, 501):
-        resp = lib.api_request(api_url, "POST", "/experiments", {
-            "name": "srm-violation-demo",
-            "game_id": "game_03",
-            "client_site_id": "site_b",
-            "audience": {"client_site_id": "site_b"},
-            "variants": variants,
-            "oec_metric": "ggr_usd_7d",
-            "guardrail_metrics": [],
-        })
-        experiment_id = resp["experiment_id"]
-        seed = lib.derive_seed(experiment_id)
-        p_value, counts = compute_split_p_value(experiment_id, seed, player_ids, variants)
+    resp = lib.api_request(api_url, "POST", "/experiments", {
+        "name": "srm-violation-demo",
+        "game_id": "game_03",
+        "client_site_id": "site_b",
+        "audience": {"client_site_id": "site_b"},
+        "variants": variants,
+        "oec_metric": "ggr_usd_7d",
+        "guardrail_metrics": [],
+    })
+    experiment_id = resp["experiment_id"]
+    seed = lib.derive_seed(experiment_id)
 
-        if p_value < SRM_P_VALUE_THRESHOLD:
-            print(f"  attempt {attempt}: experiment_id={experiment_id} counts={counts} p_value={p_value:.6f} <- SKEWED, keeping this one")
-            return experiment_id
+    counts = {v["name"]: 0 for v in variants}
+    for pid in player_ids:
+        counts[buggy_assign_variant(experiment_id, seed, pid, variants)] += 1
 
-        lib.api_request(api_url, "DELETE", f"/experiments/{experiment_id}")
-        if attempt % 25 == 0:
-            print(f"  attempt {attempt}: p_value={p_value:.4f} (not skewed enough), retrying...")
-
-    raise RuntimeError("Could not find a skewed split after 500 attempts - population may be too large/stable")
+    fair_p, fair_counts = compute_split_p_value(experiment_id, seed, player_ids, variants)
+    print(f"  The platform's real randomizer would split : {fair_counts}  (p={fair_p:.4f}, passes SRM)")
+    print(f"  This experiment's broken randomizer splits : {counts}       (declared 50/50)")
+    print("  The split is deterministic - re-running produces exactly the same counts.")
+    return experiment_id, seed, counts, len(player_ids), variants
 
 
 def setup_data_experiment(api_url: str, name: str, game_id: str, client_site_id: str, guardrail_metrics: list) -> tuple:
@@ -190,6 +210,42 @@ def print_summary(api_url: str, experiment_id: str, label: str):
         print(exp["readout"]["report_text"])
 
 
+def run_srm_check(experiment_id: str, counts: dict, total: int, variants: list):
+    """Feeds the broken randomizer's output to the deployed SRM check.
+
+    This scenario invokes the real srm_check Lambda directly rather than
+    running the state machine, because the platform's own assignment step is
+    not broken - it would produce a fair split and correctly pass. What is
+    being demonstrated is the check's behaviour on a broken *upstream*, so the
+    broken upstream is what gets supplied.
+
+    The Choice state immediately after this step in the state machine branches
+    on `passed`, so a false here is what halts an experiment before it can
+    consume any analysis.
+    """
+    import boto3
+    section("Result: SRM violation (broken randomizer caught)")
+    fn = [r["PhysicalResourceId"] for r in boto3.client("cloudformation").describe_stack_resources(
+        StackName="AuroraGamesOrchestrationStack")["StackResources"]
+        if r["LogicalResourceId"].startswith("SrmCheck")][0]
+
+    payload = {"assignment": {"experiment": {"experiment_id": experiment_id, "variants": variants},
+                               "variant_counts": counts, "total_assigned": total}}
+    resp = boto3.client("lambda").invoke(
+        FunctionName=fn, Payload=json.dumps(payload).encode("utf-8"))
+    result = json.loads(resp["Payload"].read())
+
+    expected = {v["name"]: round(total * float(v["weight"]), 1) for v in variants}
+    print(f"observed: {counts}")
+    print(f"expected: {expected}   (from the declared 50/50 weights)")
+    print(f"chi2={result['chi2']}  p_value={result['p_value']}  threshold={result['threshold']}")
+    print(f"passed={result['passed']}")
+    if result["passed"]:
+        raise SystemExit("FAIL: SRM check passed a deterministically skewed split")
+    print("\n-> PASS: the experiment is halted before analysis. Nothing downstream "
+          "sees a comparison built on a broken split.")
+
+
 def main():
     foundation = lib.stack_outputs("AuroraGamesFoundationStack")
     registry = lib.stack_outputs("AuroraGamesRegistryStack")
@@ -211,7 +267,8 @@ def main():
     )
     print(f"guardrail_breach: {breach_id} (seed={breach_seed})")
 
-    srm_id = find_srm_experiment(api_url, database, workgroup)
+    srm_id, srm_seed, srm_counts, srm_total, srm_variants = setup_srm_experiment(
+        api_url, database, workgroup)
     print(f"srm_violation: {srm_id}")
 
     inject_clean_winner_effect(bucket, database, workgroup, winner_id, winner_seed)
@@ -219,18 +276,18 @@ def main():
 
     rebuild_lake()
 
-    section("Starting all 3 experiments (concurrent Step Functions executions)")
+    section("Starting the 2 data-driven experiments (concurrent Step Functions executions)")
     start_experiment(api_url, winner_id, AS_OF_DATE, DURATION_DAYS)
     start_experiment(api_url, breach_id, AS_OF_DATE, DURATION_DAYS)
-    start_experiment(api_url, srm_id, SRM_AS_OF_DATE, 5)
-    print("All 3 started.")
+    print("Both started.")
     time.sleep(5)  # let the executions register before polling for RUNNING status
 
-    wait_for_completion(state_machine_arn, [winner_id, breach_id, srm_id])
+    wait_for_completion(state_machine_arn, [winner_id, breach_id])
 
     print_summary(api_url, winner_id, "Clean winner")
     print_summary(api_url, breach_id, "Guardrail auto-stop")
-    print_summary(api_url, srm_id, "SRM violation")
+
+    run_srm_check(srm_id, srm_counts, srm_total, srm_variants)
 
 
 if __name__ == "__main__":

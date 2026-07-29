@@ -152,12 +152,14 @@ def _caller_scope(event) -> list:
     """Tenant scope is derived from the authenticated IAM identity and from
     nothing else.
 
-    It used to be read from the request body. With the API unauthenticated,
-    that meant a caller could name any site - or omit the field entirely and be
-    treated as unrestricted. The scope check was real; the input it checked was
-    attacker-controlled, which makes the check decorative.
+    **Gotcha worth stating explicitly:** the obvious place to put a scope like
+    this is the request body, and it reads perfectly well in code - the
+    comparison against the requested site is a real check. It just isn't a
+    control, because the value being checked came from the caller. Anything
+    that decides what a caller may see has to come from what authenticated
+    them.
 
-    Fails **closed**: an identity that maps to neither an analyst role nor an
+    Fails **closed**: an identity mapping to neither an analyst role nor an
     allow-listed operator principal is refused rather than quietly granted
     everything. Mapping by role-name convention is a demo simplification - a
     real deployment would carry the tenant in a verified IdP claim rather than

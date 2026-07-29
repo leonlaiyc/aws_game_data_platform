@@ -1,12 +1,11 @@
 """One-time (idempotent) setup for the client-data-isolation demo:
 
-0. Registers the Gold table's S3 location with Lake Formation. Without this,
-   Lake Formation cannot vend credentials for the underlying objects, so
-   Athena falls back to the caller's own IAM permissions - which is why an
-   earlier version of governance_stack.py "needed" to grant analyst roles
-   direct S3 access on the whole lake, quietly making the row filters
-   decorative. Registration is what allows those roles to hold *no* S3
-   permission on the data while Athena still works.
+0. Registers the Gold table's S3 location with Lake Formation. This is what
+   lets analyst roles hold *no* S3 permission on the data while Athena still
+   works: Lake Formation vends the credentials after applying the row filter.
+   Without registration, Athena falls back to the caller's own IAM
+   permissions, and the only way to make queries succeed is to grant the role
+   direct S3 access - which then bypasses the filter entirely.
 1. Revokes the IAM_ALLOWED_PRINCIPALS compatibility grant on gold_daily_kpi.
    Every new Glue table gets this grant by default (see
    module2-experimentation-platform/orchestration/README.md's Lake
