@@ -20,6 +20,8 @@ from infra.foundation_stack import OPERATOR_ROLE_NAME
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MODULE4_DIR = REPO_ROOT / "module4-partner-support-chatbot"
+GAME_PROVIDER_ROLE_NAME = "aurora-games-game-provider-partner"
+CLIENT_OPERATOR_ROLE_NAME = "aurora-games-client-operator-partner"
 
 
 class SupportChatbotStack(Stack):
@@ -155,6 +157,9 @@ class SupportChatbotStack(Stack):
                 "GUARDRAIL_ID": guardrail.attr_guardrail_id,
                 "GUARDRAIL_VERSION": guardrail_version.attr_version,
                 "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
+                "GAME_PROVIDER_PRINCIPAL_PATTERN": GAME_PROVIDER_ROLE_NAME,
+                "CLIENT_OPERATOR_PRINCIPAL_PATTERN": CLIENT_OPERATOR_ROLE_NAME,
+                "DAILY_REQUEST_LIMIT": "50",
                 "SUPPORT_TICKETS_TABLE_NAME": tickets_table.table_name,
                 "SUPPORT_SESSIONS_TABLE_NAME": sessions_table.table_name,
             },
@@ -211,11 +216,15 @@ class SupportChatbotStack(Stack):
                 # authenticated caller with a loop turns this endpoint into someone
                 # else's free LLM on our bill. IAM auth answers "who are you"; it
                 # says nothing about "how often".
-                throttling_rate_limit=10,
-                throttling_burst_limit=20,
+                # A support PoC does not need machine-to-machine throughput.
+                # Keep even invalid/blocked traffic from turning API/Lambda
+                # request pricing into a material bill.
+                throttling_rate_limit=0.1,
+                throttling_burst_limit=2,
             ),
         )
-        api.root.add_resource("chat").add_method(
+        chat_resource = api.root.add_resource("chat")
+        chat_resource.add_method(
             "POST", apigateway.LambdaIntegration(chat_fn),
             # Also gates the audit track: debug output is now authorised by
             # identity rather than by a boolean the caller sets on itself.
@@ -227,11 +236,49 @@ class SupportChatbotStack(Stack):
             authorization_type=apigateway.AuthorizationType.IAM,
         )
 
+        # These are account-local PoC identities, not a claim that external
+        # federation is production-ready. IAM roles have no hourly charge and
+        # let the handler derive which of the two integration directions may be
+        # answered without trusting a request-body audience flag.
+        self.game_provider_role = game_provider_role = iam.Role(
+            self,
+            "GameProviderPartnerRole",
+            role_name=GAME_PROVIDER_ROLE_NAME,
+            assumed_by=iam.AccountPrincipal(self.account),
+            description="PoC game-provider identity scoped to inbound game integration support",
+        )
+        self.client_operator_role = client_operator_role = iam.Role(
+            self,
+            "ClientOperatorPartnerRole",
+            role_name=CLIENT_OPERATOR_ROLE_NAME,
+            assumed_by=iam.AccountPrincipal(self.account),
+            description="PoC client-operator identity scoped to outbound platform API support",
+        )
+        chat_invoke = iam.PolicyStatement(
+            actions=["execute-api:Invoke"],
+            resources=[api.arn_for_execute_api("POST", "/chat", "prod")],
+        )
+        game_provider_role.add_to_policy(chat_invoke)
+        client_operator_role.add_to_policy(
+            iam.PolicyStatement(
+                actions=["execute-api:Invoke"],
+                resources=[api.arn_for_execute_api("POST", "/chat", "prod")],
+            )
+        )
+
         CfnOutput(self, "ChatApiUrl", value=api.url)
         CfnOutput(self, "SupportChatFunctionName", value=chat_fn.function_name)
         CfnOutput(self, "SupportGuardrailId", value=guardrail.attr_guardrail_id)
         CfnOutput(self, "SupportTicketsTableName", value=tickets_table.table_name)
         CfnOutput(self, "SupportSessionsTableName", value=sessions_table.table_name)
+        CfnOutput(
+            self, "GameProviderPartnerRoleArn", value=game_provider_role.role_arn
+        )
+        CfnOutput(
+            self,
+            "ClientOperatorPartnerRoleArn",
+            value=client_operator_role.role_arn,
+        )
         CfnOutput(
             self,
             "PartnerNotificationsTopicArn",

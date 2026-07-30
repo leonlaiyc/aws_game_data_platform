@@ -2,7 +2,9 @@
 
 Status: **operationally verified PoC** as of 2026-07-29. Durable session state,
 operator-only partner notifications, credential-like content rejection,
-durable tickets, and account-local delivery all passed against AWS.
+durable tickets, and account-local delivery all passed against AWS. The
+identity-derived two-audience corpus described below is implemented and tested
+locally, but has not been deployed as part of this change.
 
 ## Pain Point
 
@@ -10,6 +12,11 @@ Aurora Games' integration engineers spend a large share of their week answering 
 questions — why a webhook signature fails, which environment a credential belongs to, when sandbox
 resets. Each one is individually cheap and collectively expensive, and the questions that genuinely
 need an engineer get queued behind the ones that don't.
+
+There are two different integration directions: game providers connect launch
+and wallet/round APIs into Aurora Games, while 2C client operators consume
+Aurora Games authentication, webhook, settlement, release, and maintenance
+interfaces. Their documentation is deliberately separate.
 
 A bot that answers the easy ones is straightforward. The hard part, and the actual subject of this
 module, is **the bot knowing when not to answer** — and being unable to embarrass the company when
@@ -59,7 +66,24 @@ routing reason; raw model output and the full corpus remain only in the operator
 First-turn state is also durable: `aurora-games-support-sessions` uses an
 atomic conditional write so cold starts and concurrent Lambda containers agree
 on whether a greeting has already been shown. The record expires after 24
-hours; it stores no conversation body.
+hours; it stores no conversation body. Session keys are namespaced by partner
+audience so the two integration directions cannot collide.
+
+The caller cannot select an audience in the request body. Exact IAM role
+mapping selects `game_provider`, `client_operator`, or the internal operator
+view; unknown identities fail closed. Only that audience's files are scored
+and passed to the model. The two account-local PoC roles add no hourly charge;
+production still needs per-partner federation and tenant claims.
+
+Cost control is enforced before Guardrails or model inference: an atomic
+counter in the existing session table allows at most 50 valid requests per UTC
+day for each identity-derived audience. Questions are capped at 1,000
+characters (one Guardrails text unit), and excess traffic receives HTTP 429.
+This complements the API's per-second throttle with a daily spend-volume
+boundary and adds no table or always-on worker. The stage itself is limited to
+0.1 requests/second with a burst of 2 because a human support PoC does not need
+machine-rate throughput; this also bounds invalid requests that never reach
+the daily paid-path counter.
 
 Operational notifications are a separate operator-only API:
 `POST /notifications` accepts a structured `NEW_GAME` or `MAINTENANCE`
@@ -84,8 +108,8 @@ saving at the same time.
 
 ### How relevance is scored without a vector store
 
-This project has no vector store anywhere, by design. The corpus is four documents and fits
-in-context in full, so "retrieval relevance" is replaced by two deterministic checks in
+This project has no vector store anywhere, by design. Each identity-scoped
+corpus is small enough to fit in-context, so "retrieval relevance" is replaced by two deterministic checks in
 [`config.py`](lambda/chat/config.py):
 
 1. **Overlap ratio** — the fraction of the question's content words that appear in the knowledge
@@ -101,8 +125,8 @@ model would give you for free.
 
 **This is the honest cost of not running a vector store**, and it is stated plainly rather than
 glossed: the anchor list is curated, so every new corpus topic needs its anchors added, and a
-partner using unanticipated vocabulary gets wrongly refused. At four documents that is a good
-trade. It is the first thing that flips if the corpus grows.
+partner using unanticipated vocabulary gets wrongly refused. At the current corpus size that is a
+good trade. It is the first thing that flips if the corpus grows.
 
 ### Why "topic ambiguity" is not a usable clarification signal
 
@@ -223,13 +247,19 @@ path passed API-to-SNS-to-SQS delivery plus matching-message cleanup.
 
 ## Known limitations
 
+Every audit record also emits `measurement_event=partner_support_outcome`,
+`automation_outcome`, `requires_human`, audience, and whether a model was
+invoked. These fields reuse the existing structured CloudWatch log, avoiding
+always-on analytics infrastructure or extra custom-metric charges.
+
 Stated plainly rather than omitted:
 
-- **Operator identity is matched by IAM role-name convention**, which is a demo simplification: a
-  role name is not a security boundary once anyone can create a role with a matching name. A real
-  deployment would carry the entitlement in a verified IdP claim.
-- **The whole corpus is sent on every request** (~7,800 characters). Fine at four documents, and the
-  reason no vector store is needed; it is also the hard ceiling on how far this design scales.
+- **Partner audience is matched by IAM role-name convention**, which is an
+  account-local PoC simplification, not per-partner tenant identity. A real
+  deployment must carry partner ID and audience in verified federation claims.
+- **The selected audience corpus is sent on every model request.** Fine at the
+  current document count and the reason no vector store is needed; it is also
+  the hard ceiling on how far this design scales.
 - **No conversation history.** Each request is independent, so a partner answering the clarification
   question has to restate their original question. DynamoDB currently tracks
   only whether the session has been seen, not its messages. A bounded,

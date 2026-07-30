@@ -10,6 +10,9 @@ DROP TABLE IF EXISTS experiments_export;
 CREATE EXTERNAL TABLE experiments_export (
     experiment_id     string,
     name              string,
+    owner             string,
+    created_by        string,
+    updated_by        string,
     state             string,
     game_id           string,
     client_site_id    string,

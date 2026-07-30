@@ -70,7 +70,7 @@ PAGE = """<!doctype html>
     <div class="card"><div class="label">Draft queue</div><div class="value" id="draft">–</div></div>
   </section>
   <div class="table-wrap"><table><thead><tr>
-    <th>Experiment</th><th>Site / Game</th><th>State</th><th>Health</th>
+    <th>Experiment</th><th>Owner</th><th>Site / Game</th><th>State</th><th>Health</th>
     <th>Allocation</th><th>Exposure SRM</th><th>Last check / End</th>
   </tr></thead><tbody id="rows"></tbody></table></div>
 </main><script>
@@ -84,6 +84,7 @@ async function refresh(){
     action.textContent=d.summary.needs_action; draft.textContent=d.summary.draft;
     rows.innerHTML=d.experiments.map(x=>`<tr>
       <td><div class="name">${esc(x.name)}</div><div class="id">${esc(x.experiment_id)}</div></td>
+      <td><div class="name">${esc(x.owner)}</div><div class="dim">${esc(x.created_by)}</div></td>
       <td>${esc(x.client_site_id)}<div class="dim">${esc(x.game_id)} · ${esc(x.execution_mode)}</div></td>
       <td><span class="pill neutral">${esc(x.state)}</span></td>
       <td><span class="pill ${esc(x.health)}">${esc(x.health)}</span>
@@ -91,7 +92,7 @@ async function refresh(){
       <td class="${x.allocation_enabled?"on":"off"}">${x.allocation_enabled?"ENABLED":"CONTROL ONLY"}</td>
       <td>${esc(x.srm_status)}<div class="dim">n=${esc(x.total_exposed)}</div></td>
       <td><div>${esc(x.last_checked_at)}</div><div class="dim">${esc(x.planned_end_at)}</div></td>
-    </tr>`).join("") || `<tr><td colspan="7" class="dim">No experiments found.</td></tr>`;
+    </tr>`).join("") || `<tr><td colspan="8" class="dim">No experiments found.</td></tr>`;
     error.style.display="none"; refreshed.textContent="Updated "+new Date().toLocaleTimeString();
   }catch(e){error.textContent=e.message;error.style.display="block";refreshed.textContent="Refresh failed"}
 }

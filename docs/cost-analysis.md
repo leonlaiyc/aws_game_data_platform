@@ -254,6 +254,40 @@ Scale triggers:
 - when delivery needs retry policies and per-partner fan-out at scale, add
   DLQs and subscription management rather than widening the audit queue.
 
+### Four-pain-point increment (checked 2026-07-30; not deployed)
+
+This local change does not add a provisioned service or an external recipient.
+It reuses existing request-priced resources and keeps the central experiment
+view on localhost.
+
+| Change | Billing unit | Idle charge | Conservative current-scale increment |
+|---|---|---|---:|
+| Weekly mature D1/D7 retention check | Existing Lambda request/duration plus Athena bytes scanned; about 4.35 runs/month | No additional compute idle charge | `< $0.01/month`; about 17–18 queries/month for three sites |
+| M2 `owner`/identity provenance | Existing DynamoDB on-demand writes and stored bytes | No provisioned throughput | Negligible bytes per experiment |
+| M3 on-demand diagnosis | Two existing Athena query shapes per request | None when unused | Usage-only; no second Bedrock narration call |
+| Retention first-look | Existing Lambda, S3, and SNS path | None when unused | Usage-only; code-rendered without a model call |
+| Two M4 audience roles | IAM role/policy objects | IAM is offered at no additional charge | `$0` IAM service charge |
+| Two packaged support corpora | Lambda package and selected Bedrock input tokens | No vector store/search capacity | Usage-only when an answer reaches the model |
+| M4 daily cost quota | Existing DynamoDB session-table conditional update | No new table | 50 valid requests/UTC day/audience before Guardrails or inference; 1,000-character input cap |
+| M4 stage throttle | API Gateway request rate | None | 0.1 request/second, burst 2; bounds invalid as well as valid traffic |
+| Outcome measurement | Existing CloudWatch structured log bytes | No custom metric | Negligible at PoC request volume |
+
+Athena bills by bytes scanned with a 10 MB minimum per query. At 18 minimum
+queries this path scans about 180 MB/month, roughly `$0.0009` using AWS's
+standard `$5/TB` example rate. Lambda is request and GB-second priced; four or
+five additional invocations per month are immaterial even without relying on
+credits. The EventBridge rule creates no worker process between invocations.
+
+Official sources checked 2026-07-30:
+[Athena pricing](https://aws.amazon.com/athena/pricing/),
+[Lambda pricing](https://aws.amazon.com/lambda/pricing/),
+[EventBridge pricing](https://aws.amazon.com/eventbridge/pricing/),
+[IAM FAQ](https://aws.amazon.com/iam/faqs/), and
+[CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/).
+
+The change remains **locally verified / deployment pending**. No `cdk deploy`
+or AWS mutation was run, so it has produced no new AWS bill.
+
 Teardown:
 
 ```powershell
@@ -281,26 +315,30 @@ These are the numbers to reach for when someone asks "what does one more user co
 | One Module 3 NL question | **~$0.00005** (≈500 input + ~100 output tokens on Nova Lite, at $0.06/M in and $0.24/M out) plus a sub-cent Athena query |
 | One Module 2 experiment readout | Fractions of a cent — one Bedrock call over an already-computed analysis result |
 | One first-look report | ~3 Athena queries + one Bedrock call ≈ **under $0.01** |
-| One Module 4 partner question, answered | **~$0.0002** — the whole 7.8 KB corpus (~2,000 tokens) goes in-context on every request |
-| One Module 4 question, refused by Guardrails | an `ApplyGuardrail` call — billed per text unit *per policy evaluated*, so a guardrail with five content filters and two denied topics costs meaningfully more than a naive per-call estimate suggests. Still fractions of a cent, but not the ~$0.000002 an earlier version of this document claimed. |
-| One Module 4 question, refused as out of scope | **$0** — the lexical check runs before any Bedrock call |
+| One Module 4 partner question, answered | Fractions of a cent — the identity-selected audience corpus goes in-context; no vector store is queried |
+| One Module 4 question, refused by Guardrails | One `ApplyGuardrail` input check. AWS currently lists content filters at $0.15/1,000 text units and denied topics separately at $0.15/1,000 text units; individual filter categories/topics are not each multiplied as separate safeguard charges. |
+| One Module 4 question, refused as out of scope | One `ApplyGuardrail` input check, then no model call. It is cheaper than an answered question but **not $0**. |
 
 **Rate caveat:** the Nova Lite figures above are US-region rates. Tokyo is higher. The conclusion
 (negligible at this volume) is unaffected, but the arithmetic would need redoing before quoting
 these to a client.
 
-Module 4's answered-question cost is roughly **4x** Module 3's, purely because passing the entire
-corpus in-context trades tokens for infrastructure. That is the trade working as intended: ~$0.0002
-per question buys the removal of a vector store, its ingestion pipeline, and its idle cost. It stops
-being a good trade at roughly a 50x larger corpus, where per-question token cost would exceed what a
-retrieval layer costs to run.
+Module 4's answered-question cost is higher than Module 3's because passing the
+selected corpus in-context trades tokens for infrastructure. That is the trade
+working as intended: a small per-question increment buys the removal of a
+vector store, its ingestion pipeline, and its idle cost. Re-evaluate when the
+audience corpus no longer fits comfortably in one prompt or measured token cost
+exceeds a retrieval layer's total operating cost.
 
-Note also the ordering effect: the two cheapest categories (`BLOCKED_CONTENT` and `OUT_OF_SCOPE`)
-are decided **before** any model call, so abuse and off-topic traffic — the volume most likely to
-spike — is also the volume that costs essentially nothing to reject.
+Note also the ordering effect: `BLOCKED_CONTENT` and `OUT_OF_SCOPE` are decided
+before any model call, so abuse and off-topic traffic avoid inference spend.
+Both still incur the standalone input Guardrails evaluation because security
+classification intentionally runs first.
 
-At **20,000 NL questions per month** the Bedrock cost is still about **$1**. This is why the
-build-vs-buy comparison against Amazon Quick does not turn on question volume — see below.
+At **20,000 Module 3 model questions per month**, model-token cost remains on
+the order of dollars under the cited rates. Module 4's PoC cannot reach that
+traffic: its pre-Bedrock quota caps each of three audiences at 50 accepted
+requests per UTC day (at most about 4,500 per 30-day month).
 
 ---
 

@@ -34,6 +34,7 @@ import uuid
 from datetime import date
 
 import boto3
+import diagnostics
 from athena_utils import fetch_all_rows, run_athena_query
 from templates import (
     KPI_DEFINITIONS_VERSION,
@@ -123,7 +124,7 @@ Reference "today" date is the latest complete publication: {data_window["publish
 Data available from {data_window["published_from"]} to {data_window["published_through"]}
 
 Classify the user's question and respond with ONLY a JSON object, no markdown fences:
-{{"category": "answerable" | "out_of_scope" | "needs_clarification" | "no_template_match",
+{{"category": "answerable" | "diagnose" | "out_of_scope" | "needs_clarification" | "no_template_match",
   "metric": one of [{", ".join(f'"{k}"' for k in TEMPLATES)}] or null,
   "client_site_id": one of ["site_a", "site_b", "site_c"] or null,
   "game_id": one of [{", ".join(f'"{game}"' for game in VALID_GAMES)}] or null,
@@ -137,6 +138,9 @@ Rules:
 - "needs_clarification": the metric is identifiable but the site or date range is missing or
   ambiguous - ask exactly one targeted clarifying question.
 - "no_template_match": clearly an analytics question, but not one of the metrics listed above.
+- "diagnose": the user asks WHY a recent KPI dropped, whether a site/game has a problem, or asks
+  for a first-look investigation. Resolve client_site_id and end_date; metric and game_id may be
+  null because the deterministic diagnostic compares multiple KPIs and all games.
 - "answerable": ONLY when metric, client_site_id, start_date, and end_date are ALL confidently
   determined. game_id is optional; extract it when the question names a game. Interpret relative
   time expressions (e.g. "last week") relative to the reference date.
@@ -164,6 +168,50 @@ def _validate_slots(
     """Defensive re-validation of model-extracted slots before they ever
     reach a SQL string - never trust the model's raw output directly,
     even though the prompt already constrains it to a closed set."""
+    if parsed.get("category") == "diagnose":
+        site = parsed.get("client_site_id")
+        as_of_date = parsed.get("end_date")
+        game_id = parsed.get("game_id")
+        if (
+            site not in VALID_CLIENT_SITES
+            or not (as_of_date and _DATE_RE.match(as_of_date))
+            or (game_id is not None and game_id not in VALID_GAMES)
+        ):
+            return {
+                **parsed,
+                "category": "needs_clarification",
+                "clarification_question": (
+                    "Which client site and date should I investigate?"
+                ),
+                "reasoning": (
+                    "diagnostic request needs a whitelisted site and one date"
+                ),
+            }
+        window = data_window or {
+            "published_from": DATA_MIN_DATE,
+            "published_through": DATA_MAX_DATE,
+        }
+        try:
+            requested_date = date.fromisoformat(as_of_date)
+            min_date = date.fromisoformat(window["published_from"])
+            max_date = date.fromisoformat(window["published_through"])
+        except (TypeError, ValueError):
+            requested_date = None
+        if (
+            requested_date is None
+            or not min_date <= requested_date <= max_date
+        ):
+            return {
+                **parsed,
+                "category": "needs_clarification",
+                "clarification_question": (
+                    f"Complete data is available from {window['published_from']} "
+                    f"to {window['published_through']}. Which date inside that "
+                    "window should I investigate?"
+                ),
+                "reasoning": "diagnostic date is outside the complete publication",
+            }
+        return parsed
     if parsed.get("category") != "answerable":
         return parsed
     metric, site = parsed.get("metric"), parsed.get("client_site_id")
@@ -246,6 +294,50 @@ def _audit_log(question: str, parsed: dict, extra: dict = None):
     # Not user-facing - this is the trail a real threshold/prompt would be
     # tuned from, per the same principle recorded for Module 4.
     print(json.dumps({"audit": True, "question": question, "parsed": parsed, **(extra or {})}))
+
+
+def _run_diagnosis(site: str, as_of_date: str) -> dict:
+    """Run the existing first-look logic without a second model invocation."""
+    comparison = diagnostics.site_baseline_comparison(site, as_of_date)
+    if not comparison:
+        return {"report_text": None, "comparison": {}, "game_breakdown": []}
+    breakdown = diagnostics.game_breakdown(site, as_of_date)
+    headline = (
+        "On-demand first-look requested - review the code-rendered breakdown "
+        "below."
+    )
+    return {
+        "report_text": diagnostics.render_report(
+            site,
+            as_of_date,
+            comparison,
+            breakdown,
+            headline,
+        ),
+        "comparison": comparison,
+        "game_breakdown": breakdown,
+    }
+
+
+def _automation_outcome(category: str) -> dict:
+    """Stable fields for low-cost Logs Insights measurement.
+
+    These deliberately do not call a category ratio "deflection": only
+    persisted user feedback or downstream case outcomes can prove that.
+    """
+    return {
+        "measurement_event": "analytics_self_service_outcome",
+        "automation_outcome": {
+            "answerable": "answer_delivered",
+            "diagnosis": "diagnosis_delivered",
+            "needs_clarification": "clarification_requested",
+            "no_template_match": "human_ticket_or_no_data",
+            "scope_blocked": "scope_refused",
+            "out_of_scope": "out_of_scope_refused",
+            "blocked": "guardrail_blocked",
+        }.get(category, "unknown"),
+        "requires_human": category == "no_template_match",
+    }
 
 
 class ScopeResolutionError(Exception):
@@ -348,7 +440,15 @@ def handler(event, context):
     try:
         caller_scope = _caller_scope(event)
     except ScopeResolutionError as e:
-        _audit_log(question, {"category": "scope_unresolved"}, {"reason": str(e)})
+        _audit_log(
+            question,
+            {"category": "scope_unresolved"},
+            {
+                "reason": str(e),
+                "final_category": "scope_blocked",
+                **_automation_outcome("scope_blocked"),
+            },
+        )
         return _response(
             {"category": "scope_blocked",
              "answer": "Your credentials are not associated with a client site."},
@@ -365,7 +465,15 @@ def handler(event, context):
     )
 
     if resp.get("stopReason") == "guardrail_intervened":
-        _audit_log(question, {"category": "blocked"}, {"guardrail_trace": resp.get("trace")})
+        _audit_log(
+            question,
+            {"category": "blocked"},
+            {
+                "guardrail_trace": resp.get("trace"),
+                "final_category": "blocked",
+                **_automation_outcome("blocked"),
+            },
+        )
         return _response({
             "category": "blocked",
             "answer": "This assistant only helps with Aurora Games analytics questions and can't process this request.",
@@ -377,7 +485,11 @@ def handler(event, context):
     )
     category = parsed.get("category")
 
-    if category == "answerable" and caller_scope and parsed["client_site_id"] not in caller_scope:
+    if (
+        category in {"answerable", "diagnose"}
+        and caller_scope
+        and parsed["client_site_id"] not in caller_scope
+    ):
         category = "scope_blocked"
 
     if category == "out_of_scope":
@@ -396,7 +508,37 @@ def handler(event, context):
         )
         result = {"category": category, "ticket_id": ticket_id,
                   "answer": f"That's a great analytics question, but it's outside what I can answer directly today. "
-                            f"I've routed it to our analytics team - ticket {ticket_id}."}
+                             f"I've routed it to our analytics team - ticket {ticket_id}."}
+    elif category == "diagnose":
+        diagnosis = _run_diagnosis(
+            parsed["client_site_id"],
+            parsed["end_date"],
+        )
+        if diagnosis["report_text"] is None:
+            result = {
+                "category": "no_template_match",
+                "answer": (
+                    "There is no complete data for that site and date, so I "
+                    "can't produce a grounded diagnosis."
+                ),
+            }
+        else:
+            result = {
+                "category": "diagnosis",
+                "answer": diagnosis["report_text"],
+                "source_footer": (
+                    "Sources: gold_daily_kpi and governed silver_events; "
+                    f"published through {data_window['published_through']}."
+                ),
+                "query_evidence": {
+                    "client_site_id": parsed["client_site_id"],
+                    "game_id_requested": parsed.get("game_id"),
+                    "as_of_date": parsed["end_date"],
+                    "comparison": diagnosis["comparison"],
+                    "game_breakdown": diagnosis["game_breakdown"],
+                    "publication": data_window,
+                },
+            }
     else:  # answerable
         r = _run_template(
             parsed["metric"],
@@ -429,5 +571,13 @@ def handler(event, context):
                 },
             }
 
-    _audit_log(question, parsed, {"caller_scope": caller_scope, "final_category": result["category"]})
+    _audit_log(
+        question,
+        parsed,
+        {
+            "caller_scope": caller_scope,
+            "final_category": result["category"],
+            **_automation_outcome(result["category"]),
+        },
+    )
     return _response(result)

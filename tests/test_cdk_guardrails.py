@@ -147,16 +147,19 @@ def test_analyst_workgroups_enforce_configuration(stacks):
 
 
 def test_first_look_subscription_filters_on_alert_type(stacks):
-    """Two publishers share the alert topic; this consumer only handles one of
-    them. Without the filter it receives arbitrage alerts it cannot process."""
+    """The first-look consumer handles business-metric alerts, but not
+    arbitrage alerts that have a different evidence contract."""
     subs = stacks["analytics"].find_resources("AWS::SNS::Subscription")
     assert subs, "no SNS subscription found"
     for logical_id, resource in subs.items():
         if resource["Properties"].get("Protocol") != "lambda":
             continue  # account-local report delivery is an outbound SQS sink
         policy = resource["Properties"].get("FilterPolicy")
-        assert policy and policy.get("alert_type") == ["data_anomaly"], (
-            f"{logical_id} filter policy is {policy!r}, expected alert_type=[data_anomaly]"
+        assert policy and policy.get("alert_type") == [
+            "data_anomaly",
+            "retention_anomaly",
+        ], (
+            f"{logical_id} filter policy is {policy!r}, expected business alert types"
         )
 
 
@@ -200,6 +203,42 @@ def test_support_escalations_have_a_real_ticket_store(stacks):
             },
         },
     })
+
+
+def test_support_chat_identity_selects_one_of_two_partner_corpora(stacks):
+    support = stacks["chatbot"]
+    support.has_resource_properties(
+        "AWS::IAM::Role",
+        {"RoleName": "aurora-games-game-provider-partner"},
+    )
+    support.has_resource_properties(
+        "AWS::IAM::Role",
+        {"RoleName": "aurora-games-client-operator-partner"},
+    )
+    functions = support.find_resources("AWS::Lambda::Function")
+    environments = [
+        resource["Properties"].get("Environment", {}).get("Variables", {})
+        for resource in functions.values()
+    ]
+    assert any(
+        env.get("GAME_PROVIDER_PRINCIPAL_PATTERN")
+        == "aurora-games-game-provider-partner"
+        and env.get("CLIENT_OPERATOR_PRINCIPAL_PATTERN")
+        == "aurora-games-client-operator-partner"
+        and env.get("DAILY_REQUEST_LIMIT") == "50"
+        for env in environments
+    )
+    support.has_resource_properties(
+        "AWS::ApiGateway::Stage",
+        {
+            "MethodSettings": [
+                Match.object_like({
+                    "ThrottlingBurstLimit": 2,
+                    "ThrottlingRateLimit": 0.1,
+                })
+            ]
+        },
+    )
 
 
 def test_support_sessions_and_notifications_are_durable_without_external_recipient(stacks):

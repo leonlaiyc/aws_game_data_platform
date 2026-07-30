@@ -48,7 +48,10 @@ authenticated partner with a `while` loop is, in effect, using the account as so
 and the same shape of abuse against the analytics API drives Athena scans.
 
 **Mitigated during this exercise:**
-- **API Gateway throttling** on all three APIs: 10 req/s sustained, 20 burst (verified applied).
+- **API Gateway throttling** on all three APIs: Module 2 and Module 3 use
+  10 req/s sustained with burst 20; the human-facing Module 4 PoC is locally
+  configured at 0.1 req/s with burst 2, plus a 50-request UTC-day quota per
+  identity-derived audience before paid AI calls.
   Normal use is unaffected; a loop is shed.
 - **Athena per-query scan cap** of 1 GB, which already existed. A runaway query is cancelled rather
   than billed to completion.

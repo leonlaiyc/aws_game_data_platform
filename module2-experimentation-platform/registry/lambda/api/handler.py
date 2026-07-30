@@ -34,8 +34,23 @@ ALLOWED_CLIENT_SITES = {
     ).split(",") if site.strip()
 }
 
-REQUIRED_CREATE_FIELDS = ["name", "game_id", "client_site_id", "variants", "oec_metric"]
-UPDATABLE_DRAFT_FIELDS = {"name", "audience", "variants", "oec_metric", "guardrail_metrics", "related_experiment_id"}
+REQUIRED_CREATE_FIELDS = [
+    "name",
+    "owner",
+    "game_id",
+    "client_site_id",
+    "variants",
+    "oec_metric",
+]
+UPDATABLE_DRAFT_FIELDS = {
+    "name",
+    "owner",
+    "audience",
+    "variants",
+    "oec_metric",
+    "guardrail_metrics",
+    "related_experiment_id",
+}
 OPTIONAL_CREATE_FIELDS = {"audience", "guardrail_metrics", "related_experiment_id"}
 ALLOWED_METRICS = {
     "sessions_7d",
@@ -80,6 +95,14 @@ def _caller_scope(event) -> str | None:
         return match.group(1)
     raise ScopeResolutionError(
         f"caller identity is not mapped to an experiment-registry scope: {arn or '<none>'}"
+    )
+
+
+def _caller_principal(event) -> str:
+    """Return the authenticated principal used for immutable provenance."""
+    return (
+        (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn")
+        or "unknown"
     )
 
 
@@ -146,6 +169,12 @@ def _validate_payload(body: dict, *, partial: bool = False) -> str | None:
         or len(body["name"]) > 120
     ):
         return "name must be a non-empty string of at most 120 characters"
+    if "owner" in body and (
+        not isinstance(body["owner"], str)
+        or not body["owner"].strip()
+        or len(body["owner"]) > 120
+    ):
+        return "owner must be a non-empty string of at most 120 characters"
     if "client_site_id" in body and body["client_site_id"] not in ALLOWED_CLIENT_SITES:
         return f"unsupported client_site_id: {body['client_site_id']!r}"
     if "game_id" in body and not _SAFE_IDENTIFIER_RE.fullmatch(str(body["game_id"])):
@@ -369,7 +398,11 @@ def record_exposure(
     return _exposure_decision(exposure, idempotent=False)
 
 
-def create_experiment(body: dict, caller_site: str | None) -> dict:
+def create_experiment(
+    body: dict,
+    caller_site: str | None,
+    created_by: str = "unknown",
+) -> dict:
     error = _validate_payload(body)
     if error:
         return _response(400, {"error": error})
@@ -385,6 +418,9 @@ def create_experiment(body: dict, caller_site: str | None) -> dict:
     item = {
         "experiment_id": experiment_id,
         "name": body["name"],
+        "owner": body["owner"].strip(),
+        "created_by": created_by,
+        "updated_by": created_by,
         "game_id": body["game_id"],
         "client_site_id": body["client_site_id"],
         "state": "draft",
@@ -427,7 +463,12 @@ def list_experiments(caller_site: str | None) -> dict:
     return _response(200, {"experiments": items})
 
 
-def update_experiment(experiment_id: str, body: dict, caller_site: str | None) -> dict:
+def update_experiment(
+    experiment_id: str,
+    body: dict,
+    caller_site: str | None,
+    updated_by: str = "unknown",
+) -> dict:
     item = table.get_item(Key={"experiment_id": experiment_id}).get("Item")
     if not item or not _is_visible(item, caller_site):
         return _response(404, {"error": "not found"})
@@ -450,7 +491,12 @@ def update_experiment(experiment_id: str, body: dict, caller_site: str | None) -
     expr_names = {f"#{k}": k for k in updates}
     expr_values = {f":{k}": v for k, v in updates.items()}
     expr_values[":updated_at"] = _now()
-    update_expr = "SET " + ", ".join(f"#{k} = :{k}" for k in updates) + ", updated_at = :updated_at"
+    expr_values[":updated_by"] = updated_by
+    update_expr = (
+        "SET "
+        + ", ".join(f"#{k} = :{k}" for k in updates)
+        + ", updated_at = :updated_at, updated_by = :updated_by"
+    )
     table.update_item(
         Key={"experiment_id": experiment_id},
         UpdateExpression=update_expr,
@@ -647,6 +693,7 @@ def handler(event, context):
         caller_site = _caller_scope(event)
     except ScopeResolutionError as error:
         return _response(403, {"error": str(error)})
+    caller_principal = _caller_principal(event)
 
     method = event["httpMethod"]
     resource = event["resource"]
@@ -658,13 +705,15 @@ def handler(event, context):
         return _response(400, {"error": "request body must be valid JSON"})
 
     if resource == "/experiments" and method == "POST":
-        return create_experiment(body, caller_site)
+        return create_experiment(body, caller_site, caller_principal)
     if resource == "/experiments" and method == "GET":
         return list_experiments(caller_site)
     if resource == "/experiments/{id}" and method == "GET":
         return get_experiment(experiment_id, caller_site)
     if resource == "/experiments/{id}" and method == "PATCH":
-        return update_experiment(experiment_id, body, caller_site)
+        return update_experiment(
+            experiment_id, body, caller_site, caller_principal
+        )
     if resource == "/experiments/{id}" and method == "DELETE":
         return delete_experiment(experiment_id, caller_site)
     if resource == "/experiments/{id}/start" and method == "POST":

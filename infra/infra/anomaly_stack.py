@@ -37,6 +37,29 @@ class AnomalyStack(Stack):
             lake_bucket,
             schedule_description="Daily EWMA anomaly check across all client sites",
         )
+        # Retention is intentionally weekly: daily cohorts are too small and
+        # D7 outcomes are incomplete until seven days later. Reuse the same
+        # Lambda/package and publication manifest, but keep an independent
+        # consumption marker so the daily and weekly paths cannot suppress one
+        # another.
+        retention_rule = events.Rule(
+            self,
+            "RetentionAnomalySchedule",
+            description="Weekly mature-cohort D1/D7 retention check",
+            schedule=events.Schedule.cron(
+                minute="0",
+                hour="0",
+                week_day="MON",
+            ),
+        )
+        retention_rule.add_target(
+            targets.LambdaFunction(
+                self.anomaly_fn,
+                event=events.RuleTargetInput.from_object(
+                    {"scheduled": True, "cadence": "weekly"}
+                ),
+            )
+        )
         self.arbitrage_fn = self._make_detector(
             "ArbitrageDetector",
             MODULE1_DIR / "arbitrage_detection" / "lambda",

@@ -32,10 +32,10 @@ Base URL: the `ExperimentsApiUrl` CDK output (`AuroraGamesRegistryStack`).
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/experiments` | Create (state=`draft`). Requires `name`, `game_id`, `client_site_id`, `variants`, `oec_metric`. |
+| POST | `/experiments` | Create (state=`draft`). Requires `name`, business `owner`, `game_id`, `client_site_id`, `variants`, `oec_metric`; the API derives `created_by` from the authenticated IAM principal. |
 | GET | `/experiments` | Analysts list their own site; the operator role lists all. |
 | GET | `/experiments/{id}` | Get one within the caller's identity-derived tenant scope. |
-| PATCH | `/experiments/{id}` | Edit `name`/`audience`/`variants`/`oec_metric`/`guardrail_metrics`/`related_experiment_id` — only while `draft` (409 otherwise). |
+| PATCH | `/experiments/{id}` | Edit `name`/`owner`/`audience`/`variants`/`oec_metric`/`guardrail_metrics`/`related_experiment_id` only while `draft` (409 otherwise); `updated_by` is identity-derived. |
 | DELETE | `/experiments/{id}` | Only while `draft` (409 otherwise) — history isn't deletable once an experiment has run. |
 | POST | `/experiments/{id}/start` | `draft -> running`. Defaults to `mode=live`; requires 1–90 `duration_days`, while `mode=replay` also requires `as_of_date`. |
 | POST | `/experiments/{id}/stop` | `running -> stopped_early \| completed`, and stops the recorded Step Functions execution. |
@@ -67,6 +67,7 @@ body:
 ```json
 {
   "name": "payout-tweak-game01",
+  "owner": "growth-experimentation",
   "game_id": "game_01",
   "client_site_id": "site_a",
   "variants": [{"name":"control","weight":0.5},{"name":"treatment","weight":0.5}],

@@ -50,6 +50,11 @@ DOMAIN_ANCHOR_TERMS = {
     "retry", "retries", "idempotent", "event_id", "endpoint", "endpoints",
     # settlement
     "settlement", "settle", "settled", "reconcile", "reconciliation", "round_id",
+    # game-provider inbound integration
+    "launch", "launch_token", "wallet", "balance", "bet", "win", "cancel",
+    "rollback", "round", "provider_transaction_id", "idempotency",
+    "idempotency_conflict", "game_not_enabled", "currency", "currencies",
+    "manifest", "rtp", "jackpot", "player", "players",
     # platform
     "integration", "partner", "partners", "api", "apis", "portal", "maintenance",
     "release", "releases", "deprecated", "deprecation", "version",

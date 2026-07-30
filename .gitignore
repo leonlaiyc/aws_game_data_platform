@@ -24,7 +24,17 @@ local_lake/
 
 # Env / secrets
 .env
+.env.*
+!.env.example
 *.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.tfstate
+*.tfstate.*
+credentials
+credentials.*
 .aws-sam/
 
 # OS / editor

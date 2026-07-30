@@ -18,6 +18,7 @@ def main() -> int:
 
     experiment = lib.api_request(api_url, "POST", "/experiments", {
         "name": "live-exposure-srm-kill-switch-demo",
+        "owner": "growth-experimentation",
         "game_id": "game_02",
         "client_site_id": "site_c",
         "audience": {"client_site_id": "site_c"},

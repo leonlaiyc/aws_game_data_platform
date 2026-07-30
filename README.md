@@ -1,6 +1,7 @@
 # Aurora Games — B2B Game Data Platform (AWS SA Portfolio Project)
 
 [![CI](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A simulation of acting as an AWS Solutions Architect for **Aurora Games**, a fictional B2B gaming
 technology company serving multiple client sites. Built under a hard constraint that shaped every
@@ -15,6 +16,8 @@ something is not implemented, [ARCHITECTURE.md](ARCHITECTURE.md) names it as a
 gap rather than omitting it.
 
 *Fictional entities (games, client sites, player data) have no relation to any real company.*
+No production credentials or customer/player data belong in this repository;
+see [SECURITY.md](SECURITY.md).
 
 ---
 
@@ -85,6 +88,13 @@ checks as a secondary net rather than the primary defense.
 | [module3-analytics-assistant](module3-analytics-assistant/) | Analysts field cross-cut business questions no prebuilt dashboard answers, and every anomaly alert starts a drill-down from scratch | Operationally verified PoC; governed queries, durable tickets, first-look report, and delivery passed |
 | [module4-partner-support-chatbot](module4-partner-support-chatbot/) | Integration engineers answer the same partner questions every week, and the questions that genuinely need an engineer queue behind the ones that don't | Operationally verified PoC; durable sessions, tickets, leakage controls, and notifications passed |
 
+The latest cost-safe increment is locally verified and deployment-pending:
+weekly mature retention detection, identity-derived experiment ownership,
+on-demand “why did it drop?” diagnosis, and separate game-provider/client-
+operator support corpora. See
+[the business-pain implementation plan](docs/business-pain-implementation-plan.md)
+for the exact scope, cost shape, and deliberately deferred boundaries.
+
 Project-wide delivery constraints are explicit: the paid AWS account still
 uses a [free-first cost policy](docs/project-constraints.md), player-risk
 alerts must satisfy an explainability contract, and every finished capability
@@ -136,6 +146,23 @@ published repository artifacts.
   projection: [docs/cost-analysis.md](docs/cost-analysis.md). Operational responses:
   [docs/runbook.md](docs/runbook.md). Attack surface and service levels:
   [docs/threat-model.md](docs/threat-model.md).
+
+---
+
+## Project status and boundaries
+
+The repository is **portfolio-complete**. The latest cost-safe increment is
+locally verified and intentionally not deployed as part of closeout: deploying
+to a paid account remains a separate decision behind the documented preflight.
+
+The remaining items are explicit production boundaries, not hidden TODOs:
+live ingestion, an evidence-backed unknown-arbitrage model, a hosted/SSO team
+UI, external federation, governed country/player analytics, partner profiles
+and CRM delivery, and scale-up services whose adoption thresholds have not
+been crossed. See
+[the project closeout](docs/project-closeout.md) for the exact list and
+triggers, and [what I got wrong first](docs/what-i-got-wrong-first.md) for the
+test-driven design corrections behind the final architecture.
 
 ---
 
@@ -198,6 +225,8 @@ diagrams/                           Architecture diagrams (Mermaid, renders on G
 docs/cost-analysis.md               Verified unit prices, observed estimate, 100x projection
 docs/runbook.md                     What each alarm means and what to do about it
 docs/threat-model.md                Who would attack this, whether it holds, and the SLOs
+docs/project-closeout.md             Implemented scope, intentional boundaries, adoption triggers
+docs/what-i-got-wrong-first.md       Five tests that changed the design
 
 data-foundation/
   event_simulator/                  Synthetic B2B gaming event generator, with scripted scenarios

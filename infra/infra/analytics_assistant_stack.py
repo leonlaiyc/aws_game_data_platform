@@ -246,7 +246,9 @@ class AnalyticsAssistantStack(Stack):
         anomaly_topic.add_subscription(sns_subscriptions.LambdaSubscription(
             self.first_look_fn,
             filter_policy={
-                "alert_type": sns.SubscriptionFilter.string_filter(allowlist=["data_anomaly"]),
+                "alert_type": sns.SubscriptionFilter.string_filter(
+                    allowlist=["data_anomaly", "retention_anomaly"]
+                ),
             },
             dead_letter_queue=sqs.Queue(
                 self, "FirstLookSubscriptionDlq",

@@ -36,6 +36,7 @@ def event_for(arn):
 def valid_payload(site="site_a"):
     return {
         "name": "Payout copy test",
+        "owner": "growth-experimentation",
         "game_id": "game_123",
         "client_site_id": site,
         "audience": {"client_site_id": site},
@@ -73,6 +74,38 @@ def test_similar_or_unknown_identity_fails_closed(arn):
 def test_analyst_cannot_create_for_another_site():
     response = handler.create_experiment(valid_payload("site_b"), caller_site="site_a")
     assert response["statusCode"] == 403
+
+
+def test_owner_is_required_and_validated():
+    payload = valid_payload()
+    del payload["owner"]
+    assert "owner" in handler._validate_payload(payload)
+    payload["owner"] = " " * 3
+    assert handler._validate_payload(payload) == (
+        "owner must be a non-empty string of at most 120 characters"
+    )
+
+
+class CapturingCreateTable:
+    def __init__(self):
+        self.item = None
+
+    def put_item(self, *, Item):
+        self.item = Item
+
+
+def test_create_records_business_owner_and_authenticated_principal(monkeypatch):
+    fake_table = CapturingCreateTable()
+    monkeypatch.setattr(handler, "table", fake_table)
+    response = handler.create_experiment(
+        valid_payload(),
+        caller_site="site_a",
+        created_by=ANALYST.format(site="site_a"),
+    )
+    assert response["statusCode"] == 201
+    assert fake_table.item["owner"] == "growth-experimentation"
+    assert fake_table.item["created_by"] == ANALYST.format(site="site_a")
+    assert fake_table.item["updated_by"] == ANALYST.format(site="site_a")
 
 
 class FakeTable:

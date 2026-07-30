@@ -41,6 +41,8 @@ def build_view_model(experiments: list[dict]) -> dict:
         rows.append({
             "experiment_id": experiment.get("experiment_id"),
             "name": experiment.get("name"),
+            "owner": experiment.get("owner", "unassigned"),
+            "created_by": experiment.get("created_by"),
             "client_site_id": experiment.get("client_site_id"),
             "game_id": experiment.get("game_id"),
             "state": experiment.get("state", "unknown"),

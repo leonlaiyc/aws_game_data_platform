@@ -1,5 +1,9 @@
 # Module 1 — Anomaly & Arbitrage Detection
 
+Latest local increment (deployment pending): the existing detector now runs a
+weekly mature-cohort D1/D7 retention check and sends hits through the same
+first-look workflow as daily DAU/GGR anomalies.
+
 ## Pain Point
 
 Two silent-failure modes a B2B gaming platform actually experiences, and why neither is caught by
@@ -24,11 +28,19 @@ Three components, in increasing order of "how real-time":
 | | Reads from | Cadence | Signal |
 |---|---|---|---|
 | [`data_anomaly/`](data_anomaly/) | `gold_daily_kpi` | Daily (EventBridge) | EWMA-based control limit on DAU/GGR per site |
+| [`data_anomaly/`](data_anomaly/) | `gold_cohort_retention` | Weekly (same Lambda, EventBridge) | Mature weekly D1/D7 retention versus a pooled, sample-weighted baseline |
 | [`arbitrage_detection/`](arbitrage_detection/) | `silver_events` (device fan-out) + `gold_player_features` (behavior) | Daily (EventBridge) | Shared-device fan-out **combined with** abnormal cash-out ratio |
 | [`streaming/`](streaming/) | Kinesis (live) | Real-time | RTP/volume threshold on a tumbling per-minute window — short-lived demo, not steady-state |
 
 All three publish to SNS on a hit and write their evidence to S3 (`gold/anomaly_alerts/`,
 `gold/flagged_players/`) so findings are Athena-queryable, not just an email that scrolls away.
+
+The weekly retention path waits until D7 outcomes are mature, compares only
+complete Monday–Sunday cohorts, requires at least four baseline weeks and a
+minimum cohort size, and combines statistical significance with a minimum
+eight-percentage-point drop. It reuses the existing Lambda and alert topic,
+with a separate publication-consumption marker so daily and weekly checks
+cannot suppress each other.
 
 ### Why arbitrage detection needs two signals, not one
 

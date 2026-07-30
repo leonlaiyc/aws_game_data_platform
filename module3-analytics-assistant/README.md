@@ -4,6 +4,10 @@ Status: **operationally verified PoC** as of 2026-07-29. Dynamic publication
 dates, governed per-game queries, durable analytics fallback tickets, and the
 alert-to-first-look-to-audit-delivery path passed against AWS.
 
+Latest local increment (deployment pending): governed on-demand diagnosis for
+“why did this drop?”, retention-alert first looks, and low-cost structured
+outcome fields in the existing audit logs.
+
 ## Pain Point
 
 A client-facing analyst wants a quick answer to "what was our GGR last week" or "why did DAU drop
@@ -11,7 +15,8 @@ today" without filing a ticket or waiting for a dashboard refresh, and without e
 answer that's subtly wrong. Two capabilities, two different shapes of that problem:
 
 - **Capability A (ask_answer):** ad hoc question-answering over a small, fixed set of governed
-  KPIs — fast, self-service, but only ever allowed to say things it can prove.
+  KPIs plus an on-demand first-look diagnosis for "why did this drop?" —
+  fast, self-service, but only ever allowed to say things it can prove.
 - **Capability B (first_look_report):** when Module 1's anomaly detector fires, an analyst
   shouldn't have to start a drill-down from scratch — a first-look report should already be
   waiting with the baseline comparison, per-game breakdown, and a plain-language headline.
@@ -43,7 +48,10 @@ First match wins, evaluated in this order:
 5. **Clearly analytics-shaped, but not one of the governed templates** →
    `no_template_match`; an `OPEN` DynamoDB work item is persisted before its
    ticket ID is returned
-6. **Otherwise** → `answerable` — run the template, render the answer in code, attach a source
+6. **Recent “why/problem” question with site and date** → `diagnose` — reuse
+   the code-owned 7-day comparison and per-game breakdown; do not pay for a
+   second model call to narrate the same evidence.
+7. **Otherwise** → `answerable` — run the template, render the answer in code, attach a source
    footer citing the table and `KPI_DEFINITIONS.md` anchor.
 
 Every request is logged in full (category, extracted slots, raw model reasoning) as a CloudWatch
@@ -81,7 +89,8 @@ fires the guardrail; see the verified demo output below.
 
 ## Capability B: first-look drill-down report
 
-Subscribed to the same SNS topic Module 1's `data_anomaly` detector already publishes to
+Subscribed to the same SNS topic Module 1's `data_anomaly` and
+`retention_anomaly` paths publish to
 (`aurora-games-anomaly-alerts`), reading `client_site_id`/`as_of_date` from the SNS message's
 `MessageAttributes` (a small, additive change to Module 1's publisher — see
 `module1-anomaly-detection/data_anomaly/lambda/detector/handler.py`'s `_publish_alert`). On each
@@ -102,9 +111,17 @@ account-local one-day SQS audit queue, so the delivery path is demoable without
 silently adding a real person or external endpoint. A production deployment
 would attach the team's explicitly approved Slack, email, or incident workflow.
 
-All of the above is rendered by code. The one LLM call produces a single qualitative headline
-sentence with an explicit instruction not to restate any figures — verified in the demo output
-below to contain no numbers, only direction/severity language.
+All numerical evidence is rendered by code. For a daily KPI alert, one LLM call
+produces a single qualitative headline sentence with an explicit instruction
+not to restate figures — verified in the demo output below to contain no
+numbers, only direction/severity language.
+
+Retention first-look reports are entirely code-rendered and make no headline
+model call. Capability A and B also add stable outcome fields to their existing
+audit logs (`measurement_event`, `automation_outcome`, `requires_human`) so
+Logs Insights can measure usage without custom metrics or another data store.
+These fields describe routing outcomes, not an unproven “analyst hours saved”
+claim.
 
 ## Verified demo output
 

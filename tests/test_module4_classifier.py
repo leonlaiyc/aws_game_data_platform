@@ -46,6 +46,10 @@ def test_off_topic_questions_are_out_of_scope(question):
     assert classify(question) == "OUT_OF_SCOPE"
 
 
+def test_question_with_only_stopwords_fails_closed_as_out_of_scope():
+    assert classify("what is this?") == "OUT_OF_SCOPE"
+
+
 def test_incidental_word_overlap_does_not_count_as_relevance():
     """Regression: "Who won the football match last night?" scored 0.40 -
     above DOMAIN_RELEVANCE_MIN - because "match" appears in the knowledge base
@@ -190,6 +194,65 @@ class TestDebugAuthorisation:
             self._event("arn:aws:sts::1:assumed-role/aurora-games-operator/x")) is False
 
 
+class TestPartnerAudienceIsolation:
+    def _event(self, role):
+        return {
+            "requestContext": {
+                "identity": {
+                    "userArn": f"arn:aws:sts::1:assumed-role/{role}/session"
+                }
+            }
+        }
+
+    def _configure_roles(self, monkeypatch):
+        monkeypatch.setattr(
+            handler, "OPERATOR_PRINCIPAL_PATTERN", "aurora-games-operator"
+        )
+        monkeypatch.setattr(
+            handler,
+            "GAME_PROVIDER_PRINCIPAL_PATTERN",
+            "aurora-games-game-provider-partner",
+        )
+        monkeypatch.setattr(
+            handler,
+            "CLIENT_OPERATOR_PRINCIPAL_PATTERN",
+            "aurora-games-client-operator-partner",
+        )
+
+    def test_exact_identity_selects_answer_corpus(self, monkeypatch):
+        self._configure_roles(monkeypatch)
+        assert handler._partner_audience(
+            self._event("aurora-games-game-provider-partner")
+        ) == "game_provider"
+        assert handler._partner_audience(
+            self._event("aurora-games-client-operator-partner")
+        ) == "client_operator"
+        assert handler._partner_audience(
+            self._event("aurora-games-operator")
+        ) == "internal_operator"
+
+    def test_similar_or_unknown_role_fails_closed(self, monkeypatch):
+        self._configure_roles(monkeypatch)
+        with pytest.raises(handler.PartnerScopeResolutionError):
+            handler._partner_audience(
+                self._event("evil-aurora-games-game-provider-partner")
+            )
+
+    def test_two_partner_directions_cannot_see_each_others_documents(self):
+        provider_docs = handler._knowledge_for_audience("game_provider")
+        operator_docs = handler._knowledge_for_audience("client_operator")
+
+        assert provider_docs
+        assert operator_docs
+        assert all(name.startswith("game_provider/") for name in provider_docs)
+        assert all(name.startswith("client_operator/") for name in operator_docs)
+        assert not set(provider_docs) & set(operator_docs)
+        assert "provider_transaction_id" in handler._build_context("game_provider")
+        assert "provider_transaction_id" not in handler._build_context(
+            "client_operator"
+        )
+
+
 def test_escalation_ticket_is_a_persisted_work_item(monkeypatch):
     class FakeTickets:
         def __init__(self):
@@ -214,6 +277,7 @@ def test_escalation_ticket_is_a_persisted_work_item(monkeypatch):
     assert request["Item"]["status"] == "OPEN"
     assert request["Item"]["question"] == "How do I enable an unsupported flow?"
     assert request["Item"]["final_category"] == "ESCALATION"
+    assert request["Item"]["partner_audience"] == "unknown"
 
 
 def test_session_first_turn_is_durable_across_lambda_containers(monkeypatch):
@@ -254,10 +318,44 @@ def test_session_first_turn_is_durable_across_lambda_containers(monkeypatch):
     )
 
 
+def test_daily_cost_quota_is_atomic_and_fails_closed(monkeypatch):
+    class ConditionalCheckFailedException(Exception):
+        pass
+
+    class FakeSessions:
+        class meta:
+            class client:
+                class exceptions:
+                    pass
+
+        def __init__(self):
+            self.count = 0
+
+        def update_item(self, **kwargs):
+            limit = kwargs["ExpressionAttributeValues"][":request_limit"]
+            if self.count >= limit:
+                raise ConditionalCheckFailedException()
+            self.count += 1
+
+    FakeSessions.meta.client.exceptions.ConditionalCheckFailedException = (
+        ConditionalCheckFailedException
+    )
+    sessions = FakeSessions()
+    monkeypatch.setattr(handler, "sessions", sessions)
+    monkeypatch.setattr(handler, "DAILY_REQUEST_LIMIT", 2)
+
+    handler._claim_daily_request("game_provider")
+    handler._claim_daily_request("game_provider")
+    with pytest.raises(handler.DailyRequestLimitExceeded):
+        handler._claim_daily_request("game_provider")
+    assert sessions.count == 2
+
+
 @pytest.mark.parametrize("body", [
     {},
     {"question": ""},
     {"question": ["not", "a", "string"]},
+    {"question": "x" * 1001},
     {"question": "valid", "session_id": []},
 ])
 def test_invalid_request_shape_is_rejected_before_aws_calls(body, monkeypatch):
@@ -268,3 +366,62 @@ def test_invalid_request_shape_is_rejected_before_aws_calls(body, monkeypatch):
     monkeypatch.setattr(handler, "bedrock", ShouldNotRun())
     response = handler.handler({"body": json.dumps(body)}, None)
     assert response["statusCode"] == 400
+
+
+def test_valid_request_from_unmapped_identity_is_rejected_before_aws_calls(
+    monkeypatch,
+):
+    class ShouldNotRun:
+        def apply_guardrail(self, **kwargs):
+            raise AssertionError("Guardrails must not run for an unmapped caller")
+
+    monkeypatch.setattr(handler, "bedrock", ShouldNotRun())
+    response = handler.handler(
+        {
+            "body": json.dumps(
+                {"question": "How do I retry a bet?", "session_id": "session-1"}
+            ),
+            "requestContext": {
+                "identity": {
+                    "userArn": "arn:aws:sts::1:assumed-role/unknown-partner/x"
+                }
+            },
+        },
+        None,
+    )
+    assert response["statusCode"] == 403
+
+
+def test_daily_quota_returns_429_before_guardrails(monkeypatch):
+    class ShouldNotRun:
+        def apply_guardrail(self, **kwargs):
+            raise AssertionError("Guardrails must not run after quota rejection")
+
+    monkeypatch.setattr(handler, "bedrock", ShouldNotRun())
+    monkeypatch.setattr(
+        handler,
+        "GAME_PROVIDER_PRINCIPAL_PATTERN",
+        "aurora-games-game-provider-partner",
+    )
+    monkeypatch.setattr(
+        handler,
+        "_claim_daily_request",
+        lambda *_: (_ for _ in ()).throw(handler.DailyRequestLimitExceeded()),
+    )
+    response = handler.handler(
+        {
+            "body": json.dumps(
+                {"question": "How do I retry a bet?", "session_id": "session-1"}
+            ),
+            "requestContext": {
+                "identity": {
+                    "userArn": (
+                        "arn:aws:sts::1:assumed-role/"
+                        "aurora-games-game-provider-partner/x"
+                    )
+                }
+            },
+        },
+        None,
+    )
+    assert response["statusCode"] == 429

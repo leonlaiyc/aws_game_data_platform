@@ -76,6 +76,13 @@ GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
 # IAM principals allowed to see the audit track. Empty means nobody, which is
 # the correct default for a boundary this sensitive.
 OPERATOR_PRINCIPAL_PATTERN = os.environ.get("OPERATOR_PRINCIPAL_PATTERN", "")
+GAME_PROVIDER_PRINCIPAL_PATTERN = os.environ.get(
+    "GAME_PROVIDER_PRINCIPAL_PATTERN", ""
+)
+CLIENT_OPERATOR_PRINCIPAL_PATTERN = os.environ.get(
+    "CLIENT_OPERATOR_PRINCIPAL_PATTERN", ""
+)
+DAILY_REQUEST_LIMIT = int(os.environ.get("DAILY_REQUEST_LIMIT", "50"))
 
 _HERE = Path(__file__).parent
 PROMPT_VERSION = "answer_body_v1"
@@ -106,12 +113,13 @@ def _content_words(text: str) -> set:
 
 
 def _load_knowledge_base() -> dict:
-    """Loaded once per Lambda container. The whole corpus is passed to the
-    model on every request - viable precisely because it's small, and the
-    honest limit of this design (see README.md)."""
+    """Load once per Lambda container. The identity-selected subset is passed
+    to the model - viable precisely because each audience corpus is small."""
     return {
-        p.stem: p.read_text(encoding="utf-8")
-        for p in sorted((_HERE / "knowledge_base").glob("*.md"))
+        p.relative_to(_HERE / "knowledge_base").with_suffix("").as_posix(): p.read_text(
+            encoding="utf-8"
+        )
+        for p in sorted((_HERE / "knowledge_base").rglob("*.md"))
     }
 
 
@@ -121,12 +129,41 @@ _ALL_VOCAB = set().union(*_DOC_VOCAB.values()) if _DOC_VOCAB else set()
 _PROMPT_TEMPLATE = (_HERE / "prompts" / f"{PROMPT_VERSION}.md").read_text(encoding="utf-8")
 
 
-def _score_relevance(question: str) -> dict:
+def _knowledge_for_audience(audience: str) -> dict:
+    """Select the corpus from authenticated identity, never request content."""
+    if audience == "internal_operator":
+        return dict(KNOWLEDGE_BASE)
+    allowed_prefixes = {"shared", audience}
+    return {
+        name: text
+        for name, text in KNOWLEDGE_BASE.items()
+        if "/" not in name or name.split("/", 1)[0] in allowed_prefixes
+    }
+
+
+def _score_relevance(
+    question: str,
+    audience: str = "internal_operator",
+) -> dict:
     """Deterministic stand-in for a retrieval relevance score."""
     q_words = _content_words(question)
     if not q_words:
-        return {"overall": 0.0, "matched_terms": 0, "per_document": {}, "question_terms": 0}
-    matched = q_words & _ALL_VOCAB
+        return {
+            "overall": 0.0,
+            "matched_terms": 0,
+            "per_document": {},
+            "question_terms": 0,
+            "anchor_terms_matched": [],
+        }
+    knowledge = _knowledge_for_audience(audience)
+    document_vocab = {
+        name: _DOC_VOCAB[name]
+        for name in knowledge
+    }
+    all_vocab = (
+        set().union(*document_vocab.values()) if document_vocab else set()
+    )
+    matched = q_words & all_vocab
     anchors = q_words & DOMAIN_ANCHOR_TERMS
     return {
         "overall": round(len(matched) / len(q_words), 4),
@@ -135,7 +172,7 @@ def _score_relevance(question: str) -> dict:
         "anchor_terms_matched": sorted(anchors),
         "per_document": {
             name: round(len(q_words & vocab) / len(q_words), 4)
-            for name, vocab in _DOC_VOCAB.items()
+            for name, vocab in document_vocab.items()
         },
     }
 
@@ -166,8 +203,11 @@ def _acknowledgment(question: str) -> str:
     return copy.ACKNOWLEDGMENT_ERROR_REPORT if is_error_report else copy.ACKNOWLEDGMENT_INFO_REQUEST
 
 
-def _build_context() -> str:
-    return "\n\n".join(f"[{name}]\n{text}" for name, text in KNOWLEDGE_BASE.items())
+def _build_context(audience: str = "internal_operator") -> str:
+    return "\n\n".join(
+        f"[{name}]\n{text}"
+        for name, text in _knowledge_for_audience(audience).items()
+    )
 
 
 def _call_model(question: str, context: str) -> dict:
@@ -288,6 +328,36 @@ _CODE_OWNED_COPY = {
 }
 
 SESSION_TTL_SECONDS = 24 * 60 * 60
+QUOTA_TTL_SECONDS = 2 * 24 * 60 * 60
+
+
+class DailyRequestLimitExceeded(Exception):
+    """The identity-derived audience exhausted its UTC-day PoC allowance."""
+
+
+def _claim_daily_request(audience: str) -> None:
+    """Atomically cap paid Guardrails/model calls using the existing table."""
+    now = datetime.now(timezone.utc)
+    key = f"quota:{audience}:{now.date().isoformat()}"
+    try:
+        sessions.update_item(
+            Key={"session_id": key},
+            UpdateExpression=(
+                "SET expires_at = :expires_at ADD #request_count :one"
+            ),
+            ConditionExpression=(
+                "attribute_not_exists(#request_count) "
+                "OR #request_count < :request_limit"
+            ),
+            ExpressionAttributeNames={"#request_count": "request_count"},
+            ExpressionAttributeValues={
+                ":one": 1,
+                ":request_limit": DAILY_REQUEST_LIMIT,
+                ":expires_at": int(now.timestamp()) + QUOTA_TTL_SECONDS,
+            },
+        )
+    except sessions.meta.client.exceptions.ConditionalCheckFailedException:
+        raise DailyRequestLimitExceeded from None
 
 
 def _is_first_turn(session_id: str) -> bool:
@@ -312,6 +382,44 @@ def _is_first_turn(session_id: str) -> bool:
         return False
 
 
+class PartnerScopeResolutionError(Exception):
+    """The authenticated caller is not mapped to a partner knowledge scope."""
+
+
+def _role_name(event: dict) -> str:
+    arn = (
+        (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn")
+        or ""
+    )
+    resource = arn.split(":", 5)[-1] if ":" in arn else ""
+    if resource.startswith("assumed-role/"):
+        parts = resource.split("/", 2)
+        return parts[1] if len(parts) >= 2 else ""
+    if resource.startswith("role/"):
+        return resource.rsplit("/", 1)[-1]
+    return ""
+
+
+def _partner_audience(event: dict) -> str:
+    """Resolve the answer corpus from an exact authenticated role name."""
+    role_name = _role_name(event)
+    if OPERATOR_PRINCIPAL_PATTERN and role_name == OPERATOR_PRINCIPAL_PATTERN:
+        return "internal_operator"
+    if (
+        GAME_PROVIDER_PRINCIPAL_PATTERN
+        and role_name == GAME_PROVIDER_PRINCIPAL_PATTERN
+    ):
+        return "game_provider"
+    if (
+        CLIENT_OPERATOR_PRINCIPAL_PATTERN
+        and role_name == CLIENT_OPERATOR_PRINCIPAL_PATTERN
+    ):
+        return "client_operator"
+    raise PartnerScopeResolutionError(
+        "caller identity is not mapped to a partner support scope"
+    )
+
+
 def _debug_authorised(event) -> bool:
     """Whether this caller may see the audit track.
 
@@ -325,16 +433,7 @@ def _debug_authorised(event) -> bool:
     """
     if not OPERATOR_PRINCIPAL_PATTERN:
         return False
-    arn = (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn") or ""
-    resource = arn.split(":", 5)[-1] if ":" in arn else ""
-    if resource.startswith("assumed-role/"):
-        parts = resource.split("/", 2)
-        role_name = parts[1] if len(parts) >= 2 else ""
-    elif resource.startswith("role/"):
-        role_name = resource.rsplit("/", 1)[-1]
-    else:
-        role_name = ""
-    return role_name == OPERATOR_PRINCIPAL_PATTERN
+    return _role_name(event) == OPERATOR_PRINCIPAL_PATTERN
 
 
 def _render(slots: dict) -> str:
@@ -357,6 +456,7 @@ def _persist_ticket(ticket_id: str, question: str, audit: dict) -> None:
             "status": "OPEN",
             "created_at": datetime.now(timezone.utc).isoformat(),
             "session_id": audit["session_id"],
+            "partner_audience": audit.get("partner_audience", "unknown"),
             "question": question,
             "trigger": audit.get("trigger", "validation_fallback"),
             "final_category": "ESCALATION",
@@ -374,10 +474,10 @@ def handler(event, context):
         return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
                 "body": json.dumps({"error": "request body must be a JSON object"})}
     question = body.get("question")
-    if not isinstance(question, str) or not question.strip() or len(question) > 4000:
+    if not isinstance(question, str) or not question.strip() or len(question) > 1000:
         return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
                 "body": json.dumps({
-                    "error": "question must be a non-empty string of at most 4000 characters",
+                    "error": "question must be a non-empty string of at most 1000 characters",
                 })}
     session_id = body.get("session_id", "anonymous")
     if not isinstance(session_id, str) or not session_id or len(session_id) > 128:
@@ -385,16 +485,52 @@ def handler(event, context):
                 "body": json.dumps({
                     "error": "session_id must be a non-empty string of at most 128 characters",
                 })}
+    try:
+        partner_audience = _partner_audience(event)
+    except PartnerScopeResolutionError as error:
+        return {
+            "statusCode": 403,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({"error": str(error)}),
+        }
+    try:
+        _claim_daily_request(partner_audience)
+    except DailyRequestLimitExceeded:
+        print(json.dumps({
+            "measurement_event": "partner_support_cost_control",
+            "partner_audience": partner_audience,
+            "automation_outcome": "daily_quota_rejected",
+            "daily_request_limit": DAILY_REQUEST_LIMIT,
+        }))
+        return {
+            "statusCode": 429,
+            "headers": {
+                "Content-Type": "application/json",
+                "Retry-After": "3600",
+            },
+            "body": json.dumps({
+                "error": (
+                    "The daily support-assistant allowance is exhausted. "
+                    "Please retry after the UTC-day reset or contact support."
+                )
+            }),
+        }
     debug = _debug_authorised(event)
 
-    is_first_turn = _is_first_turn(session_id)
+    # The two partner directions cannot collide even if callers reuse the same
+    # human-friendly session id.
+    is_first_turn = _is_first_turn(f"{partner_audience}:{session_id}")
+    audience_knowledge = _knowledge_for_audience(partner_audience)
 
     audit = {
         "session_id": session_id,
+        "partner_audience": partner_audience,
         "question": question,
         "prompt_version": PROMPT_VERSION,
         "copy_version": COPY_VERSION,
-        "knowledge_base_documents": sorted(KNOWLEDGE_BASE),
+        "knowledge_base_documents": sorted(audience_knowledge),
+        "measurement_event": "partner_support_outcome",
+        "model_invoked": False,
         "thresholds_in_force": {
             "DOMAIN_RELEVANCE_MIN": DOMAIN_RELEVANCE_MIN,
             "SPECIFIC_TERM_COUNT_MIN": SPECIFIC_TERM_COUNT_MIN,
@@ -405,7 +541,7 @@ def handler(event, context):
              "acknowledgment": None, "answer_body": None, "closing": None}
     ticket_id = None
 
-    relevance = _score_relevance(question)
+    relevance = _score_relevance(question, partner_audience)
     audit["relevance"] = relevance
 
     # --- Category 1: BLOCKED CONTENT, evaluated first and on the raw question ---
@@ -414,6 +550,8 @@ def handler(event, context):
         audit["trigger"] = "bedrock_guardrail_intervened"
         audit["guardrail_assessment"] = guardrail_resp.get("assessments")
         audit["final_category"] = "BLOCKED_CONTENT"
+        audit["automation_outcome"] = "blocked_content"
+        audit["requires_human"] = False
         slots = {"greeting": None, "acknowledgment": None,
                  "answer_body": copy.BLOCKED_RESPONSE, "closing": None}
         audit["validation"] = _validate(slots, "BLOCKED_CONTENT")
@@ -424,8 +562,9 @@ def handler(event, context):
         return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
                 "body": json.dumps(result)}
 
-    # --- Category 2: OUT OF SCOPE (checked before calling the model at all,
-    # so an off-topic question costs nothing in Bedrock spend) ---
+    # --- Category 2: OUT OF SCOPE (checked before calling the model at all).
+    # The input Guardrails check above is still billed; this avoids inference
+    # spend, not every Bedrock charge. ---
     # Two conditions, deliberately. The ratio alone lets incidental collisions
     # on ordinary English words through; the anchor requirement alone would let
     # a single buried domain word carry an otherwise off-topic question. Term
@@ -453,8 +592,9 @@ def handler(event, context):
             slots["answer_body"] = ask
             slots["closing"] = copy.CLOSING_CLARIFICATION
         else:
-            context_text = _build_context()
+            context_text = _build_context(partner_audience)
             audit["context_characters_passed"] = len(context_text)
+            audit["model_invoked"] = True
             resp = _call_model(question, context_text)
 
             if resp.get("stopReason") == "guardrail_intervened":
@@ -509,6 +649,14 @@ def handler(event, context):
 
     audit["final_category"] = category
     audit["ticket_id"] = ticket_id
+    audit["automation_outcome"] = {
+        "ANSWERED": "self_service_answer",
+        "CLARIFICATION_NEEDED": "self_service_clarification",
+        "OUT_OF_SCOPE": "deflected_out_of_scope",
+        "BLOCKED_CONTENT": "blocked_content",
+        "ESCALATION": "human_escalation",
+    }[category]
+    audit["requires_human"] = category == "ESCALATION"
 
     # Do not return a reassuring ticket reference until the work item exists.
     # A DynamoDB failure intentionally fails the invocation; API Gateway then

@@ -94,6 +94,7 @@ def setup_srm_experiment(api_url: str, database: str, workgroup: str) -> tuple:
     variants = [{"name": "control", "weight": 0.5}, {"name": "treatment", "weight": 0.5}]
     resp = lib.api_request(api_url, "POST", "/experiments", {
         "name": "srm-violation-demo",
+        "owner": "growth-experimentation",
         "game_id": "game_03",
         "client_site_id": "site_b",
         "audience": {"client_site_id": "site_b"},
@@ -118,6 +119,7 @@ def setup_srm_experiment(api_url: str, database: str, workgroup: str) -> tuple:
 def setup_data_experiment(api_url: str, name: str, game_id: str, client_site_id: str, guardrail_metrics: list) -> tuple:
     resp = lib.api_request(api_url, "POST", "/experiments", {
         "name": name,
+        "owner": "growth-experimentation",
         "game_id": game_id,
         "client_site_id": client_site_id,
         "audience": {"client_site_id": client_site_id},
