@@ -36,6 +36,7 @@ class OrchestrationStack(Stack):
         construct_id: str,
         lake_bucket: s3.IBucket,
         experiments_table: dynamodb.ITable,
+        exposures_table: dynamodb.ITable,
         **kwargs,
     ) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -52,6 +53,7 @@ class OrchestrationStack(Stack):
 
         common_env = {
             "EXPERIMENTS_TABLE_NAME": experiments_table.table_name,
+            "EXPOSURES_TABLE_NAME": exposures_table.table_name,
             "GLUE_DATABASE_NAME": GLUE_DATABASE_NAME,
             "ATHENA_WORKGROUP_NAME": ATHENA_WORKGROUP_NAME,
             "LAKE_BUCKET_NAME": lake_bucket.bucket_name,
@@ -78,6 +80,7 @@ class OrchestrationStack(Stack):
         analysis_fn = make_lambda("Analysis", "analysis", timeout_seconds=90)
         readout_fn = make_lambda("Readout", "readout", timeout_seconds=30)
         mark_state_fn = make_lambda("MarkState", "mark_state")  # needs dynamo_utils from the common layer
+        exposures_table.grant_read_data(monitoring_check_fn)
 
         # Athena/Glue access for the Lambdas that query the lake. Least-privilege
         # would scope S3 to just the gold/player_features, gold/experiment_assignments,
@@ -174,16 +177,33 @@ class OrchestrationStack(Stack):
             self, "ReadoutTask", lambda_function=readout_fn, payload_response_only=True, result_path="$.readout"
         )
 
-        happy_path = (
-            monitoring_map.next(mark_completed_task)
-            .next(analysis_task)
+        completed_path = (
+            mark_completed_task.next(analysis_task)
             .next(readout_task)
             .next(sfn.Succeed(self, "Analyzed"))
         )
 
+        replay_path = monitoring_map.next(completed_path)
+        live_path = sfn.Wait(
+            self,
+            "WaitUntilPlannedEnd",
+            time=sfn.WaitTime.timestamp_path("$.planned_end_at"),
+        ).next(completed_path)
+        execution_mode_choice = (
+            sfn.Choice(self, "ExecutionMode?")
+            .when(
+                sfn.Condition.string_equals("$.execution_mode", "live"),
+                live_path,
+            )
+            .otherwise(replay_path)
+        )
+
         srm_choice = (
             sfn.Choice(self, "SrmPassed?")
-            .when(sfn.Condition.boolean_equals("$.srm.passed", True), happy_path)
+            .when(
+                sfn.Condition.boolean_equals("$.srm.passed", True),
+                execution_mode_choice,
+            )
             .otherwise(srm_fail_task.next(sfn.Succeed(self, "SrmFailed")))
         )
 
@@ -194,7 +214,22 @@ class OrchestrationStack(Stack):
             "ExperimentLifecycle",
             state_machine_name=STATE_MACHINE_NAME,
             definition_body=sfn.DefinitionBody.from_chainable(definition),
-            timeout=Duration.minutes(15),
+            timeout=Duration.days(91),
+        )
+        # The scheduled monitor must halt a live execution when SRM or a
+        # guardrail disables allocation. Use a literal ARN to avoid a
+        # CloudFormation dependency cycle: the state machine already invokes
+        # this Lambda.
+        monitoring_check_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["states:StopExecution"],
+                resources=[
+                    (
+                        f"arn:aws:states:{self.region}:{self.account}:execution:"
+                        f"{STATE_MACHINE_NAME}:*"
+                    )
+                ],
+            )
         )
 
         # Production monitoring path: independent of any one execution, checks

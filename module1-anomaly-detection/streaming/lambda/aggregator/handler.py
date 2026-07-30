@@ -1,5 +1,5 @@
 """Real-time RTP/volume aggregation over a Kinesis stream of bet events,
-using a rolling DynamoDB window rather than a stream-processing framework
+using a tumbling DynamoDB window rather than a stream-processing framework
 (Kinesis Data Analytics / Managed Flink) - appropriate for this demo's
 throughput and lifetime, not a claim that it's the right choice at scale
 (see module1-anomaly-detection/streaming/README.md's trade-off notes).

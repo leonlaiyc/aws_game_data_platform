@@ -1,11 +1,15 @@
 # Experiment Orchestration
 
-Step Functions state machine (`aurora-games-experiment-lifecycle`) driving an experiment through:
+Step Functions state machine (`aurora-games-experiment-lifecycle`) supports two
+operation modes after assignment and its preflight balance check:
 
 ```
-assignment -> srm_check -> [Choice] -> monitoring (Map, one iteration per day) -> analysis -> readout
-                              |
-                              +-- SRM violation --> mark stopped_early --> end (no analysis/readout)
+                               +-- replay: historical monitoring Map --+
+assignment -> balance check --+                                      +-> analysis -> readout
+                               +-- live: Wait until planned end -------+
+
+EventBridge hourly -> actual exposure SRM + guardrails
+                   -> breach: allocation_enabled=false -> stop execution -> SNS
 ```
 
 ## Steps
@@ -23,10 +27,15 @@ assignment -> srm_check -> [Choice] -> monitoring (Map, one iteration per day) -
    the experiment's window (the demo's dates are historical, so "waiting" is instant); the *same*
    Lambda is also wired to an EventBridge hourly schedule (`{"scheduled": true}` input) that scans
    every currently-running experiment against today's real date - that's the actual always-on
-   production path this project is simulating. On a guardrail breach: conditional DynamoDB update
-   to `stopped_early` + SNS alert.
-4. **Analysis** (`lambda/analysis`) - reads **only** `gold_player_features` joined against this
-   experiment's assignments (never recomputes aggregates from Bronze/Silver). Two-sample z-test
+   production path. In live mode it queries immutable product exposure events,
+   waits for at least 100 exposures before applying the `p < 0.01` SRM rule,
+   and joins guardrails to the exposed treatment cohort rather than the
+   eligibility assignment. On a breach it atomically sets
+   `allocation_enabled=false`, records structured monitoring status, stops the
+   waiting execution, and publishes SNS.
+4. **Analysis** (`lambda/analysis`) - reads **only** `gold_player_features`
+   joined against assignments in replay mode or actual exposures in live mode
+   (never recomputes aggregates from Bronze/Silver). Two-sample z-test
    (normal CDF via `math.erf`) for the OEC metric's significance, plus guardrail status at the
    same analysis date (the first breach date if monitoring caught one, else the last planned day).
    Also emits `flags`: deterministic, rule-based caveats computed alongside the stats -
@@ -46,13 +55,17 @@ assignment -> srm_check -> [Choice] -> monitoring (Map, one iteration per day) -
    address every flag present** (it may only choose how to phrase each caveat, not whether to
    mention it) - returned as structured JSON (`{"conclusion": ..., "recommendation": ...}`) rather
    than free-form prose. A regex-based grounding check still runs as a secondary safety net over
-   just those two LLM-authored fields, in case the model restates a number anyway; recorded as
-   `readout.grounding_check_passed`. A separate, cheap coverage check
+   just those two LLM-authored fields: **any numeric token is rejected**, even if it correctly
+   repeats an input value, so numeric ownership stays mechanically unambiguous. Rejected prose is
+   withheld and recorded in `readout.grounding_check_passed`. If Bedrock is unavailable, the same
+   deterministic-only fallback is persisted instead of failing the completed analysis. A separate,
+   cheap coverage check
    (`readout.coverage_check`) asserts every flag actually made it into the prompt
    (`flags_in_prompt` - a self-check against our own code silently dropping one) and that the
    Conclusion is long enough to plausibly have addressed all of them
    (`conclusion_non_trivial` - a coarse word-count heuristic, not literal keyword matching, which
-   would be fragile against paraphrasing).
+   would be fragile against paraphrasing). A failed coverage contract also withholds the narrative;
+   the check is not merely an annotation.
 
    This is a stronger guarantee than checking a fully-LLM-written report after the fact (the
    original design): a number can't be hallucinated in the sections that matter most because the
@@ -70,8 +83,10 @@ DynamoDB update: SRM hard-fail and natural completion after the monitoring loop 
 
 ## Starting an execution
 
-`POST /experiments/{id}/start` (see `registry/README.md`) with `{"as_of_date", "duration_days"}` -
-the registry API computes the day-by-day `check_dates` list and calls `StartExecution` directly
+`POST /experiments/{id}/start` (see `registry/README.md`) with
+`{"duration_days": 7}` starts live mode and waits without running compute.
+`{"mode":"replay","as_of_date":"2026-05-10","duration_days":10}` keeps the
+fast historical demo. The registry API computes the replay dates and calls `StartExecution` directly
 (no EventBridge hop for this trigger - see `registry_stack.py` for why the state machine ARN is a
 fixed name rather than a CDK cross-stack reference).
 

@@ -4,10 +4,15 @@ from aws_cdk import (
     Duration,
     Stack,
     CfnOutput,
+    RemovalPolicy,
     aws_apigateway as apigateway,
     aws_bedrock as bedrock,
+    aws_dynamodb as dynamodb,
     aws_iam as iam,
     aws_lambda as _lambda,
+    aws_sns as sns,
+    aws_sns_subscriptions as sns_subscriptions,
+    aws_sqs as sqs,
 )
 from constructs import Construct
 
@@ -25,10 +30,9 @@ class SupportChatbotStack(Stack):
     need different denied topics. Guardrails bill per text unit evaluated with
     no idle charge, so a second one costs nothing to keep.
 
-    No vector store, no knowledge base service, no storage of any kind - the
-    corpus ships inside the Lambda package and is passed in-context. That is
-    the whole infrastructure footprint: a Guardrail, a function, and an
-    endpoint."""
+    No vector store or knowledge base service: the corpus ships inside the
+    Lambda package and is passed in-context. Escalations are real work items,
+    however, so a small on-demand DynamoDB table persists support tickets."""
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
@@ -92,6 +96,53 @@ class SupportChatbotStack(Stack):
             self, "SupportGuardrailVersion", guardrail_identifier=guardrail.attr_guardrail_id,
         )
 
+        self.tickets_table = tickets_table = dynamodb.Table(
+            self,
+            "SupportTickets",
+            table_name="aurora-games-support-tickets",
+            partition_key=dynamodb.Attribute(
+                name="ticket_id", type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+        self.sessions_table = sessions_table = dynamodb.Table(
+            self,
+            "SupportSessions",
+            table_name="aurora-games-support-sessions",
+            partition_key=dynamodb.Attribute(
+                name="session_id", type=dynamodb.AttributeType.STRING,
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            max_read_request_units=10,
+            max_write_request_units=10,
+            time_to_live_attribute="expires_at",
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+
+        self.notifications_topic = notifications_topic = sns.Topic(
+            self,
+            "PartnerNotifications",
+            topic_name="aurora-games-partner-notifications",
+            display_name="Aurora Games partner operational notifications",
+        )
+        # No external recipient is subscribed automatically. This queue is a
+        # deterministic, account-local delivery sink for the operation demo.
+        # A real partner must explicitly opt in to its own endpoint.
+        self.notification_audit_queue = notification_audit_queue = sqs.Queue(
+            self,
+            "PartnerNotificationAuditQueue",
+            queue_name="aurora-games-partner-notification-audit",
+            retention_period=Duration.days(1),
+            removal_policy=RemovalPolicy.DESTROY,
+        )
+        notifications_topic.add_subscription(
+            sns_subscriptions.SqsSubscription(
+                notification_audit_queue,
+                raw_message_delivery=True,
+            )
+        )
+
         self.chat_fn = chat_fn = _lambda.Function(
             self, "SupportChat",
             runtime=_lambda.Runtime.PYTHON_3_12,
@@ -104,6 +155,8 @@ class SupportChatbotStack(Stack):
                 "GUARDRAIL_ID": guardrail.attr_guardrail_id,
                 "GUARDRAIL_VERSION": guardrail_version.attr_version,
                 "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
+                "SUPPORT_TICKETS_TABLE_NAME": tickets_table.table_name,
+                "SUPPORT_SESSIONS_TABLE_NAME": sessions_table.table_name,
             },
             timeout=Duration.seconds(30),
             memory_size=256,  # the whole corpus is loaded and held per container
@@ -130,6 +183,24 @@ class SupportChatbotStack(Stack):
         chat_fn.add_to_role_policy(
             iam.PolicyStatement(actions=["bedrock:ApplyGuardrail"], resources=[guardrail.attr_guardrail_arn])
         )
+        tickets_table.grant_write_data(chat_fn)
+        sessions_table.grant_read_write_data(chat_fn)
+
+        notification_fn = _lambda.Function(
+            self,
+            "PartnerNotificationPublisher",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset(
+                str(MODULE4_DIR / "lambda" / "notification")
+            ),
+            environment={
+                "NOTIFICATIONS_TOPIC_ARN": notifications_topic.topic_arn,
+                "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
+            },
+            timeout=Duration.seconds(10),
+        )
+        notifications_topic.grant_publish(notification_fn)
 
         api = apigateway.RestApi(
             self, "SupportChatApi", rest_api_name="aurora-games-partner-support-api",
@@ -150,7 +221,24 @@ class SupportChatbotStack(Stack):
             # identity rather than by a boolean the caller sets on itself.
             authorization_type=apigateway.AuthorizationType.IAM,
         )
+        api.root.add_resource("notifications").add_method(
+            "POST",
+            apigateway.LambdaIntegration(notification_fn),
+            authorization_type=apigateway.AuthorizationType.IAM,
+        )
 
         CfnOutput(self, "ChatApiUrl", value=api.url)
         CfnOutput(self, "SupportChatFunctionName", value=chat_fn.function_name)
         CfnOutput(self, "SupportGuardrailId", value=guardrail.attr_guardrail_id)
+        CfnOutput(self, "SupportTicketsTableName", value=tickets_table.table_name)
+        CfnOutput(self, "SupportSessionsTableName", value=sessions_table.table_name)
+        CfnOutput(
+            self,
+            "PartnerNotificationsTopicArn",
+            value=notifications_topic.topic_arn,
+        )
+        CfnOutput(
+            self,
+            "PartnerNotificationAuditQueueUrl",
+            value=notification_audit_queue.queue_url,
+        )

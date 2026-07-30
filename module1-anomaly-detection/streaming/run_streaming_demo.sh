@@ -42,17 +42,26 @@ cdk destroy "$STACK" -c enable_streaming=true --force
 
 echo
 echo "==> Verifying teardown by listing live resources (not trusting the exit code)"
-REMAINING=$(aws kinesis list-streams --query "StreamNames[?contains(@, 'aurora-games')]" --output text)
+if ! REMAINING=$(aws kinesis list-streams \
+    --query "StreamNames[?contains(@, 'aurora-games')]" --output text); then
+    echo "!! Could not list Kinesis streams; teardown is NOT verified."
+    exit 1
+fi
 if [ -n "$REMAINING" ]; then
     echo "!! STREAM STILL EXISTS: $REMAINING"
     echo "!! Still billing at ~\$0.0195/shard-hour in ap-northeast-1. Delete it now."
     exit 1
 fi
 
-STACK_STATE=$(aws cloudformation describe-stacks --stack-name "$STACK" \
-    --query "Stacks[0].StackStatus" --output text 2>/dev/null)
-if [ -n "$STACK_STATE" ] && [ "$STACK_STATE" != "DELETE_COMPLETE" ]; then
-    echo "!! Stack still present in state $STACK_STATE - investigate before walking away."
+STACK_LOOKUP=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+    --query "Stacks[0].StackStatus" --output text 2>&1)
+STACK_LOOKUP_STATUS=$?
+if [ "$STACK_LOOKUP_STATUS" -eq 0 ]; then
+    echo "!! Stack still present in state $STACK_LOOKUP - investigate before walking away."
+    exit 1
+elif [[ "$STACK_LOOKUP" != *"does not exist"* ]]; then
+    echo "!! Could not prove the CloudFormation stack is absent:"
+    echo "$STACK_LOOKUP"
     exit 1
 fi
 

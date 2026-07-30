@@ -37,27 +37,42 @@ def assume(role_name: str, session_name: str = "demo") -> boto3.Session:
     )
 
 
-def signed_post(session: boto3.Session, url: str, payload: dict, timeout: int = 45) -> tuple:
-    """POSTs `payload` as SigV4-signed JSON. Returns (status_code, parsed_body).
+def signed_request(
+    session: boto3.Session,
+    method: str,
+    url: str,
+    payload: dict | None = None,
+    timeout: int = 45,
+) -> tuple:
+    """Sends a SigV4-signed JSON request. Returns (status_code, parsed_body).
 
     Returns rather than raises on 4xx/5xx, because several demos deliberately
     provoke a 403 to show the tenant boundary working.
     """
-    body = json.dumps(payload)
-    request = AWSRequest(method="POST", url=url, data=body,
+    body = json.dumps(payload) if payload is not None else None
+    request = AWSRequest(method=method, url=url, data=body,
                           headers={"Content-Type": "application/json"})
     credentials = session.get_credentials().get_frozen_credentials()
     region = session.region_name or "ap-northeast-1"
     SigV4Auth(credentials, "execute-api", region).add_auth(request)
 
-    req = urllib.request.Request(url, data=body.encode("utf-8"),
-                                  headers=dict(request.headers), method="POST")
+    req = urllib.request.Request(
+        url,
+        data=body.encode("utf-8") if body is not None else None,
+        headers=dict(request.headers),
+        method=method,
+    )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.status, json.loads(resp.read())
+            raw = resp.read()
+            return resp.status, json.loads(raw) if raw else {}
     except urllib.error.HTTPError as e:
         raw = e.read()
         try:
             return e.code, json.loads(raw)
         except json.JSONDecodeError:
             return e.code, {"raw": raw.decode("utf-8", "replace")}
+
+
+def signed_post(session: boto3.Session, url: str, payload: dict, timeout: int = 45) -> tuple:
+    return signed_request(session, "POST", url, payload, timeout)

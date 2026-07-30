@@ -312,7 +312,8 @@ flowchart TB
     WL -.-> AUDIT
 ```
 
-Five independent controls, each of which would have to fail for a cross-tenant leak or an
-injection to reach data. Note that control 4 sits *below* the application — even a fully
-compromised Lambda cannot read another client's rows, because the filter is enforced by Lake
-Formation when the query is planned.
+These controls apply to different paths. Lake Formation row filters protect the three analyst
+roles when they query `gold_daily_kpi` through their scoped workgroups. Application Lambdas use
+broader service roles, so their tenant boundary must also be enforced in request validation and
+closed SQL/template inputs; a compromised Lambda is **not** contained by the analyst-role filter.
+The diagram is defense in depth, not a claim that every principal traverses every control.

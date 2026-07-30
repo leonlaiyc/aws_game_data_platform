@@ -11,10 +11,12 @@ Requires: `aws configure` already set up, and the FoundationStack already
 deployed (`cdk deploy` from infra/).
 """
 import gzip
+import importlib.util
+import json
 import string
 import sys
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import boto3
@@ -27,6 +29,10 @@ LAKE_DIR = Path(__file__).parent
 SIMULATOR_OUTPUT = LAKE_DIR.parent / "event_simulator" / "output"
 DDL_DIR = LAKE_DIR / "ddl"
 QUERIES_DIR = LAKE_DIR / "queries"
+DAILY_KPI_PUBLICATION_MANIFEST = "manifests/published/gold_daily_kpi.json"
+GOVERNANCE_SETUP = (
+    LAKE_DIR.parent / "governance" / "setup_client_isolation.py"
+)
 
 session = boto3.Session()
 region = session.region_name
@@ -107,6 +113,48 @@ def print_query_results(query_id: str, max_rows: int = 20):
         print("  " + " | ".join(values))
 
 
+def publish_completion_manifest(bucket: str, min_date: str, max_date: str):
+    """Publish only after every transform and verification query succeeds.
+
+    Consumers use this marker instead of guessing completeness from MAX(dt).
+    A partition existing in Athena says nothing about whether its producer has
+    finished writing it.
+    """
+    body = {
+        "table": "gold_daily_kpi",
+        "published_from": min_date,
+        "published_through": max_date,
+        "published_at": datetime.now(timezone.utc).isoformat(),
+        "source": "fixed_simulator_build",
+    }
+    s3.put_object(
+        Bucket=bucket,
+        Key=DAILY_KPI_PUBLICATION_MANIFEST,
+        Body=json.dumps(body, sort_keys=True).encode("utf-8"),
+        ContentType="application/json",
+    )
+    print(f"Published completion marker through {max_date}.")
+
+
+def apply_client_isolation():
+    """Reapply row filters after DROP/CREATE replaces the governed Glue table.
+
+    Lake Formation data-cell filters are attached to a table resource. Athena
+    CTAS rebuilds replace that resource, so publishing before this step would
+    expose every tenant through the analyst workgroups.
+    """
+    spec = importlib.util.spec_from_file_location(
+        "setup_client_isolation", GOVERNANCE_SETUP
+    )
+    if spec is None or spec.loader is None:
+        raise RuntimeError(
+            f"Unable to load governance setup from {GOVERNANCE_SETUP}"
+        )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.main()
+
+
 def main():
     outputs = get_stack_outputs()
     bucket = outputs["LakeBucketName"]
@@ -117,6 +165,10 @@ def main():
     upload_bronze(bucket)
 
     print("\nClearing any previous Silver/Gold output (for idempotent re-runs) ...")
+    # Invalidate the old completion claim before removing published data. A
+    # failed rebuild must be visibly incomplete, never paired with a stale
+    # marker that tells scheduled consumers it is safe to query.
+    s3.delete_object(Bucket=bucket, Key=DAILY_KPI_PUBLICATION_MANIFEST)
     clear_prefix(bucket, "silver/events/")
     clear_prefix(bucket, "gold/daily_kpi/")
     clear_prefix(bucket, "gold/cohort_retention/")
@@ -145,6 +197,10 @@ def main():
         sql = query_file.read_text(encoding="utf-8").strip().rstrip(";")
         query_id = run_query(sql, database, workgroup)
         print_query_results(query_id)
+
+    print("\nReapplying Lake Formation client isolation ...")
+    apply_client_isolation()
+    publish_completion_manifest(bucket, min_date, max_date)
 
 
 if __name__ == "__main__":

@@ -37,12 +37,18 @@ def _norm_cdf(x: float) -> float:
     return 0.5 * (1 + math.erf(x / math.sqrt(2)))
 
 
-def _group_stats(experiment_id: str, metric: str, analysis_date: str) -> dict:
+def _group_stats(
+    experiment_id: str, metric: str, analysis_date: str, cohort_table: str
+) -> dict:
     sql = f"""
     SELECT ea.variant, COUNT(*) AS n, AVG(pf.{metric}) AS mean, VARIANCE(pf.{metric}) AS variance
     FROM gold_player_features pf
-    JOIN gold_experiment_assignments ea ON ea.player_id = pf.player_id
-    WHERE ea.experiment_id = '{experiment_id}' AND pf.snapshot_date = '{analysis_date}'
+    JOIN (
+        SELECT DISTINCT player_id, variant
+        FROM {cohort_table}
+        WHERE experiment_id = '{experiment_id}'
+    ) ea ON ea.player_id = pf.player_id
+    WHERE pf.snapshot_date = '{analysis_date}'
     GROUP BY ea.variant
     """
     rows = fetch_all_rows(run_athena_query(sql))
@@ -64,8 +70,9 @@ def _compute_flags(control: dict, treatment: dict, lift_pct, diff: float, se: fl
         flags.append({
             "code": "SAMPLE_IMBALANCE",
             "severity": "warning",
-            "message": "Control and treatment group sizes are notably unequal, which can bias the "
-                       "effect estimate even though the randomization itself passed its integrity check.",
+            "message": "Control and treatment group sizes are notably unequal, which reduces "
+                       "precision and makes the comparison less credible even though the "
+                       "randomization itself passed its integrity check.",
             "evidence": {"control_n": control["n"], "treatment_n": treatment["n"],
                          "ratio": round(n_min / n_max, 3), "threshold_ratio": SAMPLE_IMBALANCE_MIN_MAX_RATIO},
         })
@@ -123,16 +130,26 @@ def handler(event, context):
     oec_metric = experiment["oec_metric"]
     guardrail_metrics = experiment.get("guardrail_metrics", [])
     monitoring_results = event.get("monitoring_results", [])
+    execution_mode = event.get("execution_mode", "replay")
+    cohort_table = (
+        "gold_experiment_exposures"
+        if execution_mode == "live"
+        else "gold_experiment_assignments"
+    )
 
     breach = next((r for r in monitoring_results if r.get("breached")), None)
     if breach:
         analysis_date = breach["check_date"]
     elif monitoring_results:
         analysis_date = monitoring_results[-1]["check_date"]
+    elif execution_mode == "live":
+        analysis_date = event["planned_end_at"][:10]
     else:
         analysis_date = event["as_of_date"]
 
-    oec_stats = _group_stats(experiment_id, oec_metric, analysis_date)
+    oec_stats = _group_stats(
+        experiment_id, oec_metric, analysis_date, cohort_table
+    )
     control = oec_stats.get("control", {"n": 0, "mean": 0.0, "variance": 0.0})
     treatment = oec_stats.get("treatment", {"n": 0, "mean": 0.0, "variance": 0.0})
 
@@ -148,7 +165,9 @@ def handler(event, context):
     guardrail_status = []
     guardrail_detail = []  # carries variance/se too, for flag computation below - not persisted as-is
     for g in guardrail_metrics:
-        stats = _group_stats(experiment_id, g["metric"], analysis_date)
+        stats = _group_stats(
+            experiment_id, g["metric"], analysis_date, cohort_table
+        )
         t = stats.get("treatment", {"mean": 0.0, "variance": 0.0, "n": 0})
         threshold = float(g["threshold"])
         breached = (g["direction"] == "min" and t["mean"] < threshold) or (g["direction"] == "max" and t["mean"] > threshold)
@@ -166,6 +185,7 @@ def handler(event, context):
 
     analysis_result = {
         "analysis_date": analysis_date,
+        "cohort_source": cohort_table,
         "oec_metric": oec_metric,
         "control_n": control["n"],
         "treatment_n": treatment["n"],

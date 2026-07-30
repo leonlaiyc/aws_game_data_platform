@@ -23,7 +23,7 @@ VOLUME_ALERT_THRESHOLD = 200     # bet events in a 1-minute processing-time wind
 class StreamingStack(Stack):
     """Short-lived, cost-controlled real-time path, separate from every
     always-on stack in this project: Kinesis (1 provisioned shard) ->
-    Lambda -> a DynamoDB-backed rolling window -> SNS, demonstrating
+    Lambda -> a DynamoDB-backed tumbling window -> SNS, demonstrating
     real-time RTP/volume threshold alerting alongside AnomalyStack's
     steady-state batch detection.
 

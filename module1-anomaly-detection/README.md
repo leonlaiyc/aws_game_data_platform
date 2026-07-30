@@ -39,6 +39,13 @@ genuinely cashing out. **Neither alone is flagged; only players who show both** 
 Module 2's readout uses for caveats: a single weak signal shouldn't trigger an action a human
 would consider a false alarm.
 
+The detector also has an explicit **explainability contract**. A review item is not a player ID
+plus an opaque score: it carries stable reason codes, actual values, thresholds, site-level peer
+baselines, linked player/device evidence, the detector version, and code-rendered recommended
+checks. Its `review_score` is only a transparent sum of actual-to-threshold ratios for queue
+ordering; it is never described as a probability that the player committed fraud. The status is
+`REVIEW_REQUIRED`, not `fraud_confirmed`, because investigation remains a human decision.
+
 ### Why the EWMA baseline can "catch up" to a sustained drop
 
 Verified against the scripted scenario: checking **day 1** of `site_b`'s week-long drop
@@ -58,13 +65,15 @@ baseline for extended incidents - out of scope here.
   Kinesis has no idle-free pricing mode and is deployed/torn down around its own demo, and
   `ARCHITECTURE.md` for the full batch-vs-streaming trade-off (event-time vs processing-time,
   late-arriving data, duplicate events, false-alert avoidance).
-- **Both batch detectors read only from the shared Gold tables** (`gold_daily_kpi`,
-  `gold_player_features`) — same "single source of truth" principle as Module 2, never
-  recomputing their own aggregates from Silver/Bronze.
+- **Both batch detectors reuse governed data products rather than rebuilding feature logic.**
+  EWMA reads `gold_daily_kpi`; arbitrage combines `gold_player_features` with a narrow Silver query
+  for device fan-out because that grain does not exist in Gold. The exception is explicit rather
+  than hidden behind an inaccurate "Gold-only" claim.
 - **Same dual-mode Lambda pattern used throughout this project** (see Module 2's
-  `monitoring_check`): `{"scheduled": true}` is the real EventBridge-driven production path
-  (discovers every site, checks today); an explicit `{"client_site_id", "as_of_date"}` lets the
-  demo replay a specific historical day against the fixed simulated dataset.
+  `monitoring_check`): `{"scheduled": true}` is the EventBridge-driven path (discovers every site
+  and reads an explicit transform-success publication marker); an explicit
+  `{"client_site_id", "as_of_date"}` lets the demo replay a historical day. The marker is written
+  only after the lake/feature build succeeds — `MAX(dt)` is not treated as proof of completeness.
 
 ## Running the demo
 

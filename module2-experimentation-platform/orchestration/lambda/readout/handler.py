@@ -94,7 +94,9 @@ def _parse_llm_json(text: str) -> tuple:
         stripped = stripped.strip()
     try:
         obj = json.loads(stripped)
-        return obj.get("conclusion", "").strip(), obj.get("recommendation", "").strip(), True
+        conclusion = obj.get("conclusion", "").strip()
+        recommendation = obj.get("recommendation", "").strip()
+        return conclusion, recommendation, bool(conclusion and recommendation)
     except (json.JSONDecodeError, AttributeError):
         return stripped, "", False
 
@@ -132,7 +134,6 @@ def _render_caveats(analysis_result: dict) -> str:
 # token - without the optional exponent group, "1e-06" splits into "1" and
 # "-06", and "-06" isn't a real figure, just a regex parsing artifact.
 _NUMBER_RE = r"-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b"
-_IGNORED_SMALL_INTS = {"1", "2"}  # harmless if the model numbers its own sentences
 
 # Coarse coverage heuristic (not literal keyword matching, which would be
 # fragile against paraphrasing): expect roughly this many extra words per
@@ -141,28 +142,20 @@ _BASE_MIN_WORDS = 12
 _WORDS_PER_FLAG = 10
 
 
-def _allowed_numbers(experiment: dict, analysis_result: dict) -> set:
-    values = [
-        analysis_result["control_mean"], analysis_result["treatment_mean"],
-        analysis_result["lift_pct"], analysis_result["p_value"],
-        analysis_result["control_n"], analysis_result["treatment_n"],
-        SIGNIFICANCE_ALPHA,
-    ]
-    for g in analysis_result["guardrail_status"]:
-        values += [g["treatment_mean"], g["threshold"]]
-    allowed = {str(v) for v in values if v is not None}
-    allowed |= set(re.findall(_NUMBER_RE, experiment.get("name", "")))
-    return allowed
-
-
 def _grounding_check(llm_text: str, experiment: dict, analysis_result: dict) -> tuple:
     """Secondary safety net over the LLM-authored conclusion/recommendation
     only - Key Stats, Guardrail Status, and Caveats are code-rendered and
-    don't need checking, they're correct by construction."""
-    allowed = _allowed_numbers(experiment, analysis_result)
+    don't need checking, they're correct by construction.
+
+    The contract is deliberately stronger than "only known numbers": the
+    model-authored fields are qualitative, so *any* numeric token is a contract
+    violation even when it happens to repeat a value present in the input.
+    This keeps numeric ownership mechanically clear and prevents a rounded or
+    reformatted restatement from looking code-governed when it is not.
+    """
+    del experiment, analysis_result  # retained in the signature for call-site clarity
     found = re.findall(_NUMBER_RE, llm_text)
-    suspicious = [n for n in found if n not in allowed and n not in _IGNORED_SMALL_INTS]
-    return (len(suspicious) == 0), suspicious
+    return (len(found) == 0), found
 
 
 def _coverage_check(prompt: str, conclusion: str, flags: list) -> dict:
@@ -195,13 +188,27 @@ def handler(event, context):
     flags = analysis_result.get("flags", [])
 
     prompt = _build_prompt(experiment, analysis_result)
-    resp = bedrock.converse(
-        modelId=MODEL_ID,
-        messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 400, "temperature": 0.1},
-    )
-    raw_text = resp["output"]["message"]["content"][0]["text"]
-    conclusion, recommendation, parsed_ok = _parse_llm_json(raw_text)
+    model_error = None
+    try:
+        resp = bedrock.converse(
+            modelId=MODEL_ID,
+            messages=[{"role": "user", "content": [{"text": prompt}]}],
+            inferenceConfig={"maxTokens": 400, "temperature": 0.1},
+        )
+        raw_text = resp["output"]["message"]["content"][0]["text"]
+        conclusion, recommendation, parsed_ok = _parse_llm_json(raw_text)
+    except Exception as error:
+        # Narrative is optional; the deterministic analysis is not. Preserve
+        # the code-rendered readout when Bedrock is throttled or unavailable
+        # rather than failing the whole Step Functions execution after all
+        # statistical work has already completed.
+        model_error = type(error).__name__
+        conclusion, recommendation, parsed_ok = "", "", False
+        print(json.dumps({
+            "warning": "readout narrative unavailable; using deterministic fallback",
+            "error_type": model_error,
+            "experiment_id": experiment_id,
+        }))
 
     grounding_ok, suspicious = _grounding_check(conclusion + " " + recommendation, experiment, analysis_result)
     coverage = _coverage_check(prompt, conclusion, flags)
@@ -219,14 +226,21 @@ def handler(event, context):
     # strictly more trustworthy, which is the correct direction to fail in:
     # every number in Key Stats, Guardrail Status and Caveats is rendered from
     # the analysis result, so the fallback cannot contain an invented figure.
-    llm_text_accepted = grounding_ok and parsed_ok
+    coverage_ok = coverage["flags_in_prompt"] and coverage["conclusion_non_trivial"]
+    llm_text_accepted = grounding_ok and parsed_ok and coverage_ok and model_error is None
 
     if llm_text_accepted:
         conclusion_section = f"### Conclusion\n{conclusion}\n\n"
         recommendation_section = f"\n\n### Next-round Recommendation\n{recommendation}"
     else:
-        reason = ("the grounding check found figures not present in the analysis result"
-                  if not grounding_ok else "the model's response could not be parsed")
+        if model_error:
+            reason = "the narrative service was unavailable"
+        elif not grounding_ok:
+            reason = "the qualitative model response contained numeric tokens"
+        elif not coverage_ok:
+            reason = "the qualitative model response did not meet the caveat coverage contract"
+        else:
+            reason = "the model's response could not be parsed"
         conclusion_section = (
             f"### Conclusion\n_Narrative summary withheld: {reason}. "
             f"The code-rendered sections below are unaffected and complete._\n\n"
@@ -247,8 +261,10 @@ def handler(event, context):
         "llm_text_accepted": llm_text_accepted,
         "suspicious_numbers": suspicious,
         "llm_response_parsed": parsed_ok,
+        "model_error": model_error,
         "flags_count": len(flags),
         "coverage_check": coverage,
+        "coverage_check_passed": coverage_ok,
         "generated_at": now_iso(),
         "model_id": MODEL_ID,
     }

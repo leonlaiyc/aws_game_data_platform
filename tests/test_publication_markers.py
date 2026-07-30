@@ -1,0 +1,107 @@
+"""Scheduled detectors consume explicit transform publications exactly once."""
+import io
+import json
+
+import pytest
+
+from conftest import REPO_ROOT, load_handler
+
+M1 = REPO_ROOT / "module1-anomaly-detection"
+COMMON_ENV = {
+    "LAKE_BUCKET_NAME": "test-lake",
+    "ALERTS_TOPIC_ARN": "arn:aws:sns:ap-northeast-1:123:test",
+    "GLUE_DATABASE_NAME": "test",
+    "ATHENA_WORKGROUP_NAME": "test",
+    "AWS_DEFAULT_REGION": "ap-northeast-1",
+}
+anomaly = load_handler(
+    "m1_anomaly_handler",
+    M1 / "data_anomaly" / "lambda" / "detector",
+    extra_paths=[M1 / "data_anomaly" / "lambda" / "common" / "python"],
+    env=COMMON_ENV,
+)
+arbitrage = load_handler(
+    "m1_arbitrage_handler",
+    M1 / "arbitrage_detection" / "lambda" / "detector",
+    extra_paths=[M1 / "arbitrage_detection" / "lambda" / "common" / "python"],
+    env=COMMON_ENV,
+)
+
+
+class NoSuchKey(Exception):
+    pass
+
+
+class FakeS3:
+    class exceptions:
+        NoSuchKey = NoSuchKey
+
+    def __init__(self, publication_key, table):
+        self.objects = {
+            publication_key: json.dumps({
+                "table": table,
+                "published_through": "2026-06-29",
+                "published_at": "2026-07-29T00:00:00+00:00",
+            }).encode(),
+        }
+
+    def get_object(self, Bucket, Key):
+        try:
+            body = self.objects[Key]
+        except KeyError as error:
+            raise NoSuchKey(Key) from error
+        return {"Body": io.BytesIO(body)}
+
+    def put_object(self, Bucket, Key, Body, **kwargs):
+        self.objects[Key] = Body
+
+
+@pytest.mark.parametrize("module,table", [
+    (anomaly, "gold_daily_kpi"),
+    (arbitrage, "gold_player_features"),
+])
+def test_unchanged_publication_is_not_requeried(monkeypatch, module, table):
+    fake_s3 = FakeS3(module.PUBLICATION_MANIFEST_KEY, table)
+    checks = []
+    monkeypatch.setattr(module, "s3", fake_s3)
+    monkeypatch.setattr(module, "_discover_sites", lambda: ["site_a", "site_b"])
+    monkeypatch.setattr(
+        module,
+        "_check_site",
+        lambda site, as_of_date: checks.append((site, as_of_date)) or {
+            "client_site_id": site,
+            "as_of_date": as_of_date,
+        },
+    )
+
+    first = module.handler({"scheduled": True}, None)
+    second = module.handler({"scheduled": True}, None)
+
+    assert len(first["checked"]) == 2
+    assert checks == [("site_a", "2026-06-29"), ("site_b", "2026-06-29")]
+    assert second["checked"] == []
+    assert second["skipped"] == "publication already processed"
+
+
+def test_incomplete_publication_fails_closed(monkeypatch):
+    fake_s3 = FakeS3(anomaly.PUBLICATION_MANIFEST_KEY, "gold_daily_kpi")
+    fake_s3.objects[anomaly.PUBLICATION_MANIFEST_KEY] = json.dumps({
+        "table": "gold_daily_kpi",
+        "published_through": "2026-06-29",
+    }).encode()
+    monkeypatch.setattr(anomaly, "s3", fake_s3)
+
+    with pytest.raises(ValueError, match="manifest is incomplete"):
+        anomaly.handler({"scheduled": True}, None)
+
+
+def test_lake_build_reapplies_governance_before_publication():
+    source = (
+        REPO_ROOT / "data-foundation" / "lake" / "build_lake.py"
+    ).read_text(encoding="utf-8")
+    main_source = source[source.index("def main():"):]
+
+    assert (
+        main_source.index("apply_client_isolation()")
+        < main_source.index("publish_completion_manifest(")
+    )

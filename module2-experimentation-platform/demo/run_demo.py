@@ -172,7 +172,12 @@ def rebuild_lake():
 
 def start_experiment(api_url: str, experiment_id: str, as_of_date: str, duration_days: int):
     lib.api_request(api_url, "POST", f"/experiments/{experiment_id}/start", {
-        "as_of_date": as_of_date, "duration_days": duration_days,
+        # This scenario intentionally replays historical simulated days in a
+        # few minutes. The default API mode is now live and waits in real
+        # wall-clock time while accepting product exposure events.
+        "mode": "replay",
+        "as_of_date": as_of_date,
+        "duration_days": duration_days,
     })
 
 
@@ -191,10 +196,10 @@ def wait_for_completion(state_machine_arn: str, experiment_ids: list, timeout_se
         if pending:
             time.sleep(6)
     if pending:
-        print(f"WARNING: still running after {timeout_seconds}s: {pending}")
+        raise TimeoutError(f"still running after {timeout_seconds}s: {sorted(pending)}")
 
 
-def print_summary(api_url: str, experiment_id: str, label: str):
+def print_summary(api_url: str, experiment_id: str, label: str) -> dict:
     section(f"Result: {label} ({experiment_id})")
     exp = lib.api_request(api_url, "GET", f"/experiments/{experiment_id}")
     print(f"state: {exp.get('state')}")
@@ -208,6 +213,7 @@ def print_summary(api_url: str, experiment_id: str, label: str):
     if exp.get("readout"):
         print(f"\n--- Bedrock readout (grounding_check_passed={exp['readout']['grounding_check_passed']}) ---")
         print(exp["readout"]["report_text"])
+    return exp
 
 
 def run_srm_check(experiment_id: str, counts: dict, total: int, variants: list):
@@ -284,11 +290,36 @@ def main():
 
     wait_for_completion(state_machine_arn, [winner_id, breach_id])
 
-    print_summary(api_url, winner_id, "Clean winner")
-    print_summary(api_url, breach_id, "Guardrail auto-stop")
+    winner = print_summary(api_url, winner_id, "Clean winner")
+    breach = print_summary(api_url, breach_id, "Guardrail auto-stop")
+
+    failures = []
+    analysis = winner.get("analysis_result") or {}
+    if winner.get("state") != "analyzed":
+        failures.append(f"clean winner state expected analyzed, got {winner.get('state')}")
+    if not analysis.get("significant") or (analysis.get("lift_pct") or 0) <= 0:
+        failures.append(
+            "clean winner did not produce a significant positive treatment effect"
+        )
+    if not winner.get("readout", {}).get("report_text"):
+        failures.append("clean winner produced no experiment readout")
+
+    if not str(breach.get("stop_reason", "")).startswith("guardrail_breach:"):
+        failures.append(
+            f"guardrail experiment has no guardrail_breach stop_reason: {breach.get('stop_reason')!r}"
+        )
 
     run_srm_check(srm_id, srm_counts, srm_total, srm_variants)
 
+    if failures:
+        section("FAILED")
+        for failure in failures:
+            print(f"  - {failure}")
+        return 1
+    section("Result")
+    print("All three experiment scenarios passed.")
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

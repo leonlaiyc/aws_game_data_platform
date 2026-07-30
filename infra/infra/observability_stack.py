@@ -107,8 +107,8 @@ class ObservabilityStack(Stack):
         # 'ap-northeast-1' based on metric 'EstimatedCharges' in 'us-east-1'"),
         # so a CloudWatch alarm would need its own us-east-1 stack. Budgets is
         # region-agnostic and is the purpose-built tool anyway - it forecasts
-        # rather than only reacting, which for an account whose steady state is
-        # under $0.10/month is the difference between noticing a stray
+        # rather than only reacting, which for an account whose gross modeled
+        # steady state is under $2/month is the difference between noticing a stray
         # hourly-billed resource on day one versus at month end.
         budgets.CfnBudget(
             self, "MonthlyCostBudget",

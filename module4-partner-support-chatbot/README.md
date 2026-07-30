@@ -1,5 +1,9 @@
 # Module 4 — Partner Integration Support Chatbot
 
+Status: **operationally verified PoC** as of 2026-07-29. Durable session state,
+operator-only partner notifications, credential-like content rejection,
+durable tickets, and account-local delivery all passed against AWS.
+
 ## Pain Point
 
 Aurora Games' integration engineers spend a large share of their week answering the same partner
@@ -31,7 +35,7 @@ and the model authors exactly one of them.
 
 ## The four categories
 
-| # | Category | Trigger (all deterministic) | Escalates? |
+| # | Category | Trigger | Escalates? |
 |---|---|---|---|
 | 1 | `BLOCKED_CONTENT` | Bedrock Guardrails intervened on the raw question | No |
 | 2 | `OUT_OF_SCOPE` | Lexical domain relevance below threshold, or no domain anchor term | No — not a support issue |
@@ -45,6 +49,25 @@ needs "sandbox or production?" must never consume an engineer's time, and questi
 the bulk of the load this module exists to remove. Out-of-scope deliberately does *not* escalate —
 someone asking about the weather doesn't have a support issue, and ticketing it would train the
 queue to be noise.
+
+An escalation ticket is not decorative copy. Before the API returns its `AGS-...` reference, the
+Lambda conditionally writes an `OPEN` work item to the on-demand
+`aurora-games-support-tickets` DynamoDB table. If that write fails, the invocation fails instead of
+promising a ticket that no support engineer can find. The ticket stores the partner question and
+routing reason; raw model output and the full corpus remain only in the operator audit log.
+
+First-turn state is also durable: `aurora-games-support-sessions` uses an
+atomic conditional write so cold starts and concurrent Lambda containers agree
+on whether a greeting has already been shown. The record expires after 24
+hours; it stores no conversation body.
+
+Operational notifications are a separate operator-only API:
+`POST /notifications` accepts a structured `NEW_GAME` or `MAINTENANCE`
+message, validates site/game identifiers and timestamp, rejects
+credential-like material, and publishes to
+`aurora-games-partner-notifications`. The default stack subscribes only an
+account-local SQS audit queue. It does not contact a partner until an explicit
+recipient and opt-in workflow are approved.
 
 ### Category 1 runs first, via ApplyGuardrail rather than the model call
 
@@ -189,22 +212,32 @@ is bought for the workflow it enables, not for the capability.
 
 ```bash
 python module4-partner-support-chatbot/demo/run_demo.py
+python module4-partner-support-chatbot/demo/run_notification_demo.py
 ```
 
 Shows all four categories firing with the triggering signal annotated, the first-turn-only
-greeting, and the leakage guard. Verified output: **8/8 checks passed** against the deployed stack.
+greeting, and the leakage guard. The second command publishes one maintenance
+notice, verifies SNS-to-SQS delivery, and deletes only its matching audit
+message. The deployed chat output passed **8/8 checks** and the notification
+path passed API-to-SNS-to-SQS delivery plus matching-message cleanup.
 
 ## Known limitations
 
 Stated plainly rather than omitted:
 
-- **Session tracking is in-memory**, so the first-turn greeting rule doesn't survive a cold start or
-  span concurrent containers. Production needs DynamoDB with a TTL — the same pattern
-  [Module 1's streaming aggregator](../module1-anomaly-detection/streaming/) already uses.
 - **Operator identity is matched by IAM role-name convention**, which is a demo simplification: a
   role name is not a security boundary once anyone can create a role with a matching name. A real
   deployment would carry the entitlement in a verified IdP claim.
 - **The whole corpus is sent on every request** (~7,800 characters). Fine at four documents, and the
   reason no vector store is needed; it is also the hard ceiling on how far this design scales.
 - **No conversation history.** Each request is independent, so a partner answering the clarification
-  question has to restate their original question. Multi-turn context is the obvious next increment.
+  question has to restate their original question. DynamoDB currently tracks
+  only whether the session has been seen, not its messages. A bounded,
+  redacted turn history is the next increment.
+- **The ticket table is a minimal write path, not a full case-management system.** It proves the
+  escalation is actionable, but there is no status GSI, SLA timer, assignment workflow, or agent UI.
+  Those belong in an existing CRM/ITSM integration once the receiving system is chosen.
+- **No real partner notification subscriber is installed.** The SQS sink
+  proves delivery without external side effects. Production needs explicit
+  partner opt-in, per-tenant filters, unsubscribe handling, retry/DLQ policy,
+  and an approved channel.

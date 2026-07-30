@@ -50,9 +50,11 @@ bet_total=2700.00 win_total=2595.00 event_count=270 rtp=0.9611
 alerted=True
 ```
 
-`rtp=0.9611 > 0.95` (RTP_ALERT_THRESHOLD) and `event_count=270 > 200` (VOLUME_ALERT_THRESHOLD) -
-exactly one SNS alert fires (see `_try_claim_alert` in the Lambda - a conditional DynamoDB update
-ensures later batches that are still over threshold don't each send their own message).
+`rtp=0.9611 > 0.95` (RTP_ALERT_THRESHOLD) and `event_count=270 > 200` (VOLUME_ALERT_THRESHOLD).
+The demo verifies the final aggregate and `alerted=True`. A conditional DynamoDB update allows at
+most one publisher to claim the window, so later batches do not each attempt a message; proving
+end-to-end SNS delivery count would require a test subscriber, which this short-lived stack does
+not provision.
 
 ## Design notes
 

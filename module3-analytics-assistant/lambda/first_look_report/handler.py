@@ -21,17 +21,29 @@ Drill-down sequence:
 """
 import json
 import os
+import re
+from datetime import datetime, timezone
 
 import boto3
 from athena_utils import fetch_all_rows, run_athena_query
 
 bedrock = boto3.client("bedrock-runtime")
 s3 = boto3.client("s3")
+sns = boto3.client("sns")
 MODEL_ID = "amazon.nova-lite-v1:0"
 BUCKET = os.environ["LAKE_BUCKET_NAME"]
+REPORTS_TOPIC_ARN = os.environ.get("REPORTS_TOPIC_ARN", "")
 
 BASELINE_WINDOW_DAYS = 7
 SITE_METRICS = ["dau", "ggr_usd", "sessions", "new_players", "deposits_usd", "withdrawals_usd"]
+_NUMERIC_HEADLINE_RE = re.compile(
+    r"\d|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+    r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|"
+    r"forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|"
+    r"first|second|third|quarter|half|double|triple)\b",
+    re.IGNORECASE,
+)
+_HEADLINE_FALLBACK = "Anomaly detected - see the breakdown below for details."
 
 
 def _site_baseline_comparison(site: str, as_of_date: str) -> dict:
@@ -136,11 +148,19 @@ def _headline(site: str, as_of_date: str, comparison: dict) -> str:
         f"Site: {site}, date: {as_of_date}\nMetric changes vs 7-day baseline:\n{lines}\n\n"
         "Respond with ONLY a JSON object: {\"headline\": \"...\"}"
     )
-    resp = bedrock.converse(
-        modelId=MODEL_ID, messages=[{"role": "user", "content": [{"text": prompt}]}],
-        inferenceConfig={"maxTokens": 150, "temperature": 0.1},
-    )
-    raw = resp["output"]["message"]["content"][0]["text"].strip()
+    try:
+        resp = bedrock.converse(
+            modelId=MODEL_ID, messages=[{"role": "user", "content": [{"text": prompt}]}],
+            inferenceConfig={"maxTokens": 150, "temperature": 0.1},
+        )
+        raw = resp["output"]["message"]["content"][0]["text"].strip()
+    except Exception as error:
+        print(json.dumps({
+            "warning": "headline generation failed, using fallback",
+            "error_type": type(error).__name__,
+        }))
+        return _HEADLINE_FALLBACK
+
     stripped = raw
     if stripped.startswith("```"):
         stripped = stripped.strip("`")
@@ -149,12 +169,15 @@ def _headline(site: str, as_of_date: str, comparison: dict) -> str:
         stripped = stripped.strip()
     try:
         headline = json.loads(stripped).get("headline", "")
-        if headline:
+        if headline and not _NUMERIC_HEADLINE_RE.search(headline):
             return headline
     except (json.JSONDecodeError, AttributeError):
         pass
-    print(json.dumps({"warning": "headline parse failed, using fallback", "raw_response": raw}))
-    return "Anomaly detected - see the breakdown below for details."
+    print(json.dumps({
+        "warning": "headline parse or no-number contract failed, using fallback",
+        "raw_response": raw,
+    }))
+    return _HEADLINE_FALLBACK
 
 
 def handler(event, context):
@@ -188,6 +211,29 @@ def handler(event, context):
                               "comparison": comparison, "game_breakdown": breakdown}).encode("utf-8"),
             ContentType="application/json",
         )
+        if REPORTS_TOPIC_ARN:
+            sns.publish(
+                TopicArn=REPORTS_TOPIC_ARN,
+                Subject=f"First-look report: {site} on {as_of_date}",
+                Message=json.dumps({
+                    "report_type": "FIRST_LOOK",
+                    "client_site_id": site,
+                    "as_of_date": as_of_date,
+                    "headline": headline,
+                    "report_s3_uri": f"s3://{BUCKET}/{key}",
+                    "generated_at": datetime.now(timezone.utc).isoformat(),
+                }),
+                MessageAttributes={
+                    "report_type": {
+                        "DataType": "String",
+                        "StringValue": "FIRST_LOOK",
+                    },
+                    "client_site_id": {
+                        "DataType": "String",
+                        "StringValue": site,
+                    },
+                },
+            )
         reports.append({"client_site_id": site, "as_of_date": as_of_date, "report_text": report_text})
 
     return {"reports": reports}

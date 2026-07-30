@@ -91,16 +91,19 @@ Then **verify by listing, not by the destroy exit code** — see
 
 | Failure | Effect | Recovery | Data loss |
 |---|---|---|---|
-| Lake rebuild fails midway | Gold table empty until re-run — `build_lake.py` deletes before writing and there is no atomic swap | Re-run `build_lake.py`; it converges | None (Bronze is the source) |
+| Lake rebuild fails midway | Gold table empty until re-run — `build_lake.py` deletes the publication marker before data and there is no atomic swap | Re-run `build_lake.py`; a successful run republishes the completion marker | Derived data is unavailable; source loss depends on the local simulator copy/S3 version history |
 | Detector Lambda fails | That day's check is skipped | Re-run with an explicit `{client_site_id, as_of_date}` — the same path the demos use, so it is continuously exercised | None |
 | `FirstLookReport` fails | No auto-report for that alert; the SNS alert itself still went out | Replay from the DLQ | None |
 | Step Functions execution fails | Experiment stuck between states | Re-run the lifecycle | None |
-| Bedrock unavailable | Module 2 readouts lose their narrative section, Modules 3/4 return errors | Wait; Module 2's readout still renders all code-generated sections | None |
+| Bedrock unavailable | Module 2 readouts and Module 3 first-look headlines fall back to deterministic sections; interactive Module 3/4 calls return errors | Wait/retry; numeric evidence remains available in the code-rendered paths | None |
 | Athena workgroup limit hit | Query cancelled at the 1 GB scan cap | Intended behaviour — investigate the query, don't raise the cap reflexively | None |
 
-**The pattern worth noticing:** no failure mode above loses data, because Bronze is immutable and
-every derived table is rebuilt from it. That property is what makes "just re-run it" a legitimate
-first response rather than a hope.
+**The recovery boundary matters:** derived tables are reproducible, but Bronze is not immutable in
+this demo — the builder overwrites fixed object keys and the bucket is not versioned. Recovery is
+reliable while the deterministic local simulator output still exists; production would require
+versioning/Object Lock or append-only ingestion before claiming source-level durability. The
+publication marker prevents scheduled consumers from mistaking a half-finished rebuild for a
+complete dataset.
 
 ---
 

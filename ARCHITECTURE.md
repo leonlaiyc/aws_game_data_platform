@@ -2,8 +2,8 @@
 
 Design rationale for the Aurora Games data platform. Each module section covers Pain → Reasoning →
 Architecture → Trade-offs, and the [Design review](#design-review--aws-data-analytics-lens-questions)
-section at the end answers AWS Data Analytics Lens-style questions against what is actually
-deployed.
+section at the end answers AWS Data Analytics Lens-style questions against the deployed baseline
+and clearly labels acceptance-hardening controls that still await an authorised deploy.
 
 Diagrams: [`diagrams/`](diagrams/). Cost: [`docs/cost-analysis.md`](docs/cost-analysis.md).
 
@@ -63,7 +63,7 @@ requirement would need the same watermarking mechanism noted above.
 
 Kinesis + Lambda event source mappings are **at-least-once**, not exactly-once - a retried batch
 (e.g. after a transient Lambda error) can reprocess already-counted records. No de-duplication is
-implemented in `streaming/`'s rolling-window counters (would need tracking processed sequence
+implemented in `streaming/`'s tumbling-window counters (would need tracking processed sequence
 numbers or a per-event idempotency key) - documented as a known gap appropriate for a short demo,
 not a production posture. The batch path doesn't have this problem: Athena CTAS re-derives Gold
 tables from Silver each run, so a duplicate Bronze event would need to be a duplicate *source*
@@ -76,9 +76,9 @@ Three separate mechanisms across this module, each solving a different false-pos
   ordinary day-to-day DAU/GGR noise.
 - **Arbitrage detection requires two independent signals** (device fan-out *and* an abnormal
   cash-out ratio) rather than either alone - see `module1-anomaly-detection/README.md`.
-- **Streaming's alert de-duplication** (a conditional DynamoDB update) ensures one alert per
-  breached window, not one per Kinesis batch for as long as the breach persists - verified in the
-  demo (270 events across multiple batches produced exactly one SNS message).
+- **Streaming's alert de-duplication** (a conditional DynamoDB update) allows one atomic alert
+  claim per breached window, not one claim per Kinesis batch. The demo verifies the 270-event
+  aggregate and the claim flag; it does not pretend to count SNS deliveries without a subscriber.
 
 ## Module 2 — Experimentation Platform
 
@@ -95,6 +95,17 @@ live, which had already tripped a guardrail, and which were on their third itera
 asking each owner individually or sitting through a standup where everyone reported in turn. The
 registry's centralized visibility is therefore the primary value; SRM checks, guardrail automation,
 and the feature registry are standardization and optimization on top of it, not the headline.
+
+The local hardening adds the missing operational surface and product boundary.
+An auto-refreshing localhost dashboard reads the IAM-protected Registry API and
+shows every parallel experiment's site, game, state, monitoring health,
+exposure SRM, planned end, and allocation switch without adding a hosted UI
+cost. The product endpoint writes immutable exposure events through a DynamoDB
+transaction that checks `running + allocation_enabled` in the same commit.
+Live SRM counts unique exposed players, not eligible assignments or repeated
+impressions. A breach disables allocation first, stops the waiting Standard
+Workflow execution, and makes subsequent calls return `DO_NOT_EXPOSE` with a
+control fallback. The historical replay remains a separate fast demo mode.
 
 This shows up directly in the schema: `related_experiment_id` exists because experiments in this
 domain are usually iterated several times before they conclude, and "how many rounds has this idea
@@ -129,8 +140,8 @@ Two mechanisms, deliberately separated:
 - **Code renders every number.** The Key Stats, Guardrail Status and Caveats sections are built by
   Python from the analysis result. The model receives them and writes only `conclusion` and
   `recommendation` as qualitative prose, so it is never asked to produce a figure. A regex-based
-  grounding check runs afterward and **can reject**: if the model's prose contains a number absent
-  from the analysis result, that prose is dropped and the report falls back to code-rendered
+  grounding check runs afterward and **can reject**: if the model's qualitative prose contains
+  any numeric token — even one copied correctly — that prose is dropped and the report falls back to code-rendered
   sections only. Less readable, and incapable of carrying an invented figure — the right direction
   to fail in. (A check that only annotates its own failure while publishing anyway is documentation,
   not a control.)
@@ -161,8 +172,9 @@ dropped, not deferred — no vector store (S3 Vectors) is needed for this design
 
 ### Templates vs. free-form text-to-SQL
 
-The model never writes SQL. It classifies a question and extracts slots (metric, site, date
-range) from a closed set, re-validated against a whitelist before being substituted into one of 5
+The model never writes SQL. It classifies a question and extracts slots
+(metric, site, optional game, date range) from a closed set, re-validated
+against a whitelist and the latest complete publication manifest before being substituted into one of 5
 hand-written, reviewed SQL templates (`semantic_layer/templates.py`). This is strictly less
 capable than text-to-SQL — it can only ever answer the 5 KPIs it has a template for — in exchange
 for a hard, structural guarantee: every number in an `answerable` response is a real query result,
@@ -170,6 +182,13 @@ never a model-generated figure, and every template is auditable against `KPI_DEF
 before it ships. Free-form text-to-SQL over a real production schema is also a real injection
 surface (a crafted question steering generated SQL) that a closed template set with
 whitelisted-only substitution simply doesn't have.
+
+GGR, DAU and ARPU have reviewed game-grain variants over Silver because the
+Gold KPI table is deliberately site/day grain; retention remains a site-cohort
+definition. An unsupported question creates a real TTL-bounded analytics work
+item before returning a ticket ID. First-look reports are both stored in S3 and
+published to an account-local SNS/SQS delivery path; attaching a real recipient
+requires an explicit opt-in decision.
 
 ### A Guardrails false-positive, and why it matters for this module specifically
 
@@ -187,8 +206,10 @@ fix.
 
 ### Cost: why "how many questions per month" isn't the right crossover variable
 
-Amazon Quick's realistic cost floor (a $250/month per-account infra fee once Q&A/Pro is enabled,
-plus a $250/month minimum question-capacity tier) is roughly $500+/month regardless of usage.
+Amazon Quick has several licensing paths: a small per-user deployment can be tens of dollars, while
+some Pro/Q&A configurations add a $250/month infrastructure fee and/or $250 question capacity.
+There is no universal $500 floor, so the comparison uses the intended workflow rather than stacking
+every published price into a mandatory minimum.
 Verified Nova Lite pricing ($0.06/million input tokens, $0.24/million output tokens) puts this
 module's marginal cost at roughly $0.00005 per question, with Athena/Lambda/API Gateway cost
 similarly negligible at this project's data volume — so the custom stack never "loses" to Quick on
@@ -252,6 +273,13 @@ The suppression is enforced by a code-level validator, not by the prompt, and th
 evidence for why: asked to cite sources, the model produced an internal document ID despite explicit
 instructions not to, and the validator replaced the response before it reached the partner.
 
+Session first-turn state now uses a TTL-bounded DynamoDB record rather than
+Lambda memory, so cold starts and concurrent containers agree. A separate,
+operator-only notification publisher handles structured new-game and
+maintenance notices, rejects credential-like material, and publishes to SNS.
+The default subscriber is an account-local SQS audit sink only; no external
+partner is contacted by the default stack.
+
 ### Prompt management: build vs. managed
 
 Prompt templates and all fixed copy live in a versioned `prompts/` directory, making a wording
@@ -286,8 +314,10 @@ capability.
 
 ## Design review — AWS Data Analytics Lens questions
 
-The questions a reviewer would actually ask, answered against what is deployed. Where the honest
-answer is "not implemented," it says so and names the trigger that would change the decision.
+The questions a reviewer would actually ask, answered against the deployed baseline plus locally
+verified hardening on `codex/acceptance-hardening`. Deployment-pending controls are labelled; where
+the honest answer is "not implemented," it says so and names the trigger that would change the
+decision.
 
 ### How is client data isolated in a multi-tenant lake?
 
@@ -364,16 +394,17 @@ things like "GGR is never null" or "DAU ≤ registered players." At this scale t
 detectors cover the realistic failure modes; the trigger for adopting one is multiple teams writing
 into Gold, where you can no longer reason about every writer.
 
-**On what the schedules actually process.** Scheduled runs check each site's **latest complete
-partition**, not today's date. That is correct independently of this project's fixed dataset:
-upstream data lands with a lag and today's partition is still filling, so a detector reading it
-compares a partial day against complete ones and manufactures a drop every morning. Verified — a
-scheduled invocation processes all three sites at 2026-06-29 (the dataset's last day) and correctly
-reports no anomalies there.
+**On what the schedules actually process.** Scheduled runs read an explicit
+`manifests/published/...` build-success marker, not today's date and not `MAX(dt)`. Presence of a
+row proves only that writing started; it does not prove the partition closed. Both lake builders
+invalidate the old marker before replacing data and publish a new marker only after their
+verification queries succeed.
 
-**The remaining gap is ingestion, not scheduling.** Nothing produces *new* data, so the schedule
-re-checks the same final partition indefinitely. Closing it means a live producer writing current
-partitions; until then this document says "scheduled" rather than "always-on" deliberately.
+**The remaining gap is ingestion, not scheduling.** Nothing produces *new* data. A detector records
+the publication timestamp after all sites succeed; later schedules perform a cheap marker read and
+exit without re-querying the same data. A rebuilt publication—even for the same logical date—gets a
+new timestamp and is processed again. Closing the larger gap still means a live producer writing
+current partitions.
 
 ### Athena or Redshift?
 
@@ -395,10 +426,10 @@ magnitude below that.
 100x here is ~500k players and ~4 GB of events over the same window — still small in absolute
 terms, so most of the architecture holds. What changes:
 
-1. **Bronze query cost becomes real.** At 4 GB, full scans start costing measurable money. The fix
-   is already half-built: Bronze uses partition projection, so the change is converting Silver/Gold
-   to **Parquet with partition pruning and column projection** — likely a 10–50x scan reduction, and
-   the single highest-leverage change.
+1. **Bronze query cost becomes real.** At 4 GB, full scans start costing measurable money. Silver
+   and Gold are already Parquet; the next highest-leverage changes are incremental partition
+   rebuilds, compact file sizing, and enforcing partition pruning/column projection on every
+   consumer query.
 2. **CTAS rebuild time stops being free.** Full rebuild-from-source becomes minutes, not seconds.
    The idempotency benefit is worth keeping as long as possible; past that, move to
    **incremental partition-level rebuilds** (rewrite only the affected `dt` partitions), accepting

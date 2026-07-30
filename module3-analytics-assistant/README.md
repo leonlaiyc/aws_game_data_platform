@@ -1,5 +1,9 @@
 # Module 3 — Analytics NL Assistant
 
+Status: **operationally verified PoC** as of 2026-07-29. Dynamic publication
+dates, governed per-game queries, durable analytics fallback tickets, and the
+alert-to-first-look-to-audit-delivery path passed against AWS.
+
 ## Pain Point
 
 A client-facing analyst wants a quick answer to "what was our GGR last week" or "why did DAU drop
@@ -36,12 +40,27 @@ First match wins, evaluated in this order:
    itself may be perfectly legitimate, it's just not this caller's data.
 3. **Not a game-analytics question at all** → `out_of_scope`
 4. **Metric identifiable but site/date range missing or ambiguous** → `needs_clarification`
-5. **Clearly analytics-shaped, but not one of our 5 metrics** → `no_template_match` + a ticket stub
+5. **Clearly analytics-shaped, but not one of the governed templates** →
+   `no_template_match`; an `OPEN` DynamoDB work item is persisted before its
+   ticket ID is returned
 6. **Otherwise** → `answerable` — run the template, render the answer in code, attach a source
    footer citing the table and `KPI_DEFINITIONS.md` anchor.
 
 Every request is logged in full (category, extracted slots, raw model reasoning) as a CloudWatch
 audit trail — not user-facing, but the actual trail a real threshold/prompt would get tuned from.
+
+The reference date is read from
+`manifests/published/gold_daily_kpi.json`, which the lake builder writes only
+after all transforms and verification queries succeed. The assistant therefore
+interprets "today" and "last week" against the latest complete publication,
+not a date hard-coded into Lambda. Requests outside the published window are
+clarified rather than answered from partial or absent data.
+
+GGR, DAU, and ARPU also accept an optional allow-listed `game_id`. Those
+templates query the governed Silver event schema because the current Gold KPI
+grain is site/day; retention remains a site-level cohort definition and a game
+filter is explicitly refused. This covers the operational question shape
+"How is game_02 performing for site_c/EU?" without enabling free-form SQL.
 
 ## Guardrails: a real false-positive, and the fix
 
@@ -77,13 +96,21 @@ alert:
 3. **Co-movement check** — did engagement (DAU/sessions) move with GGR, suggesting a broad usage
    change, or did GGR move alone, suggesting something narrower like a payout/game-math issue?
 
+The full report is persisted to S3 and a compact, structured delivery event is
+published to `aurora-games-first-look-reports`. The default subscriber is an
+account-local one-day SQS audit queue, so the delivery path is demoable without
+silently adding a real person or external endpoint. A production deployment
+would attach the team's explicitly approved Slack, email, or incident workflow.
+
 All of the above is rendered by code. The one LLM call produces a single qualitative headline
 sentence with an explicit instruction not to restate any figures — verified in the demo output
 below to contain no numbers, only direction/severity language.
 
 ## Verified demo output
 
-Run: `python demo/run_demo.py` (see [`demo/run_demo.py`](demo/run_demo.py); requires
+Run `python demo/run_demo.py --scenario ask` or
+`python demo/run_demo.py --scenario first-look` (see
+[`demo/run_demo.py`](demo/run_demo.py); requires
 `AuroraGamesAnalyticsAssistantStack` and `AuroraGamesAnomalyStack` deployed). Real output from a
 run against the deployed stack, region ap-northeast-1:
 
@@ -125,11 +152,12 @@ Verified pricing (Amazon Quick / QuickSight Q, fetched from the official pricing
 - **Author**: $24–$40/user/month.
 - **Q Question Capacity**: $250/month for 500 questions ($0.50/question overage, down to
   $0.30/question at a 60k-question/year annual commitment).
-- **$250/month per-account infrastructure fee** once Pro users or Q&A is enabled — a fixed floor
-  regardless of usage.
+- **$250/month per-account infrastructure fee** for configurations with Pro users or Q&A enabled.
+  The separate question-capacity plan applies only when that capacity route is selected.
 
-So Amazon Quick's realistic cost floor is roughly **$500+/month** before a single analyst has
-asked a single question (infra fee + minimum question-capacity tier), plus per-reader seats.
+There is therefore no universal **$500/month floor**. A small per-user deployment can cost tens of
+dollars; a Pro/Q&A capacity configuration can add one or both $250 charges. The comparison must use
+the intended licensing mode, not stack every published price into a mandatory minimum.
 
 Custom stack marginal cost (verified: Nova Lite on-demand pricing is $0.06/million input tokens,
 $0.24/million output tokens):
@@ -151,9 +179,9 @@ layer is both cheaper and *more* correct (it can enforce "never state an unverif
 Quick's more general NL Q&A doesn't guarantee).
 
 **Real-client recommendation:** adopt **Amazon Quick as the primary self-service BI/analytics
-interface** for business-user-facing dashboards and broad ad hoc NL Q&A — the $500+/month floor is
-trivial next to the engineering cost of building a full BI platform from scratch, and most
-analysts' day-to-day questions don't need hard grounding guarantees. Keep a **thin custom layer**
+interface** for business-user-facing dashboards and broad ad hoc NL Q&A when its licensed workflow
+cost is lower than building and operating a full BI product; most analysts' day-to-day questions
+do not need hard grounding guarantees. Keep a **thin custom layer**
 like Module 3's Capability B for the narrow, mission-critical automated path — alert-triggered
 first-look reports wired directly into the existing pipeline (SNS from Module 1) — where the
 requirement is deep integration with an existing system and a hard traceability guarantee that a

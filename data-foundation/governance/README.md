@@ -14,7 +14,7 @@ class you want to depend on every future SQL query getting right by convention. 
 the data-access layer (Lake Formation) means the boundary holds even if an analyst writes
 `SELECT * FROM gold_daily_kpi` with no `WHERE` clause at all.
 
-## Setup (run once)
+## Setup and rebuild safety
 
 ```bash
 cd infra && cdk deploy AuroraGamesGovernanceStack   # creates the 3 IAM roles
@@ -22,6 +22,14 @@ cd ../data-foundation/governance
 ../.venv/Scripts/python.exe setup_client_isolation.py   # Lake Formation filters + grants
 ../.venv/Scripts/python.exe verify_isolation.py         # proves it
 ```
+
+The setup script is idempotent, but it is not literally a one-time concern:
+the lake builder uses Athena `DROP/CREATE` for idempotent Gold rebuilds, and
+that replacement removes data-cell filters attached to the old Glue table.
+`build_lake.py` therefore invalidates the completion marker, rebuilds the
+tables, reapplies this setup, and only then publishes the new completion
+marker. If governance reapplication fails, consumers see no completed
+publication.
 
 **Why the Lake Formation setup is a script, not a CDK resource:** `cdk deploy` runs as the CDK
 bootstrap's CloudFormation execution role, which is not a registered Lake Formation Data Lake

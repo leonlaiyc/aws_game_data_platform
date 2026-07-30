@@ -2,28 +2,29 @@
 
 ## Headline
 
-At this project's scale the platform costs **on the order of a few cents per month** in steady
-state, and **near-exactly zero when nobody is using it**. That is not an accident of small data —
-it is the direct result of one design rule applied everywhere: *no service that bills while idle.*
+At this project's scale the data plane costs cents, but the platform has a deliberate
+**observability floor of roughly $1.30/month at gross list price**: 13 standard CloudWatch alarms
+at the Tokyo rate before any free allocation. Compute still scales to zero; operational visibility
+does not.
 
 The more useful finding for an SA conversation is the shape of the cost, not the magnitude:
 
 > **This architecture's cost is driven almost entirely by which services are chosen to exist, not
-> by how much data flows through them.** Going 100x on data moves the bill from cents to a couple
-> of dollars. Adding one always-on managed service — OpenSearch Serverless, a Redshift cluster, MSK,
-> or Amazon Quick — moves it from cents to hundreds, at *any* data volume.
+> by how much data flows through them.** At current scale the alarm fleet costs more than the
+> workload. Going 100x on data moves the data-plane bill by dollars; choosing a provisioned or
+> licensed platform can change it by orders of magnitude regardless of bytes.
 
 Every service selection in [ARCHITECTURE.md](../ARCHITECTURE.md) follows from that asymmetry.
 
 ---
 
-## Observed cost — settled figures for the project's entire lifetime
+## Observed cost — point-in-time estimate, not a settled invoice
 
-Built and deployed over 2026-07-26 → 2026-07-29. Settled Cost Explorer figures for July:
+Built and deployed over 2026-07-26 → 2026-07-29. Cost Explorer estimate captured on 2026-07-29:
 
 | | |
 |---|---|
-| **Gross usage** | **$0.1156** |
+| **Gross usage estimated so far** | **$0.1156** |
 | Free Tier credits | −$0.1156 |
 | **Net charged** | **~$0.00** |
 
@@ -38,7 +39,9 @@ essentially zero. Both are right and neither is the number to quote:
 Grouping by `RECORD_TYPE` separates them (`Usage` $0.1156, `Credit` −$0.1156). **The gross figure is
 the one that transfers to a client**, because their account will not have these credits. Reporting
 the net "$0" would be true of this account and useless to anyone else — which is why every model in
-this document deliberately ignores Free Tier.
+this document deliberately ignores Free Tier. Cost Explorer marked the period estimated, and
+monthly CloudWatch alarm charges may post later, so this is evidence of early usage shape rather
+than a final total.
 
 ### Where the $0.1156 went
 
@@ -73,19 +76,20 @@ Athena query writes result objects, every CTAS rewrites a prefix, and each of th
 requests. At small data volumes the instinct to optimise storage is misdirected; request count is
 the lever.
 
-### What the model got right
+### What the early model missed
 
-The modeled steady state ("well under $0.10/month") plus the streaming demo lands almost exactly on
-the observed $0.1156 — but note **this month included all the development and demo activity**, not a
-steady state. A month of the scheduled workload alone, with no demos and no Cost Explorer calls,
-would be a small fraction of this.
+The first model counted requests and bytes but omitted the fixed alarm fleet, which made its
+"well under $0.10/month" headline false. The $0.1156 snapshot mostly reflects development and demo
+activity; it is too early to validate a full month's alarm charge. The corrected steady-state model
+below prices those alarms explicitly.
 
 ---
 
-## The one deliberately non-zero cost: Kinesis
+## The deliberately short-lived hourly cost: Kinesis
 
-Kinesis Data Streams was the only service used in this project with **no free tier and a
-bills-while-idle model**, and it was chosen knowingly, for one demo, then destroyed.
+Kinesis Data Streams is the only short-lived service here that bills continuously per provisioned
+unit, and it was chosen knowingly for one demo, then destroyed. CloudWatch alarms also have an idle
+cost, but they are retained deliberately because observability is a steady-state requirement.
 
 Verified pricing (checked before building, per this project's verify-before-build rule):
 
@@ -105,7 +109,7 @@ torn down inside a single session.
 |---|---|
 | Shards | 1 |
 | Approximate lifetime | ~1–2 hours |
-| **Actual charge (settled)** | **$0.0012** |
+| **Observed Cost Explorer estimate** | **$0.0012** |
 | If left running for a month | **~$14.24/shard-month** (730 h × $0.0195) |
 
 The four orders of magnitude between those two rows is the whole point. The demo cost nothing
@@ -127,25 +131,146 @@ good intentions:
 
 ## Steady-state monthly model
 
-What runs on a schedule with no human involved: two EventBridge-triggered detector Lambdas daily,
-plus Module 2's monitoring schedule.
+What exists or runs with no human involved: 13 standard alarms, two EventBridge-triggered detector
+Lambdas daily, plus Module 2's monitoring schedule.
 
 | Component | Driver | Modeled monthly cost |
 |---|---|---|
-| Athena | ~300 queries/month, each well under the per-query minimum billing unit, at $5/TB | **~$0.02** |
+| Athena | Up to ~300 queries/month with fresh daily publications/active experiments; unchanged detector publications are skipped | **~$0.02** |
 | Lambda | ~100 invocations × ~3 s × 128 MB | **< $0.01** |
 | S3 | 42.5 MB stored (verified), plus request charges | **< $0.01** |
 | DynamoDB | On-demand, minimal scheduled writes | **< $0.01** |
 | SNS / EventBridge / CloudWatch Logs | Handful of messages, small log volume | **< $0.01** |
+| CloudWatch standard alarms | 13 alarm metrics × $0.10 in Tokyo | **$1.30 gross list price** |
 | Bedrock (Nova Lite) | $0 — only invoked on demand, nothing scheduled | **$0.00** |
 | API Gateway | $0 — only charged per request | **$0.00** |
-| **Total** | | **well under $0.10/month** |
+| **Total** | | **under $2/month gross list price** |
 
-Note which line is largest: **Athena**, and not because of data volume — because each query is
-billed with a minimum scanned-bytes floor, so a few hundred tiny queries cost more than the bytes
-would suggest. At this scale the pipeline's cost is dominated by *query count*, not *data size*.
+The first 10 alarm metrics may be covered by the CloudWatch free allocation when the account is
+eligible, reducing that line to roughly $0.30, but the portable client model does not assume
+credits. After alarms, Athena is the largest scheduled data-plane line because each query has a
+minimum scanned-bytes floor. Official unit source:
+[Amazon CloudWatch pricing](https://aws.amazon.com/cloudwatch/pricing/).
 
 ---
+
+### Module 2 live-exposure increment (checked 2026-07-29)
+
+The live experiment path adds a second DynamoDB table and a route to services
+that were already in the default architecture. It does **not** add a
+provisioned worker, database cluster, NAT Gateway, long-running container, or
+per-user licence.
+
+| Service/change | Region | Billing unit and applicable allowance | Idle charge | Default? | Conservative demo estimate |
+|---|---|---|---|---|---:|
+| DynamoDB exposure table | `ap-northeast-1` | On-demand RRU/WRU plus storage. The documented 25 RCU/WCU Free Tier is for provisioned capacity, so it is **not** assumed here. Transactional sub-1 KB exposure writes use two write request units. | No provisioned throughput charge; stored bytes remain billable. | Yes | `< $0.08` for 10,000 accepted exposures, reads and the stream copy |
+| DynamoDB Streams -> Lambda -> S3 | `ap-northeast-1` | Stream reads, Lambda requests/GB-seconds, S3 PUT/storage. DynamoDB documents 2.5 million stream reads/month in its Free Tier, but the gross model does not rely on it. | No compute idle charge; S3 storage persists. | Yes | `< $0.04` for the same 10,000-event demo |
+| API Gateway exposure route | `ap-northeast-1` | REST API requests and data transfer. The one-million-call offer is time-limited for new accounts, so it is **not** assumed. | None | Yes | `< $0.05` for 10,000 requests |
+| Step Functions live `Wait` | `ap-northeast-1` | Standard Workflow state transitions. A Wait does not accrue duration charges; the always-available allowance is 4,000 transitions/month. | No charge while waiting | Yes | `$0` inside 4,000 monthly transitions |
+| Hourly EventBridge rule | `ap-northeast-1` | Same-account scheduled delivery plus the target Lambda invocation. | No provisioned worker | Yes | `< $0.01` at about 720 invocations/month |
+| **Modeled increment** | | Gross list-price shape, before credits | | | **`< $0.20/month` at side-project volume** |
+
+Official sources checked on that date:
+[DynamoDB pricing](https://aws.amazon.com/dynamodb/pricing/),
+[DynamoDB on-demand request units and idle behavior](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html),
+[API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/),
+[Step Functions pricing](https://aws.amazon.com/step-functions/pricing/), and
+[EventBridge pricing](https://aws.amazon.com/eventbridge/pricing/).
+
+Cost controls are executable, not just estimates:
+
+- the REST stage is capped at 10 requests/second and 20 burst;
+- the exposure table is capped at 25 on-demand read and write request
+  units/second; AWS describes this cap as best-effort rather than an absolute
+  financial ceiling;
+- each exposure expires after 180 days through DynamoDB TTL;
+- the analytics copy is append-only S3 data and the query table uses date
+  partition projection;
+- the existing USD 5 budget still warns at 80% forecast and 100% actual.
+
+Scale trigger: when the product needs sustained traffic above 10 exposure
+requests/second, raise the API/table caps only after load and cost modeling.
+When stream-exported S3 objects create a measurable small-file penalty, replace
+the Lambda export with buffered Firehose delivery and compact Parquet. For
+high-cardinality monitoring, replace the current per-experiment DynamoDB Query
+with stream-maintained aggregate counters.
+
+Teardown is dependency ordered:
+
+```powershell
+cd infra
+cdk destroy AuroraGamesOrchestrationStack --force
+cdk destroy AuroraGamesRegistryStack --force
+```
+
+Independent read-only verification:
+
+```powershell
+aws dynamodb describe-table --table-name aurora-games-experiment-exposures
+aws dynamodb describe-table --table-name aurora-games-experiments
+aws stepfunctions list-state-machines --query "stateMachines[?name=='aurora-games-experiment-lifecycle']"
+aws apigateway get-rest-apis --query "items[?name=='aurora-games-experiments-api']"
+```
+
+For a full teardown, both `describe-table` calls must return
+`ResourceNotFoundException` and both list queries must return an empty list.
+These default PoC stacks were intentionally retained after the authorised
+2026-07-29 deployment; only the independently billed streaming stack follows
+the immediate deploy-demo-destroy lifecycle.
+
+### Module 3/4 delivery and work-item increment (checked 2026-07-29)
+
+The new analytics fallback tickets, support sessions, first-look delivery, and
+partner notification demo reuse DynamoDB, SNS, SQS, Lambda, and API Gateway.
+No email, SMS, webhook, or other external recipient is subscribed by default.
+
+| Resource | Billing unit | Idle charge | Cost/control decision |
+|---|---|---|---|
+| Analytics ticket table | DynamoDB on-demand requests + stored bytes | No provisioned throughput | 5 RRU/WRU best-effort cap; 90-day TTL |
+| Support session table | DynamoDB on-demand requests + stored bytes | No provisioned throughput | 10 RRU/WRU best-effort cap; 24-hour TTL |
+| First-look SNS -> SQS audit delivery | SNS API/delivery and SQS requests | No minimum fee | One-day queue retention; account-local only |
+| Partner notification SNS -> SQS audit delivery | SNS API/delivery and SQS requests | No minimum fee | Operator-only publisher; credential-like content rejected |
+
+Official sources checked on that date:
+[SNS pricing](https://aws.amazon.com/sns/pricing/) states that Standard topics
+are request/delivery priced with no upfront commitment, and
+[SQS pricing](https://aws.amazon.com/sqs/pricing/) states that there is no
+minimum fee and all customers receive one million requests per month. The
+portable gross model still treats each request as billable rather than using
+credits or allowances. At 100 chat/session operations, ten tickets, and ten
+notifications per month, this increment is conservatively **below $0.01/month**
+before the already-modeled Bedrock and API costs.
+
+Scale triggers:
+
+- when support sessions need full conversation context, store a bounded
+  redacted turn history rather than only first-turn state;
+- when tickets need assignment, SLA, ownership, and resolution workflow,
+  replace the minimal DynamoDB queue with the company's CRM/ITSM connector;
+- when a real partner opts in, add a confirmed, tenant-filtered delivery
+  endpoint. SMS and dedicated origination identities are specifically excluded
+  from this PoC because they can introduce destination-dependent or recurring
+  charges;
+- when delivery needs retry policies and per-partner fan-out at scale, add
+  DLQs and subscription management rather than widening the audit queue.
+
+Teardown:
+
+```powershell
+cd infra
+cdk destroy AuroraGamesAnalyticsAssistantStack --force
+cdk destroy AuroraGamesSupportChatbotStack --force
+```
+
+Read-only verification:
+
+```powershell
+aws dynamodb describe-table --table-name aurora-games-analytics-tickets
+aws dynamodb describe-table --table-name aurora-games-support-sessions
+aws sns list-topics --query "Topics[?contains(TopicArn, 'aurora-games-first-look-reports') || contains(TopicArn, 'aurora-games-partner-notifications')]"
+aws sqs get-queue-url --queue-name aurora-games-first-look-report-audit
+aws sqs get-queue-url --queue-name aurora-games-partner-notification-audit
+```
 
 ## Marginal cost per use
 
@@ -225,10 +350,10 @@ Capability A.
 | Lambda | Low single-digit dollars | Longer runtimes, same invocation count |
 | **Total** | **a few dollars per month** | |
 
-**The highest-leverage optimization is not more compute — it is file format.** Converting Silver and
-Gold to Parquet with partition pruning and column projection would cut scanned bytes roughly 10–50x,
-taking the rebuild line back under a dollar. That is the first thing to do at 100x, before anything
-architectural.
+**The highest-leverage optimization is not more compute.** Silver and Gold are already Parquet, so
+the next levers are incremental partition rebuilds, compaction/file sizing, and making every query
+use the existing partition pruning and column projection. Recommending a Parquet conversion here
+would be prescribing work that the repository already completed.
 
 The genuine architectural cliff at 100x is **ingestion**, not query: many small files per client per
 day is the classic small-file problem, and that is the point where Kinesis Data Firehose earns its
@@ -238,7 +363,8 @@ cost by buffering and compacting on the way in.
 
 ## Cost controls actually implemented
 
-Not aspirations — these are in the deployed code:
+Not aspirations — these are in the repository/CDK. Changes on
+`codex/acceptance-hardening` were deployed and verified on 2026-07-29:
 
 - **Athena workgroup bytes-scanned cap** (`aurora-games-wg`) — a hard ceiling per query, so a
   runaway or accidental full-table scan fails instead of billing. Note this still applies even

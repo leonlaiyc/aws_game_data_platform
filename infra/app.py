@@ -25,6 +25,7 @@ registry = RegistryStack(app, "AuroraGamesRegistryStack", env=env, lake_bucket=f
 orchestration = OrchestrationStack(
     app, "AuroraGamesOrchestrationStack", env=env,
     lake_bucket=foundation.lake_bucket, experiments_table=registry.experiments_table,
+    exposures_table=registry.exposures_table,
 )
 GovernanceStack(app, "AuroraGamesGovernanceStack", env=env, lake_bucket=foundation.lake_bucket)
 anomaly = AnomalyStack(app, "AuroraGamesAnomalyStack", env=env, lake_bucket=foundation.lake_bucket)

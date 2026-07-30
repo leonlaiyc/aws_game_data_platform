@@ -4,11 +4,15 @@
 
 A simulation of acting as an AWS Solutions Architect for **Aurora Games**, a fictional B2B gaming
 technology company serving multiple client sites. Built under a hard constraint that shaped every
-design decision: **serverless-first, near-zero idle cost** — the platform must cost effectively
-nothing when nobody is using it.
+design decision: **serverless-first with an explicit observability floor** — compute and data-plane
+services scale down when nobody is using them; 13 CloudWatch alarms are the deliberate fixed idle
+cost paid to know when the platform is broken.
 
-Everything here is deployed and verified against real AWS calls, not just written. Where something
-is not implemented, [ARCHITECTURE.md](ARCHITECTURE.md) names it as a gap rather than omitting it.
+The platform and its acceptance-hardening changes were deployed and exercised
+against real AWS calls on 2026-07-29. This repository treats that evidence as
+an operationally verified PoC, not as production workload experience. Where
+something is not implemented, [ARCHITECTURE.md](ARCHITECTURE.md) names it as a
+gap rather than omitting it.
 
 *Fictional entities (games, client sites, player data) have no relation to any real company.*
 
@@ -73,13 +77,20 @@ checks as a secondary net rather than the primary defense.
 
 ## Modules
 
-| Module | Pain point | Status |
+| Module | Pain point | Current maturity |
 |---|---|---|
-| [data-foundation](data-foundation/) | Multiple client sites and game providers, inconsistent metric definitions, and a hard data-isolation requirement need a governed platform, not just a lake | Done |
-| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage rings go undetected for weeks; batch-only monitoring misses same-hour incidents | Done |
-| [module2-experimentation-platform](module2-experimentation-platform/) | No central view of which concurrent experiments are live, which already tripped a guardrail, and which are on their third iteration | Done |
-| [module3-analytics-assistant](module3-analytics-assistant/) | Analysts field cross-cut business questions no prebuilt dashboard answers, and every anomaly alert starts a drill-down from scratch | Done |
-| [module4-partner-support-chatbot](module4-partner-support-chatbot/) | Integration engineers answer the same partner questions every week, and the questions that genuinely need an engineer queue behind the ones that don't | Done |
+| [data-foundation](data-foundation/) | Multiple client sites and game providers, inconsistent metric definitions, and a hard data-isolation requirement need a governed platform, not just a lake | Deployed PoC; live ingestion and atomic publication remain |
+| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage rings go undetected for weeks; batch-only monitoring misses same-hour incidents | Operationally verified PoC; explainable detector and publication-marker paths passed against AWS |
+| [module2-experimentation-platform](module2-experimentation-platform/) | No central view of which concurrent experiments are live, which already tripped a guardrail, and which are on their third iteration | Operationally verified PoC; live exposure SRM, kill switch, historical lifecycle, and central view passed |
+| [module3-analytics-assistant](module3-analytics-assistant/) | Analysts field cross-cut business questions no prebuilt dashboard answers, and every anomaly alert starts a drill-down from scratch | Operationally verified PoC; governed queries, durable tickets, first-look report, and delivery passed |
+| [module4-partner-support-chatbot](module4-partner-support-chatbot/) | Integration engineers answer the same partner questions every week, and the questions that genuinely need an engineer queue behind the ones that don't | Operationally verified PoC; durable sessions, tickets, leakage controls, and notifications passed |
+
+Project-wide delivery constraints are explicit: the paid AWS account still
+uses a [free-first cost policy](docs/project-constraints.md), player-risk
+alerts must satisfy an explainability contract, and every finished capability
+must have a deterministic operation-only demo. Recording checklists and
+goal-fit review notes are maintained as local delivery documents rather than
+published repository artifacts.
 
 **Highlights worth reading the code for:**
 
@@ -109,17 +120,18 @@ checks as a secondary net rather than the primary defense.
 ## Region & cost
 
 - Deployed in **ap-northeast-1 (Tokyo)**.
-- **Steady-state cost is well under $0.10/month**; idle cost is effectively zero. No always-on
-  compute anywhere — no EC2, NAT Gateway, RDS, or provisioned cluster. An AWS Budgets notification
-  fires at $5, forecast and actual.
+- **Steady-state gross list-price model is under $2/month**, dominated by 13 standard CloudWatch
+  alarms (~$1.30/month before any free allocation), not compute. There is no always-on EC2, NAT
+  Gateway, RDS, or provisioned cluster. An AWS Budgets notification fires at $5, forecast and
+  actual.
 - The one deliberate exception is Module 1's Kinesis streaming path, which has **no free tier and
   bills per shard-hour** (~$14/month if left running). It is excluded from the default CDK app
   behind a context flag, so `cdk deploy --all` cannot create it, and its demo script verifies
   teardown by listing streams directly rather than trusting the destroy exit code.
-- **Actually observed for the project's whole build month: $0.1156 of usage** (fully offset by Free
-  Tier credits, but that is the number that transfers to a client account). The single largest line
-  item was the Cost Explorer API at $0.04 — investigating the cost cost more than running the
-  platform, which is documented rather than quietly dropped.
+- **Cost Explorer snapshot on 2026-07-29: $0.1156 estimated gross usage** (fully offset by credits
+  in this account). It is useful evidence, not a settled lifetime invoice; standard alarm charges
+  can post later in the month. The largest line item in that snapshot was the Cost Explorer API at
+  $0.04 — investigating the cost cost more than running the data plane.
 - Full breakdown, verified unit prices, the Amazon Quick build-vs-buy analysis, and a 100x
   projection: [docs/cost-analysis.md](docs/cost-analysis.md). Operational responses:
   [docs/runbook.md](docs/runbook.md). Attack surface and service levels:
@@ -183,7 +195,7 @@ infra/                              CDK app (Python) — all infrastructure as c
 tests/                              pytest: CDK security assertions + unit tests, no AWS needed
 .github/workflows/ci.yml            Compiles every Lambda handler, then runs the suite
 diagrams/                           Architecture diagrams (Mermaid, renders on GitHub)
-docs/cost-analysis.md               Verified unit prices, settled observed costs, 100x projection
+docs/cost-analysis.md               Verified unit prices, observed estimate, 100x projection
 docs/runbook.md                     What each alarm means and what to do about it
 docs/threat-model.md                Who would attack this, whether it holds, and the SLOs
 

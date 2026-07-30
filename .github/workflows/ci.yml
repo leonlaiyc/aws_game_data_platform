@@ -17,6 +17,13 @@ jobs:
           python-version: "3.12"
           cache: pip
 
+      - uses: actions/setup-node@v4
+        with:
+          # AWS CDK's jsii runtime no longer treats Node 20 as a supported
+          # production baseline. Pin the current LTS so synth warnings do not
+          # quietly become future CI failures.
+          node-version: "22"
+
       - name: Install test dependencies
         run: pip install -r requirements-test.txt
 
@@ -55,4 +62,7 @@ jobs:
           echo "Asserted: analyst roles have no bucket-wide S3 access and no write on data prefixes"
           echo "Asserted: analyst workgroups enforce configuration"
           echo "Asserted: alert subscription filters on alert_type, DLQs present"
+          echo "Asserted: registry identity scope and closed inputs"
+          echo "Asserted: support escalation has a DynamoDB work item"
+          echo "Asserted: LLM numeric contracts fail toward deterministic output"
           echo "Asserted: streaming (billable) stack not in the default CDK app"

@@ -7,6 +7,8 @@ module3-analytics-assistant/demo/run_demo.py to notice it.
 """
 import os
 import sys
+import io
+import json
 from pathlib import Path
 
 import pytest
@@ -46,6 +48,8 @@ def test_operator_identity_is_unrestricted(monkeypatch):
 
 @pytest.mark.parametrize("arn", [
     "arn:aws:sts::123456789012:assumed-role/some-other-role/session",
+    "arn:aws:sts::123456789012:assumed-role/evil-aurora-games-operator/session",
+    "arn:aws:sts::123456789012:assumed-role/evil-aurora-games-analyst-site_a/session",
     "arn:aws:iam::123456789012:user/random-person",
     "",
 ])
@@ -105,6 +109,48 @@ class TestSlotValidation:
                   "start_date": "2026-06-01", "end_date": "2026-06-07"}
         assert handler._validate_slots(parsed)["category"] == "answerable"
 
+    def test_game_dimension_is_whitelisted(self):
+        parsed = {
+            "category": "answerable",
+            "metric": "ggr",
+            "client_site_id": "site_c",
+            "game_id": "game_02",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-07",
+        }
+        assert handler._validate_slots(parsed)["category"] == "answerable"
+
+    def test_game_dimension_is_rejected_for_site_cohort_retention(self):
+        parsed = {
+            "category": "answerable",
+            "metric": "retention_d7",
+            "client_site_id": "site_c",
+            "game_id": "game_02",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-07",
+        }
+        result = handler._validate_slots(parsed)
+        assert result["category"] == "needs_clarification"
+        assert "client-site cohort level" in result["clarification_question"]
+
+    def test_date_range_must_be_inside_complete_publication(self):
+        parsed = {
+            "category": "answerable",
+            "metric": "ggr",
+            "client_site_id": "site_a",
+            "start_date": "2026-06-20",
+            "end_date": "2026-07-01",
+        }
+        result = handler._validate_slots(
+            parsed,
+            {
+                "published_from": "2026-05-01",
+                "published_through": "2026-06-29",
+            },
+        )
+        assert result["category"] == "needs_clarification"
+        assert "Complete data is available" in result["clarification_question"]
+
     @pytest.mark.parametrize("override", [
         {"client_site_id": "site_a' OR '1'='1"},
         {"client_site_id": "site_z"},
@@ -117,3 +163,80 @@ class TestSlotValidation:
         parsed = {"category": "answerable", "metric": "ggr", "client_site_id": "site_a",
                   "start_date": "2026-06-01", "end_date": "2026-06-07", **override}
         assert handler._validate_slots(parsed)["category"] == "needs_clarification"
+
+
+def test_data_window_comes_from_completion_manifest(monkeypatch):
+    class FakeS3:
+        def get_object(self, **kwargs):
+            return {
+                "Body": io.BytesIO(json.dumps({
+                    "table": "gold_daily_kpi",
+                    "published_from": "2026-05-01",
+                    "published_through": "2026-07-15",
+                    "published_at": "2026-07-16T00:00:00Z",
+                }).encode()),
+            }
+
+    monkeypatch.setattr(handler, "LAKE_BUCKET_NAME", "test-lake")
+    monkeypatch.setattr(handler, "s3", FakeS3())
+
+    assert handler._data_window() == {
+        "published_from": "2026-05-01",
+        "published_through": "2026-07-15",
+        "published_at": "2026-07-16T00:00:00Z",
+        "source": "publication_manifest",
+    }
+
+
+def test_per_game_query_uses_governed_silver_template(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        handler,
+        "run_athena_query",
+        lambda sql: captured.append(sql) or "query-id",
+    )
+    monkeypatch.setattr(
+        handler,
+        "fetch_all_rows",
+        lambda query_id: [{"value": "12.5"}],
+    )
+
+    result = handler._run_template(
+        "ggr", "site_c", "2026-06-01", "2026-06-07", "game_02"
+    )
+
+    assert result["source_table"] == "silver_events"
+    assert result["game_id"] == "game_02"
+    assert "game_id = 'game_02'" in captured[0]
+
+
+def test_analytics_fallback_persists_actionable_ticket(monkeypatch):
+    class FakeTickets:
+        def __init__(self):
+            self.request = None
+
+        def put_item(self, **kwargs):
+            self.request = kwargs
+
+    tickets = FakeTickets()
+    monkeypatch.setattr(handler, "analytics_tickets", tickets)
+    monkeypatch.setattr(handler.time, "time", lambda: 1_000_000)
+
+    handler._persist_analytics_ticket(
+        "TICKET-123",
+        "Average session length for game_02?",
+        {
+            "metric": None,
+            "client_site_id": "site_c",
+            "game_id": "game_02",
+            "reasoning": "no governed template",
+        },
+        ["site_c"],
+    )
+
+    item = tickets.request["Item"]
+    assert item["ticket_id"] == "TICKET-123"
+    assert item["status"] == "OPEN"
+    assert item["requested_game"] == "game_02"
+    assert item["caller_scope"] == ["site_c"]
+    assert item["expires_at"] == 1_000_000 + 90 * 86400

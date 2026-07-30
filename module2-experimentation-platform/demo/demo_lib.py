@@ -9,7 +9,6 @@ import hashlib
 import json
 import sys
 import time
-import urllib.request
 import uuid
 from pathlib import Path
 
@@ -17,12 +16,15 @@ import boto3
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "data-foundation"))
+sys.path.insert(0, str(REPO_ROOT / "demo_lib"))
 from event_simulator.config import CLIENT_SITES  # noqa: E402
+from signed_request import assume, signed_request  # noqa: E402
 
 session = boto3.Session()
 cfn = session.client("cloudformation")
 athena = session.client("athena")
 s3 = session.client("s3")
+_operator_session = None
 
 
 def stack_outputs(stack_name: str) -> dict:
@@ -61,16 +63,14 @@ def fetch_all_rows(query_id: str) -> list:
 
 
 def api_request(api_url: str, method: str, path: str, body: dict = None) -> dict:
+    global _operator_session
     url = api_url.rstrip("/") + path
-    data = json.dumps(body).encode("utf-8") if body is not None else None
-    req = urllib.request.Request(url, data=data, method=method, headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req) as resp:
-            raw = resp.read().decode("utf-8")
-            return json.loads(raw) if raw else {}  # e.g. 204 No Content on DELETE
-    except urllib.error.HTTPError as e:
-        raw = e.read().decode("utf-8")
-        return (json.loads(raw) if raw else {}) | {"_http_status": e.code}
+    if _operator_session is None:
+        _operator_session = assume("aurora-games-operator", "module2-demo")
+    status, response = signed_request(_operator_session, method, url, body)
+    if status >= 400:
+        raise RuntimeError(f"registry API {method} {path} returned {status}: {response}")
+    return response
 
 
 # --- Mirrors registry/lambda/api/handler.py's _derive_seed and

@@ -4,10 +4,11 @@ must already exist - run data-foundation/lake/build_lake.py first).
 Requires: `aws configure` already set up, and the FoundationStack already
 deployed (`cdk deploy` from infra/).
 """
+import json
 import string
 import sys
 import time
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import boto3
@@ -19,6 +20,7 @@ from event_simulator import config as sim_config  # noqa: E402
 STACK_NAME = "AuroraGamesFoundationStack"
 FEATURE_DIR = Path(__file__).parent
 DDL_FILE = FEATURE_DIR / "ddl" / "gold_player_features.sql"
+FEATURE_PUBLICATION_MANIFEST = "manifests/published/gold_player_features.json"
 
 session = boto3.Session()
 cfn = session.client("cloudformation")
@@ -71,6 +73,22 @@ def print_query_results(query_id: str, max_rows: int = 20):
         print("  " + " | ".join(c.get("VarCharValue", "") for c in row["Data"]))
 
 
+def publish_completion_manifest(bucket: str, max_date: str):
+    body = {
+        "table": "gold_player_features",
+        "published_through": max_date,
+        "published_at": datetime.now(timezone.utc).isoformat(),
+        "source": "fixed_simulator_build",
+    }
+    s3.put_object(
+        Bucket=bucket,
+        Key=FEATURE_PUBLICATION_MANIFEST,
+        Body=json.dumps(body, sort_keys=True).encode("utf-8"),
+        ContentType="application/json",
+    )
+    print(f"Published completion marker through {max_date}.")
+
+
 def main():
     outputs = get_stack_outputs()
     bucket = outputs["LakeBucketName"]
@@ -79,6 +97,7 @@ def main():
     print(f"Bucket={bucket} Database={database} Workgroup={workgroup}")
 
     print("Clearing previous gold_player_features output (for idempotent re-runs) ...")
+    s3.delete_object(Bucket=bucket, Key=FEATURE_PUBLICATION_MANIFEST)
     clear_prefix(bucket, "gold/player_features/")
     clear_prefix(bucket, "athena-results/tables/")
 
@@ -125,6 +144,9 @@ def main():
     """
     qid = run_query(normal_check_sql, database, workgroup)
     print_query_results(qid)
+
+    max_date = (sim_config.START_DATE + timedelta(days=sim_config.NUM_DAYS - 1)).isoformat()
+    publish_completion_manifest(bucket, max_date)
 
 
 if __name__ == "__main__":

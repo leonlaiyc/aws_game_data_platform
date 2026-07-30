@@ -3,10 +3,11 @@
 Two ideas carry this module, and they are the same idea applied twice: **the
 model is given exactly one job, and code owns everything else.**
 
-1. **Deciding whether to answer at all** is a code decision, not the model's.
+1. **Deciding whether to answer at all** is a bounded decision pipeline.
    Four ordered "cannot answer" categories, first match wins, each triggered by
-   a signal computed in code or reported by a service - never by asking the
-   model "should you answer this?":
+   a signal computed in code or reported by a service. The first three gates
+   are deterministic; the final context-sufficiency signal is model-reported
+   and fails toward escalation:
 
    | Category | Trigger | Escalates? |
    |---|---|---|
@@ -47,7 +48,9 @@ an external partner audience.
 import json
 import os
 import re
+import time
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 
 import boto3
@@ -64,6 +67,9 @@ from config import (
 from prompts import fixed_copy_v1 as copy
 
 bedrock = boto3.client("bedrock-runtime")
+dynamodb = boto3.resource("dynamodb")
+tickets = dynamodb.Table(os.environ["SUPPORT_TICKETS_TABLE_NAME"])
+sessions = dynamodb.Table(os.environ["SUPPORT_SESSIONS_TABLE_NAME"])
 MODEL_ID = "amazon.nova-lite-v1:0"
 GUARDRAIL_ID = os.environ["GUARDRAIL_ID"]
 GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
@@ -281,11 +287,29 @@ _CODE_OWNED_COPY = {
     copy.VALIDATION_FALLBACK_BODY,
 }
 
-# Demo-only session tracking: the greeting appears on a session's first turn
-# only. A module-level set does not survive a cold start or span concurrent
-# containers - production needs DynamoDB with a TTL, the same pattern Module 1's
-# streaming aggregator already uses for its rolling windows.
-_SEEN_SESSIONS = set()
+SESSION_TTL_SECONDS = 24 * 60 * 60
+
+
+def _is_first_turn(session_id: str) -> bool:
+    """Atomically claim the first turn across cold starts and concurrency."""
+    expires_at = int(time.time()) + SESSION_TTL_SECONDS
+    try:
+        sessions.put_item(
+            Item={
+                "session_id": session_id,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "expires_at": expires_at,
+            },
+            ConditionExpression="attribute_not_exists(session_id)",
+        )
+        return True
+    except sessions.meta.client.exceptions.ConditionalCheckFailedException:
+        sessions.update_item(
+            Key={"session_id": session_id},
+            UpdateExpression="SET expires_at = :expires_at",
+            ExpressionAttributeValues={":expires_at": expires_at},
+        )
+        return False
 
 
 def _debug_authorised(event) -> bool:
@@ -302,7 +326,15 @@ def _debug_authorised(event) -> bool:
     if not OPERATOR_PRINCIPAL_PATTERN:
         return False
     arn = (event.get("requestContext", {}).get("identity", {}) or {}).get("userArn") or ""
-    return bool(re.search(OPERATOR_PRINCIPAL_PATTERN, arn))
+    resource = arn.split(":", 5)[-1] if ":" in arn else ""
+    if resource.startswith("assumed-role/"):
+        parts = resource.split("/", 2)
+        role_name = parts[1] if len(parts) >= 2 else ""
+    elif resource.startswith("role/"):
+        role_name = resource.rsplit("/", 1)[-1]
+    else:
+        role_name = ""
+    return role_name == OPERATOR_PRINCIPAL_PATTERN
 
 
 def _render(slots: dict) -> str:
@@ -311,14 +343,51 @@ def _render(slots: dict) -> str:
     return "\n\n".join(s for s in ordered if s)
 
 
+def _persist_ticket(ticket_id: str, question: str, audit: dict) -> None:
+    """Create the work item before its identifier is promised to the partner.
+
+    The compact record deliberately excludes raw model output and the full
+    in-context corpus. Those remain in the operator audit log; a support queue
+    needs the partner's question and routing evidence, not a second copy of
+    every sensitive diagnostic detail.
+    """
+    tickets.put_item(
+        Item={
+            "ticket_id": ticket_id,
+            "status": "OPEN",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "session_id": audit["session_id"],
+            "question": question,
+            "trigger": audit.get("trigger", "validation_fallback"),
+            "final_category": "ESCALATION",
+        },
+        ConditionExpression="attribute_not_exists(ticket_id)",
+    )
+
+
 def handler(event, context):
-    body = json.loads(event["body"]) if isinstance(event.get("body"), str) else (event.get("body") or event)
-    question = body["question"]
+    try:
+        body = json.loads(event["body"]) if isinstance(event.get("body"), str) else (event.get("body") or event)
+    except (json.JSONDecodeError, TypeError):
+        body = None
+    if not isinstance(body, dict):
+        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({"error": "request body must be a JSON object"})}
+    question = body.get("question")
+    if not isinstance(question, str) or not question.strip() or len(question) > 4000:
+        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({
+                    "error": "question must be a non-empty string of at most 4000 characters",
+                })}
     session_id = body.get("session_id", "anonymous")
+    if not isinstance(session_id, str) or not session_id or len(session_id) > 128:
+        return {"statusCode": 400, "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({
+                    "error": "session_id must be a non-empty string of at most 128 characters",
+                })}
     debug = _debug_authorised(event)
 
-    is_first_turn = session_id not in _SEEN_SESSIONS
-    _SEEN_SESSIONS.add(session_id)
+    is_first_turn = _is_first_turn(session_id)
 
     audit = {
         "session_id": session_id,
@@ -440,12 +509,19 @@ def handler(event, context):
 
     audit["final_category"] = category
     audit["ticket_id"] = ticket_id
+
+    # Do not return a reassuring ticket reference until the work item exists.
+    # A DynamoDB failure intentionally fails the invocation; API Gateway then
+    # returns an error instead of a fabricated success that nobody can action.
+    if ticket_id:
+        _persist_ticket(ticket_id, question, audit)
+        audit["ticket_persisted"] = True
+
     print(json.dumps({"audit_track": True, **audit}))
 
     result = {"category": category, "response": _render(slots), "ticket_id": ticket_id}
     # Provenance is an operator-facing guarantee, not a user-facing feature.
-    # In production this flag would be gated on an admin IAM principal, not a
-    # request field - noted in README.md as a known demo simplification.
+    # It is gated on the caller's IAM principal, never a request-body flag.
     if debug:
         result["audit"] = audit
 

@@ -17,6 +17,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "infra"))
 from infra.analytics_assistant_stack import AnalyticsAssistantStack  # noqa: E402
 from infra.foundation_stack import FoundationStack  # noqa: E402
 from infra.governance_stack import GovernanceStack  # noqa: E402
+from infra.observability_stack import ObservabilityStack  # noqa: E402
+from infra.orchestration_stack import OrchestrationStack  # noqa: E402
 from infra.registry_stack import RegistryStack  # noqa: E402
 from infra.support_chatbot_stack import SupportChatbotStack  # noqa: E402
 
@@ -30,11 +32,36 @@ def stacks():
     # ConstructTreeModifiedAfterSynth.
     app = cdk.App()
     foundation = FoundationStack(app, "Foundation", env=ENV)
+    registry = RegistryStack(
+        app, "Registry", env=ENV, lake_bucket=foundation.lake_bucket
+    )
+    orchestration = OrchestrationStack(
+        app,
+        "Orchestration",
+        env=ENV,
+        lake_bucket=foundation.lake_bucket,
+        experiments_table=registry.experiments_table,
+        exposures_table=registry.exposures_table,
+    )
+    observability = ObservabilityStack(
+        app,
+        "Observability",
+        env=ENV,
+        lambda_function_names={"TestFunction": "aurora-games-test"},
+        state_machine_arn=(
+            "arn:aws:states:ap-northeast-1:123456789012:"
+            "stateMachine:aurora-games-test"
+        ),
+        dlq_names=["aurora-games-test-dlq"],
+    )
     built = {
+        "foundation": foundation,
         "governance": GovernanceStack(app, "Governance", env=ENV, lake_bucket=foundation.lake_bucket),
-        "registry": RegistryStack(app, "Registry", env=ENV, lake_bucket=foundation.lake_bucket),
+        "registry": registry,
+        "orchestration": orchestration,
         "analytics": AnalyticsAssistantStack(app, "Analytics", env=ENV, lake_bucket=foundation.lake_bucket),
         "chatbot": SupportChatbotStack(app, "Chatbot", env=ENV),
+        "observability": observability,
     }
     return {name: Template.from_stack(stack) for name, stack in built.items()}
 
@@ -70,24 +97,27 @@ def test_analyst_roles_have_no_bucket_wide_s3_access(stacks):
     policies = stacks["governance"].find_resources("AWS::IAM::Policy")
     assert policies, "no IAM policies found - test would pass vacuously"
 
+    object_actions = {
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:PutObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+    }
     for logical_id, resource in policies.items():
         for statement in resource["Properties"]["PolicyDocument"]["Statement"]:
             actions = statement.get("Action")
             actions = [actions] if isinstance(actions, str) else (actions or [])
-            if not any(a.startswith("s3:") for a in actions):
+            if not object_actions.intersection(actions):
                 continue
             resources = statement.get("Resource")
             resources = [resources] if not isinstance(resources, list) else resources
             for res in resources:
                 rendered = str(res)
-                # Bucket ARN alone is fine (ListBucket/GetBucketLocation);
-                # an unrestricted /* object grant is not.
-                assert not rendered.endswith("/*'}]}") or "athena-results" in rendered, (
+                assert "athena-results/analyst/" in rendered, (
                     f"{logical_id} grants S3 object access outside the analyst results "
                     f"prefix: {rendered}"
                 )
-                if "Fn::Join" in rendered and "athena-results" not in rendered:
-                    assert "/*" not in rendered.split("Fn::Join")[1][:200] or True
 
 
 def test_analyst_roles_cannot_write_to_the_data_prefixes(stacks):
@@ -122,6 +152,8 @@ def test_first_look_subscription_filters_on_alert_type(stacks):
     subs = stacks["analytics"].find_resources("AWS::SNS::Subscription")
     assert subs, "no SNS subscription found"
     for logical_id, resource in subs.items():
+        if resource["Properties"].get("Protocol") != "lambda":
+            continue  # account-local report delivery is an outbound SQS sink
         policy = resource["Properties"].get("FilterPolicy")
         assert policy and policy.get("alert_type") == ["data_anomaly"], (
             f"{logical_id} filter policy is {policy!r}, expected alert_type=[data_anomaly]"
@@ -130,9 +162,194 @@ def test_first_look_subscription_filters_on_alert_type(stacks):
 
 def test_alert_consumers_have_dead_letter_queues(stacks):
     """A failed alert must be inspectable afterwards, not silently dropped."""
-    stacks["analytics"].resource_count_is("AWS::SQS::Queue", 2)
+    # Two DLQs plus one account-local first-look delivery sink.
+    stacks["analytics"].resource_count_is("AWS::SQS::Queue", 3)
     stacks["analytics"].has_resource_properties("AWS::Lambda::EventInvokeConfig", {
         "DestinationConfig": {"OnFailure": {"Destination": Match.any_value()}},
+    })
+
+
+def test_first_look_report_has_a_delivery_channel(stacks):
+    stacks["analytics"].has_resource_properties("AWS::SNS::Topic", {
+        "TopicName": "aurora-games-first-look-reports",
+    })
+    stacks["analytics"].has_resource_properties("AWS::SQS::Queue", {
+        "QueueName": "aurora-games-first-look-report-audit",
+    })
+    stacks["analytics"].has_resource_properties("AWS::Lambda::Function", {
+        "Environment": {
+            "Variables": {
+                "REPORTS_TOPIC_ARN": Match.any_value(),
+            },
+        },
+    })
+
+
+def test_support_escalations_have_a_real_ticket_store(stacks):
+    """A returned ticket id must identify a durable work item, not just a UUID
+    formatted into friendly copy."""
+    stacks["chatbot"].resource_count_is("AWS::DynamoDB::Table", 2)
+    stacks["chatbot"].has_resource_properties("AWS::DynamoDB::Table", {
+        "KeySchema": [{"AttributeName": "ticket_id", "KeyType": "HASH"}],
+        "BillingMode": "PAY_PER_REQUEST",
+    })
+    stacks["chatbot"].has_resource_properties("AWS::Lambda::Function", {
+        "Environment": {
+            "Variables": {
+                "SUPPORT_TICKETS_TABLE_NAME": Match.any_value(),
+            },
+        },
+    })
+
+
+def test_support_sessions_and_notifications_are_durable_without_external_recipient(stacks):
+    stacks["chatbot"].has_resource_properties("AWS::DynamoDB::Table", {
+        "TableName": "aurora-games-support-sessions",
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [{"AttributeName": "session_id", "KeyType": "HASH"}],
+        "TimeToLiveSpecification": {
+            "AttributeName": "expires_at",
+            "Enabled": True,
+        },
+        "OnDemandThroughput": {
+            "MaxReadRequestUnits": 10,
+            "MaxWriteRequestUnits": 10,
+        },
+    })
+    stacks["chatbot"].has_resource_properties("AWS::SNS::Topic", {
+        "TopicName": "aurora-games-partner-notifications",
+    })
+    stacks["chatbot"].has_resource_properties("AWS::SQS::Queue", {
+        "QueueName": "aurora-games-partner-notification-audit",
+    })
+    stacks["chatbot"].has_resource_properties("AWS::ApiGateway::Resource", {
+        "PathPart": "notifications",
+    })
+    subscriptions = stacks["chatbot"].find_resources("AWS::SNS::Subscription")
+    assert subscriptions
+    for resource in subscriptions.values():
+        assert resource["Properties"]["Protocol"] == "sqs"
+
+
+def test_analytics_fallback_has_a_real_bounded_ticket_store(stacks):
+    stacks["analytics"].has_resource_properties("AWS::DynamoDB::Table", {
+        "TableName": "aurora-games-analytics-tickets",
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [{"AttributeName": "ticket_id", "KeyType": "HASH"}],
+        "TimeToLiveSpecification": {
+            "AttributeName": "expires_at",
+            "Enabled": True,
+        },
+        "OnDemandThroughput": {
+            "MaxReadRequestUnits": 5,
+            "MaxWriteRequestUnits": 5,
+        },
+    })
+    stacks["analytics"].has_resource_properties("AWS::Lambda::Function", {
+        "Environment": {
+            "Variables": {
+                "ANALYTICS_TICKETS_TABLE_NAME": Match.any_value(),
+                "LAKE_BUCKET_NAME": Match.any_value(),
+            },
+        },
+    })
+
+
+def test_registry_can_stop_the_execution_it_records(stacks):
+    policies = stacks["registry"].find_resources("AWS::IAM::Policy")
+    actions = []
+    for resource in policies.values():
+        for statement in resource["Properties"]["PolicyDocument"]["Statement"]:
+            value = statement.get("Action", [])
+            actions.extend([value] if isinstance(value, str) else value)
+    assert "states:StartExecution" in actions
+    assert "states:StopExecution" in actions
+    assert "dynamodb:TransactWriteItems" in actions
+
+
+def test_live_exposures_are_idempotent_bounded_and_queryable(stacks):
+    """The live product path needs a real event store, not assignment output
+    relabeled as exposure data."""
+    stacks["registry"].has_resource_properties("AWS::DynamoDB::Table", {
+        "TableName": "aurora-games-experiment-exposures",
+        "BillingMode": "PAY_PER_REQUEST",
+        "KeySchema": [
+            {"AttributeName": "experiment_id", "KeyType": "HASH"},
+            {"AttributeName": "event_id", "KeyType": "RANGE"},
+        ],
+        "TimeToLiveSpecification": {
+            "AttributeName": "expires_at",
+            "Enabled": True,
+        },
+        "OnDemandThroughput": {
+            "MaxReadRequestUnits": 25,
+            "MaxWriteRequestUnits": 25,
+        },
+        "StreamSpecification": {"StreamViewType": "NEW_IMAGE"},
+    })
+    stacks["registry"].has_resource_properties("AWS::Lambda::Function", {
+        "Environment": {
+            "Variables": {
+                "EXPOSURES_TABLE_NAME": Match.any_value(),
+            },
+        },
+    })
+    stacks["registry"].has_resource_properties("AWS::ApiGateway::Resource", {
+        "PathPart": "exposures",
+    })
+
+
+def test_live_experiment_waits_without_compute_and_monitor_can_stop_it(stacks):
+    state_machines = stacks["orchestration"].find_resources(
+        "AWS::StepFunctions::StateMachine"
+    )
+    assert len(state_machines) == 1
+    rendered = str(next(iter(state_machines.values()))["Properties"])
+    assert "WaitUntilPlannedEnd" in rendered
+    assert "TimestampPath" in rendered
+    assert "$.planned_end_at" in rendered
+
+    policies = stacks["orchestration"].find_resources("AWS::IAM::Policy")
+    actions = []
+    for resource in policies.values():
+        for statement in resource["Properties"]["PolicyDocument"]["Statement"]:
+            value = statement.get("Action", [])
+            actions.extend([value] if isinstance(value, str) else value)
+    assert "states:StopExecution" in actions
+
+
+def test_paid_account_has_five_dollar_forecast_and_actual_budget(stacks):
+    """A paid-plan account must have an early warning and a hard threshold.
+
+    This is deliberately tested in the synthesised infrastructure rather than
+    treated as an account-side manual convention that can drift away.
+    """
+    stacks["observability"].resource_count_is("AWS::Budgets::Budget", 1)
+    stacks["observability"].has_resource_properties("AWS::Budgets::Budget", {
+        "Budget": {
+            "BudgetLimit": {"Amount": 5, "Unit": "USD"},
+            "BudgetName": "aurora-games-monthly",
+            "BudgetType": "COST",
+            "TimeUnit": "MONTHLY",
+        },
+        "NotificationsWithSubscribers": Match.array_with([
+            Match.object_like({
+                "Notification": {
+                    "ComparisonOperator": "GREATER_THAN",
+                    "NotificationType": "FORECASTED",
+                    "Threshold": 80,
+                    "ThresholdType": "PERCENTAGE",
+                },
+            }),
+            Match.object_like({
+                "Notification": {
+                    "ComparisonOperator": "GREATER_THAN",
+                    "NotificationType": "ACTUAL",
+                    "Threshold": 100,
+                    "ThresholdType": "PERCENTAGE",
+                },
+            }),
+        ]),
     })
 
 
@@ -152,3 +369,29 @@ def test_streaming_stack_is_not_in_the_default_app():
         "-c enable_streaming=true"
     )
     assert len(names) >= 6, f"default app unexpectedly small ({names}) - test may be vacuous"
+
+    # These resource families carry meaningful idle or provisioned-capacity
+    # risk and therefore require an explicit, separately reviewed opt-in. A
+    # free-first default deployment may use request-priced serverless services,
+    # but must not silently introduce one of these.
+    disallowed_default_types = {
+        "AWS::EC2::NatGateway",
+        "AWS::RDS::DBCluster",
+        "AWS::RDS::DBInstance",
+        "AWS::Redshift::Cluster",
+        "AWS::OpenSearchService::Domain",
+        "AWS::OpenSearchServerless::Collection",
+        "AWS::MSK::Cluster",
+        "AWS::EKS::Cluster",
+    }
+    for stack in (child for child in module.app.node.children if isinstance(child, cdk.Stack)):
+        resources = Template.from_stack(stack).to_json().get("Resources", {})
+        found = {
+            resource["Type"]
+            for resource in resources.values()
+            if resource.get("Type") in disallowed_default_types
+        }
+        assert not found, (
+            f"{stack.stack_name} contains paid-plan idle-cost resources in the "
+            f"default app: {sorted(found)}"
+        )

@@ -4,9 +4,10 @@ Two questions this document exists to answer, neither of which the rest of the d
 directly: **who would attack this and would they get anywhere**, and **what does "healthy" mean
 numerically**.
 
-Every row below was checked against the deployed account rather than reasoned about. Where a
-control is missing it says so, and where a control is missing *because it cannot be applied here*
-that is stated too, rather than being quietly upgraded to "not applicable".
+Baseline rows below were checked against the deployed account. Controls added on
+`codex/acceptance-hardening` were deployed and exercised against AWS on
+2026-07-29; remaining production gaps are still stated explicitly.
+Where a control is missing it says so, rather than being quietly upgraded to "not applicable".
 
 ---
 
@@ -106,7 +107,7 @@ These are objectives for a system at this project's scale, not commitments to a 
 
 | Objective | Target | How it is measured today |
 |---|---|---|
-| An anomaly present in a complete partition is alerted on | Within 24 h of the partition closing | The daily EventBridge schedule. **Not currently instrumented** — nothing measures the gap between partition close and alert |
+| An anomaly present in a published partition is alerted on | Within 24 h of the publication marker | The daily EventBridge schedule reads the explicit build-success marker. **Not currently instrumented** — nothing measures marker age or alert latency |
 | Detector runs complete successfully | ≥ 99% of scheduled runs | `AnomalyDetectorErrors` / `ArbitrageDetectorErrors` alarms fire on any failure |
 | A fired alert produces a first-look report | ≥ 99%, within 5 min | DLQ depth alarms catch the failures; latency is not measured |
 
@@ -126,12 +127,13 @@ These are objectives for a system at this project's scale, not commitments to a 
 | A started experiment reaches a terminal state | 99% | `ExperimentLifecycleFailures` alarm |
 | No readout contains an unverifiable number | **100%** | The grounding check rejects: failing prose is dropped and the report falls back to code-rendered sections |
 | An experiment breaching a guardrail is stopped | Before the next scheduled check | Guardrail monitoring inside the state machine's Map state |
+| Registry cross-tenant access | **0, no exceptions** | Identity-derived tenant scope plus offline negative tests; deployed verification remains pending for this branch |
 
 ### Cost
 
 | Objective | Target | How it is measured today |
 |---|---|---|
-| Steady-state monthly spend | < $1 | AWS Budgets at $5 (forecast + actual) — deliberately loose, to alarm on *something is wrong*, not on normal variance |
+| Steady-state monthly spend | < $2 gross list price | 13 standard alarms account for ~$1.30/month before free allocation; AWS Budgets at $5 (forecast + actual) remains a deliberately loose backstop |
 | No hourly-billed resource outlives its demo | 0 tolerance | `run_streaming_demo.sh` verifies by listing; the budget alarm is the backstop if it is bypassed |
 
 ### The honest summary of the two columns

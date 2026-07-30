@@ -1,13 +1,16 @@
 # Module 2 — Lightweight Internal Experimentation Platform
 
-Status: built and verified end to end (Phase 2a — priority module). Narrative pass (Pain Point ->
-Reasoning -> Architecture -> Implementation -> Summary) still pending for Phase 4.
+Status: **operationally verified PoC** as of 2026-07-29. Product-recorded
+exposures, exposure-based SRM, the allocation kill switch, wall-clock live
+lifecycle, historical replay, and the central operations snapshot all passed
+against the deployed AWS path.
 
 ## Sub-modules
 
 | Sub-module | Status |
 |---|---|
-| [feature_registry](feature_registry/) — player_features Gold table, single source of truth | Done |
-| [registry](registry/) — DynamoDB experiment registry, CRUD API, Athena export | Done |
-| [orchestration](orchestration/) — Step Functions lifecycle (assignment, SRM, monitoring, analysis, readout) | Done |
-| [demo](demo/) — 2-3 concurrent experiments end to end (clean winner, guardrail auto-stop, SRM catch) | Done |
+| [feature_registry](feature_registry/) — player_features Gold table, shared feature source | Deployed PoC |
+| [registry](registry/) — experiment registry, product exposure API, Athena exports | Operationally verified PoC |
+| [orchestration](orchestration/) — replay/live lifecycle, SRM, monitoring, analysis, readout | Operationally verified PoC |
+| [demo](demo/) — concurrent historical scenarios | AWS-path demo passed |
+| [Central operations view](dashboard/) | Signed AWS snapshot passed; video not yet recorded |

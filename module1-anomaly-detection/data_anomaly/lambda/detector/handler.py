@@ -4,8 +4,8 @@ DAU and GGR, per client_site_id.
 Two invocation modes, same underlying check - the same dual-mode pattern
 used by module2-experimentation-platform/orchestration/monitoring_check:
 - Scheduled (event == {"scheduled": true}): the real production path, an
-  EventBridge daily schedule. Discovers every known client_site_id and
-  checks each against today's real date.
+   EventBridge daily schedule. Discovers every known client_site_id and
+   checks each against the transform's explicit publication manifest.
 - Explicit ({"client_site_id", "as_of_date"}): used by the demo to replay
   a specific historical day against our fixed simulated dataset, where
   "today" doesn't literally apply.
@@ -38,6 +38,8 @@ K_SIGMA = 3.0  # flag when |actual - ewma| > K_SIGMA * trailing stdev
 MIN_HISTORY_DAYS = 10  # skip the check if there isn't enough trailing history yet
 WINDOW_DAYS = 21
 METRICS = ["dau", "ggr_usd"]
+PUBLICATION_MANIFEST_KEY = "manifests/published/gold_daily_kpi.json"
+CONSUMPTION_MARKER_KEY = "manifests/consumed/data_anomaly.json"
 
 
 def _now_iso() -> str:
@@ -56,27 +58,39 @@ def _discover_sites() -> list:
     return [r["client_site_id"] for r in rows]
 
 
-def _latest_complete_date(site: str) -> str:
-    """The most recent date this site actually has Gold data for.
+def _publication_manifest() -> dict:
+    """Read the build-success marker; never infer completeness from MAX(dt)."""
+    obj = s3.get_object(Bucket=BUCKET, Key=PUBLICATION_MANIFEST_KEY)
+    manifest = json.loads(obj["Body"].read())
+    if manifest.get("table") != "gold_daily_kpi":
+        raise ValueError(f"unexpected publication manifest: {manifest}")
+    published_through = manifest.get("published_through")
+    if not published_through or not manifest.get("published_at"):
+        raise ValueError("gold_daily_kpi publication manifest is incomplete")
+    return manifest
 
-    Scheduled runs check *this* rather than today's date. Two reasons, and the
-    second is the one that matters in production:
 
-    1. Practically: this project's dataset is a fixed historical simulation
-       ending 2026-06-29, so a schedule pinned to today's real date would find
-       no rows and silently do nothing on every run - a schedule that appears
-       to work while checking nothing.
-    2. Generally: even with live data, "today" is the wrong partition to check.
-       Upstream data lands with a lag and today's partition is incomplete until
-       it closes, so a detector reading it compares a partial day against full
-       ones and manufactures a drop every morning. Processing the latest
-       *complete* partition is what a batch pipeline should do regardless.
+def _already_processed(publication: dict) -> bool:
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key=CONSUMPTION_MARKER_KEY)
+    except s3.exceptions.NoSuchKey:
+        return False
+    marker = json.loads(obj["Body"].read())
+    return marker.get("published_at") == publication["published_at"]
 
-    Returns None when the site has no data at all.
-    """
-    rows = fetch_all_rows(run_athena_query(
-        f"SELECT MAX(dt) AS latest FROM gold_daily_kpi WHERE client_site_id = '{site}'"))
-    return rows[0]["latest"] if rows and rows[0].get("latest") else None
+
+def _mark_processed(publication: dict) -> None:
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=CONSUMPTION_MARKER_KEY,
+        Body=json.dumps({
+            "table": publication["table"],
+            "published_at": publication["published_at"],
+            "published_through": publication["published_through"],
+            "processed_at": _now_iso(),
+        }).encode("utf-8"),
+        ContentType="application/json",
+    )
 
 
 def _fetch_window(site: str, as_of_date: str) -> list:
@@ -153,13 +167,18 @@ def _publish_alert(result: dict):
 
 def handler(event, context):
     if event.get("scheduled"):
+        publication = _publication_manifest()
+        if _already_processed(publication):
+            return {
+                "checked": [],
+                "skipped": "publication already processed",
+                "published_at": publication["published_at"],
+            }
         checked = []
+        as_of_date = publication["published_through"]
         for site in _discover_sites():
-            as_of_date = _latest_complete_date(site)
-            if not as_of_date:
-                checked.append({"client_site_id": site, "skipped": "no data for this site"})
-                continue
             checked.append(_check_site(site, as_of_date))
+        _mark_processed(publication)
         return {"checked": checked}
 
     return _check_site(event["client_site_id"], event["as_of_date"])

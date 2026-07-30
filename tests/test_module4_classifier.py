@@ -9,8 +9,7 @@ Includes a regression test for the specific false positive that forced the
 anchor-term requirement, so that lesson cannot be quietly undone by a
 threshold tweak.
 """
-import os
-import sys
+import json
 from pathlib import Path
 
 import pytest
@@ -21,6 +20,8 @@ CHAT_DIR = REPO_ROOT / "module4-partner-support-chatbot" / "lambda" / "chat"
 handler = load_handler(
     "m4_chat_handler", CHAT_DIR,
     env={"GUARDRAIL_ID": "test", "GUARDRAIL_VERSION": "1",
+         "SUPPORT_TICKETS_TABLE_NAME": "test-support-tickets",
+         "SUPPORT_SESSIONS_TABLE_NAME": "test-support-sessions",
          "AWS_DEFAULT_REGION": "ap-northeast-1"},
 )
 from config import DOMAIN_RELEVANCE_MIN, SPECIFIC_TERM_COUNT_MIN  # noqa: E402
@@ -176,9 +177,94 @@ class TestDebugAuthorisation:
         assert handler._debug_authorised(
             self._event("arn:aws:sts::1:assumed-role/aurora-games-operator/x")) is True
 
+    def test_similar_role_name_is_not_authorised(self, monkeypatch):
+        monkeypatch.setattr(handler, "OPERATOR_PRINCIPAL_PATTERN", "aurora-games-operator")
+        assert handler._debug_authorised(
+            self._event("arn:aws:sts::1:assumed-role/evil-aurora-games-operator/x")) is False
+
     def test_empty_pattern_authorises_nobody(self, monkeypatch):
         """A blank pattern must not compile to something that matches every
         ARN - the default has to fail closed."""
         monkeypatch.setattr(handler, "OPERATOR_PRINCIPAL_PATTERN", "")
         assert handler._debug_authorised(
             self._event("arn:aws:sts::1:assumed-role/aurora-games-operator/x")) is False
+
+
+def test_escalation_ticket_is_a_persisted_work_item(monkeypatch):
+    class FakeTickets:
+        def __init__(self):
+            self.calls = []
+
+        def put_item(self, **kwargs):
+            self.calls.append(kwargs)
+
+    fake = FakeTickets()
+    monkeypatch.setattr(handler, "tickets", fake)
+    audit = {
+        "session_id": "partner-session",
+        "trigger": "model_reported_context_insufficient",
+    }
+
+    handler._persist_ticket("AGS-ABC12345", "How do I enable an unsupported flow?", audit)
+
+    assert len(fake.calls) == 1
+    request = fake.calls[0]
+    assert request["ConditionExpression"] == "attribute_not_exists(ticket_id)"
+    assert request["Item"]["ticket_id"] == "AGS-ABC12345"
+    assert request["Item"]["status"] == "OPEN"
+    assert request["Item"]["question"] == "How do I enable an unsupported flow?"
+    assert request["Item"]["final_category"] == "ESCALATION"
+
+
+def test_session_first_turn_is_durable_across_lambda_containers(monkeypatch):
+    class ConditionalCheckFailedException(Exception):
+        pass
+
+    class FakeSessions:
+        class meta:
+            class client:
+                class exceptions:
+                    pass
+
+        def __init__(self):
+            self.seen = set()
+            self.refreshes = []
+
+        def put_item(self, Item, **kwargs):
+            if Item["session_id"] in self.seen:
+                raise ConditionalCheckFailedException()
+            self.seen.add(Item["session_id"])
+
+        def update_item(self, **kwargs):
+            self.refreshes.append(kwargs)
+
+    FakeSessions.meta.client.exceptions.ConditionalCheckFailedException = (
+        ConditionalCheckFailedException
+    )
+    sessions = FakeSessions()
+    monkeypatch.setattr(handler, "sessions", sessions)
+    monkeypatch.setattr(handler.time, "time", lambda: 1000)
+
+    assert handler._is_first_turn("partner-123") is True
+    assert handler._is_first_turn("partner-123") is False
+    assert len(sessions.refreshes) == 1
+    assert (
+        sessions.refreshes[0]["ExpressionAttributeValues"][":expires_at"]
+        == 1000 + handler.SESSION_TTL_SECONDS
+    )
+
+
+@pytest.mark.parametrize("body", [
+    {},
+    {"question": ""},
+    {"question": ["not", "a", "string"]},
+    {"question": "valid", "session_id": []},
+])
+def test_invalid_request_shape_is_rejected_before_aws_calls(body, monkeypatch):
+    class ShouldNotRun:
+        def apply_guardrail(self, **kwargs):
+            raise AssertionError("Guardrails must not run for invalid input")
+
+    monkeypatch.setattr(handler, "bedrock", ShouldNotRun())
+    response = handler.handler({"body": json.dumps(body)}, None)
+    assert response["statusCode"] == 400

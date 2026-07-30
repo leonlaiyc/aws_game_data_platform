@@ -2,10 +2,12 @@ from pathlib import Path
 
 from aws_cdk import (
     Duration,
+    RemovalPolicy,
     Stack,
     CfnOutput,
     aws_apigateway as apigateway,
     aws_bedrock as bedrock,
+    aws_dynamodb as dynamodb,
     aws_iam as iam,
     aws_lambda as _lambda,
     aws_lambda_destinations as lambda_destinations,
@@ -82,6 +84,19 @@ class AnalyticsAssistantStack(Stack):
         )
 
         # --- Capability A: ask_answer ---
+        self.analytics_tickets_table = analytics_tickets_table = dynamodb.Table(
+            self,
+            "AnalyticsTickets",
+            table_name="aurora-games-analytics-tickets",
+            partition_key=dynamodb.Attribute(
+                name="ticket_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            max_read_request_units=5,
+            max_write_request_units=5,
+            time_to_live_attribute="expires_at",
+            removal_policy=RemovalPolicy.DESTROY,
+        )
         ask_answer_layer = _lambda.LayerVersion(
             self, "AskAnswerCommonLayer",
             code=_lambda.Code.from_asset(str(MODULE3_DIR / "lambda" / "common")),
@@ -101,6 +116,8 @@ class AnalyticsAssistantStack(Stack):
                 "AS_OF_DATE": AS_OF_DATE,
                 "DATA_MIN_DATE": DATA_MIN_DATE,
                 "DATA_MAX_DATE": DATA_MAX_DATE,
+                "LAKE_BUCKET_NAME": lake_bucket.bucket_name,
+                "ANALYTICS_TICKETS_TABLE_NAME": analytics_tickets_table.table_name,
                 "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
             },
             timeout=Duration.seconds(30),
@@ -120,6 +137,7 @@ class AnalyticsAssistantStack(Stack):
             # reservation as well. See docs/threat-model.md.
         )
         self._grant_lake_read(self.ask_answer_fn, lake_bucket)
+        analytics_tickets_table.grant_write_data(self.ask_answer_fn)
         self.ask_answer_fn.add_to_role_policy(
             iam.PolicyStatement(actions=["bedrock:InvokeModel"],
                                  resources=[f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0"])
@@ -151,8 +169,31 @@ class AnalyticsAssistantStack(Stack):
             authorization_type=apigateway.AuthorizationType.IAM,
         )
         CfnOutput(self, "AskApiUrl", value=api.url)
+        CfnOutput(
+            self,
+            "AnalyticsTicketsTableName",
+            value=analytics_tickets_table.table_name,
+        )
 
         # --- Capability B: first_look_report, subscribed to Module 1's anomaly topic ---
+        self.first_look_delivery_topic = first_look_delivery_topic = sns.Topic(
+            self,
+            "FirstLookDeliveryTopic",
+            topic_name="aurora-games-first-look-reports",
+            display_name="Aurora Games analytics first-look reports",
+        )
+        self.first_look_audit_queue = first_look_audit_queue = sqs.Queue(
+            self,
+            "FirstLookAuditQueue",
+            queue_name="aurora-games-first-look-report-audit",
+            retention_period=Duration.days(1),
+        )
+        first_look_delivery_topic.add_subscription(
+            sns_subscriptions.SqsSubscription(
+                first_look_audit_queue,
+                raw_message_delivery=True,
+            )
+        )
         first_look_layer = _lambda.LayerVersion(
             self, "FirstLookCommonLayer",
             code=_lambda.Code.from_asset(str(MODULE3_DIR / "lambda" / "common")),
@@ -168,6 +209,7 @@ class AnalyticsAssistantStack(Stack):
                 "GLUE_DATABASE_NAME": GLUE_DATABASE_NAME,
                 "ATHENA_WORKGROUP_NAME": ATHENA_WORKGROUP_NAME,
                 "LAKE_BUCKET_NAME": lake_bucket.bucket_name,
+                "REPORTS_TOPIC_ARN": first_look_delivery_topic.topic_arn,
             },
             timeout=Duration.seconds(60),
             layers=[first_look_layer],
@@ -184,6 +226,7 @@ class AnalyticsAssistantStack(Stack):
         )
         self._grant_lake_read(self.first_look_fn, lake_bucket)
         lake_bucket.grant_write(self.first_look_fn, "gold/first_look_reports/*")
+        first_look_delivery_topic.grant_publish(self.first_look_fn)
         self.first_look_fn.add_to_role_policy(
             iam.PolicyStatement(actions=["bedrock:InvokeModel"],
                                  resources=[f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0"])
@@ -213,6 +256,16 @@ class AnalyticsAssistantStack(Stack):
         ))
 
         CfnOutput(self, "FirstLookReportFunctionName", value=self.first_look_fn.function_name)
+        CfnOutput(
+            self,
+            "FirstLookReportsTopicArn",
+            value=first_look_delivery_topic.topic_arn,
+        )
+        CfnOutput(
+            self,
+            "FirstLookReportAuditQueueUrl",
+            value=first_look_audit_queue.queue_url,
+        )
         CfnOutput(self, "AskAnswerFunctionName", value=self.ask_answer_fn.function_name)
         CfnOutput(self, "GuardrailId", value=guardrail.attr_guardrail_id)
 

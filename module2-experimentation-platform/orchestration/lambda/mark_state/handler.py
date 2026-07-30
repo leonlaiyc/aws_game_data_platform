@@ -26,10 +26,15 @@ def handler(event, context):
     update_expr = "SET #state = :to_state, updated_at = :now"
     values = {":to_state": to_state, ":from_state": from_state, ":now": now_iso()}
     if to_state == "stopped_early":
-        update_expr += ", stopped_at = :now, stop_reason = :reason"
+        update_expr += (
+            ", stopped_at = :now, stop_reason = :reason, "
+            "allocation_enabled = :disabled"
+        )
         values[":reason"] = reason
+        values[":disabled"] = False
     elif to_state == "completed":
-        update_expr += ", stopped_at = :now"
+        update_expr += ", stopped_at = :now, allocation_enabled = :disabled"
+        values[":disabled"] = False
 
     try:
         table.update_item(
