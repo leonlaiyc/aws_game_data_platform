@@ -3,16 +3,16 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#0d2628">
     <meta
       name="description"
-      content="A bilingual, business-first walkthrough of a cost-conscious AWS game data platform."
+      content="Leon Lai's business-first walkthrough of a governed, cost-conscious AWS game data platform."
     >
+    <meta name="theme-color" content="#082f32">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Leon Lai · Business-First AWS SA Portfolio">
     <meta
       property="og:description"
-      content="Four operating pains. One governed, cost-conscious AWS platform."
+      content="One governance model. Four operating workflows. A verified, cost-conscious AWS portfolio PoC."
     >
     <meta property="og:url" content="https://leonlaiyc.github.io/aws_game_data_platform/">
     <meta property="og:image" content="https://leonlaiyc.github.io/aws_game_data_platform/og.png">
@@ -27,10 +27,7 @@
   </head>
   <body>
     <a class="skip-link" href="#main" data-i18n="skip">跳到主要內容</a>
-
-    <div class="page-progress" aria-hidden="true">
-      <span id="page-progress-bar"></span>
-    </div>
+    <div class="scroll-progress" aria-hidden="true"><span></span></div>
 
     <header class="site-header">
       <a class="brand" href="#overview" aria-label="Leon Lai portfolio home">
@@ -41,11 +38,12 @@
         </span>
       </a>
 
-      <nav class="section-nav" aria-label="Page sections">
-        <a href="#story" data-i18n="navStory">系統故事</a>
-        <a href="#modules" data-i18n="navModules">四個模組</a>
-        <a href="#decisions" data-i18n="navDecisions">成本取捨</a>
-        <a href="#proof" data-i18n="navProof">驗證證據</a>
+      <nav aria-label="Primary navigation">
+        <a href="#problems" data-i18n="navProblems">營運問題</a>
+        <a href="#architecture" data-i18n="navArchitecture">系統架構</a>
+        <a href="#workflows" data-i18n="navWorkflows">四個工作流</a>
+        <a href="#demo" data-i18n="navDemo">Demo</a>
+        <a href="#evidence" data-i18n="navEvidence">驗證證據</a>
       </nav>
 
       <div class="language-switcher" role="group" aria-label="Language">
@@ -62,424 +60,672 @@
             <span data-i18n="heroEyebrow">LEON LAI · BUSINESS-FIRST AWS SA PORTFOLIO</span>
           </p>
           <h1>
-            <span data-i18n="heroTitle1">從四個營運痛點，</span>
-            <em data-i18n="heroTitle2">到一個可驗證的 AWS 平台。</em>
+            <span data-i18n="heroTitle1">一套治理模型，</span>
+            <em data-i18n="heroTitle2">支撐四種遊戲營運工作流。</em>
           </h1>
           <p class="hero-lede" data-i18n="heroLede">
-            我沒有從服務清單開始，而是從「異常太晚發現、實驗狀態看不到、臨時分析打斷人、整合問題重複回答」開始。這個專案展示我如何把舊工作的營運問題，轉成一套有治理、有成本邊界、能被測試的雲端架構。
+            將異常偵測、實驗運營、臨時分析與合作夥伴支援，建立在共用的資料定義、權限邊界與成本控制上。
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#story">
-              <span data-i18n="startTour">開始 5 分鐘導覽</span>
+            <a class="button button-primary" href="#architecture">
+              <span data-i18n="seeArchitecture">理解系統架構</span>
               <span aria-hidden="true">↓</span>
             </a>
-            <a
-              class="button button-ghost"
-              href="https://github.com/leonlaiyc/aws_game_data_platform"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span data-i18n="viewRepo">查看 GitHub</span>
-              <span aria-hidden="true">↗</span>
+            <a class="button button-ghost" href="#demo">
+              <span data-i18n="seeDemo">查看 Demo 路徑</span>
+              <span aria-hidden="true">↘</span>
             </a>
           </div>
-          <p class="keyboard-hint">
-            <kbd>L</kbd>
-            <span data-i18n="keyboardHint">快速切換語言</span>
+          <p class="scope-line" data-i18n="heroScope">
+            Synthetic data · Verified PoC · 不宣稱 production workload 經驗
           </p>
         </div>
 
         <aside class="hero-proof reveal" aria-label="Project snapshot">
           <div class="proof-label">
             <span data-i18n="snapshot">PROJECT SNAPSHOT</span>
-            <span class="status-pill"><i aria-hidden="true"></i><span data-i18n="publicStatus">Public · CI passing</span></span>
+            <span class="status-pill">
+              <i aria-hidden="true"></i>
+              <span data-i18n="publicStatus">Public · CI passing</span>
+            </span>
           </div>
           <div class="snapshot-grid">
             <div>
               <strong>4</strong>
-              <span data-i18n="statPains">真實營運痛點</span>
+              <span data-i18n="statWorkflows">operating workflows</span>
             </div>
             <div>
               <strong>144</strong>
-              <span data-i18n="statTests">離線測試</span>
+              <span data-i18n="statTests">offline tests</span>
             </div>
             <div>
               <strong>&lt;$2</strong>
-              <span data-i18n="statIdle">月固定成本模型</span>
+              <span data-i18n="statCost">monthly gross model</span>
             </div>
             <div>
               <strong>0</strong>
-              <span data-i18n="statAlwaysOn">常駐運算服務</span>
+              <span data-i18n="statAlwaysOn">always-on compute</span>
             </div>
           </div>
           <div class="snapshot-foot">
-            <span data-i18n="snapshotFoot">ap-northeast-1 · Serverless-first · Synthetic data only</span>
+            <span data-i18n="snapshotFoot">ap-northeast-1 · Serverless-first · Cost-bounded</span>
           </div>
         </aside>
       </section>
 
-      <section class="story section-shell section-pad" id="story" data-section="story">
+      <section class="problems section-shell section-pad" id="problems" data-section="problems">
         <div class="section-heading reveal">
-          <p class="section-number">01 / 04</p>
+          <p class="section-number">01 / 07</p>
           <div>
-            <p class="kicker" data-i18n="storyKicker">ONE SYSTEM, NOT FOUR DEMOS</p>
-            <h2 data-i18n="storyTitle">一個異常，如何走完整個決策閉環</h2>
-            <p data-i18n="storyIntro">
-              自動化應該接手重複、容易漏掉的工作；假設形成與產品決策仍由人負責。這條界線在程式與架構圖裡都被明確標示。
+            <p class="kicker" data-i18n="problemsKicker">THE OPERATING REALITY</p>
+            <h2 data-i18n="problemsTitle">先有營運問題，才有架構。</h2>
+            <p data-i18n="problemsIntro">
+              這些不是為了套 AWS 服務而整理出的抽象需求，而是會反覆消耗分析、營運、客服與工程資源的工作情境。
             </p>
           </div>
         </div>
 
-        <blockquote class="manifesto reveal">
-          <span aria-hidden="true">“</span>
-          <p data-i18n="manifesto">只有偵測、沒有調查，只是在製造噪音；只有調查、沒有驗證，只是一個意見。</p>
-        </blockquote>
-
-        <div class="incident-chain reveal" aria-label="Anomaly detection to outcome validation flow">
-          <article class="chain-step">
-            <div class="step-topline">
-              <span class="step-index">01</span>
-              <span class="mode mode-auto" data-i18n="auto">自動</span>
+        <div class="problem-grid">
+          <article class="problem-card reveal">
+            <div class="problem-topline">
+              <span class="module-token">M1</span>
+              <span data-i18n="m1Short">異常／套利</span>
             </div>
-            <h3 data-i18n="flowDetect">偵測下滑</h3>
-            <p data-i18n="flowDetectBody">每日 DAU/GGR 與週級成熟 cohort 留存檢查。</p>
-            <span class="service-tag">EventBridge · Athena · Lambda</span>
-          </article>
-          <span class="chain-arrow" aria-hidden="true">→</span>
-          <article class="chain-step">
-            <div class="step-topline">
-              <span class="step-index">02</span>
-              <span class="mode mode-auto" data-i18n="auto">自動</span>
-            </div>
-            <h3 data-i18n="flowDiagnose">先做初步診斷</h3>
-            <p data-i18n="flowDiagnoseBody">同一個警報自動拆解基線、遊戲別 GGR 與共變動。</p>
-            <span class="service-tag">SNS · S3 · Governed SQL</span>
-          </article>
-          <span class="chain-arrow" aria-hidden="true">→</span>
-          <article class="chain-step">
-            <div class="step-topline">
-              <span class="step-index">03</span>
-              <span class="mode mode-human" data-i18n="human">人工</span>
-            </div>
-            <h3 data-i18n="flowInvestigate">深入調查</h3>
-            <p data-i18n="flowInvestigateBody">分析師結合系統證據與營運脈絡，確認可能根因。</p>
-            <span class="service-tag" data-i18n="investigationEvidence">Context · root cause · hypothesis</span>
-          </article>
-          <span class="chain-arrow" aria-hidden="true">→</span>
-          <article class="chain-step">
-            <div class="step-topline">
-              <span class="step-index">04</span>
-              <span class="mode mode-human" data-i18n="human">人工</span>
-            </div>
-            <h3 data-i18n="flowAct">採取行動</h3>
-            <p data-i18n="flowActBody">依根因執行營運修正、技術處置或候選產品變更。</p>
-            <span class="service-tag" data-i18n="actionOptions">Operational fix · product change</span>
-          </article>
-          <span class="chain-arrow" aria-hidden="true">→</span>
-          <article class="chain-step">
-            <div class="step-topline">
-              <span class="step-index">05</span>
-              <span class="mode mode-human" data-i18n="humanLed">人工主導</span>
-            </div>
-            <h3 data-i18n="flowValidate">驗證結果</h3>
-            <p data-i18n="flowValidateBody">觀察 KPI 是否恢復；適合時才用 Module 2 做受控實驗。</p>
-            <span class="service-tag" data-i18n="validationOptions">Monitor recovery · experiment if appropriate</span>
-          </article>
-        </div>
-
-        <div class="flow-scope-note reveal">
-          <strong data-i18n="flowScopeTitle">這條閉環只描述 KPI／留存異常。</strong>
-          <span data-i18n="flowScopeBody">規則式套利偵測已實作，但走 flagged players → human review 的獨立路徑，不會觸發 Module 3 first-look；未知手法偵測尚未宣稱。</span>
-        </div>
-
-        <div class="sidecar reveal">
-          <span class="sidecar-index">+ M4</span>
-          <div>
-            <strong data-i18n="sidecarTitle">合作夥伴支援在閉環之外，替團隊擋下重複問題。</strong>
-            <p data-i18n="sidecarBody">真正需要工程師的問題才升級；其他問題由受眾隔離、可控成本的支援入口處理。</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="modules section-shell section-pad" id="modules" data-section="modules">
-        <div class="section-heading reveal">
-          <p class="section-number">02 / 04</p>
-          <div>
-            <p class="kicker" data-i18n="modulesKicker">FOUR PAINS → FOUR RESPONSES</p>
-            <h2 data-i18n="modulesTitle">每個服務選擇，都要能回到一個營運問題</h2>
-            <p data-i18n="modulesIntro">
-              面試時我會先講「誰被什麼問題卡住」，再展示自動化、治理與證據；不是先背 AWS 服務名稱。
+            <h3 data-i18n="p1Title">沒有主動監控，只能被動發現。</h3>
+            <p data-i18n="p1Body">
+              數據缺乏主動監控；一旦留存或營收下滑，通常要等到人為發現才會開始處理，存在時間落差，也讓團隊只能被動應對。另外，當詐欺玩家採用未曾遇過的套利手法時，也很難只靠既有規則識別。
             </p>
-          </div>
-        </div>
+          </article>
 
-        <div class="module-grid">
-          <article class="module-card module-one reveal">
-            <div class="module-header">
-              <span class="module-id">M1</span>
-              <span class="module-domain" data-i18n="m1Domain">DETECTION</span>
+          <article class="problem-card priority reveal">
+            <div class="priority-ribbon" data-i18n="corePriority">CORE PRIORITY</div>
+            <div class="problem-topline">
+              <span class="module-token">M2</span>
+              <span data-i18n="m2Short">實驗運營</span>
             </div>
-            <h3 data-i18n="m1Title">異常與套利偵測</h3>
-            <div class="module-block">
-              <small data-i18n="painLabel">痛點</small>
-              <p data-i18n="m1Pain">留存／營收下滑太晚才被人工發現；新型套利手法難以辨識。</p>
-            </div>
-            <div class="module-block response">
-              <small data-i18n="responseLabel">架構回應</small>
-              <p data-i18n="m1Response">每日 DAU/GGR、週級成熟 cohort 留存，共用 SNS → 診斷路徑；已知規則只標示 REVIEW_REQUIRED。</p>
-            </div>
-            <ul class="evidence-list">
-              <li data-i18n="m1Evidence1">警報保留 actual、baseline、threshold 與 evidence window</li>
-              <li data-i18n="m1Evidence2">未知套利模型因缺少審核 labels 而明確不宣稱</li>
+            <h3 data-i18n="p2Title">並行實驗的狀態存在每個人的腦中。</h3>
+            <p data-i18n="p2Body">
+              不同遊戲的 A/B testing 同時進行時，沒有中央化方式查看並行實驗狀態，得一個一個問人，或等到站會才知道。
+            </p>
+            <p class="secondary-pains" data-i18n="p2SecondaryIntro">
+              這個核心問題同時還伴隨兩個次要、但會持續增加營運成本的問題：
+            </p>
+            <ul>
+              <li data-i18n="p2Secondary1">SRM、guardrail 依賴人工抽查，異常實驗停止有延遲。</li>
+              <li data-i18n="p2Secondary2">相同 data feature 因為由不同組員負責而重複開發。</li>
             </ul>
           </article>
 
-          <article class="module-card module-two priority reveal">
-            <div class="priority-ribbon" data-i18n="coreModule">核心模組</div>
-            <div class="module-header">
-              <span class="module-id">M2</span>
-              <span class="module-domain" data-i18n="m2Domain">EXPERIMENT OPS</span>
+          <article class="problem-card reveal">
+            <div class="problem-topline">
+              <span class="module-token">M3</span>
+              <span data-i18n="m3Short">臨時分析</span>
             </div>
-            <h3 data-i18n="m2Title">實驗運營平台</h3>
-            <div class="module-block">
-              <small data-i18n="painLabel">痛點</small>
-              <p data-i18n="m2Pain">多款遊戲同時做 A/B testing，必須等站會或逐一問人才知道狀態。</p>
-            </div>
-            <div class="module-block response">
-              <small data-i18n="responseLabel">架構回應</small>
-              <p data-i18n="m2Response">中央 registry 顯示 owner、生命週期、SRM、guardrail 與 allocation；IAM 身分產生 provenance。</p>
-            </div>
-            <ul class="evidence-list">
-              <li data-i18n="m2Evidence1">關閉 allocation 與 exposure 寫入使用同一筆 transaction</li>
-              <li data-i18n="m2Evidence2">共享 feature registry 降低不同實驗重算相同特徵</li>
-            </ul>
+            <h3 data-i18n="p3Title">Dashboard 回答不了突然出現的「為什麼」。</h3>
+            <p data-i18n="p3Body">
+              Dashboard 可以回答固定問題，但當老闆、業務或客戶突然詢問「今天營收為什麼掉了？」時，現有 dashboard 往往無法直接回答。
+            </p>
+            <p data-i18n="p3Impact">
+              這類提問通常伴隨急迫性，又會在不可預期的時間出現，進一步加重分析人員的工作負擔；當客戶數量增加，問題頻率也會隨之上升。
+            </p>
           </article>
 
-          <article class="module-card module-three reveal">
-            <div class="module-header">
-              <span class="module-id">M3</span>
-              <span class="module-domain" data-i18n="m3Domain">NL ANALYTICS</span>
+          <article class="problem-card reveal">
+            <div class="problem-topline">
+              <span class="module-token">M4</span>
+              <span data-i18n="m4Short">合作夥伴支援</span>
             </div>
-            <h3 data-i18n="m3Title">Analytics NL Assistant</h3>
-            <div class="module-block">
-              <small data-i18n="painLabel">痛點</small>
-              <p data-i18n="m3Pain">老闆、業務與客戶的突發問題不好用 dashboard 回答，持續打斷分析師。</p>
-            </div>
-            <div class="module-block response">
-              <small data-i18n="responseLabel">架構回應</small>
-              <p data-i18n="m3Response">允許清單 SQL 回答 what；diagnose 重用 first-look 回答 why；答不了就建立 durable ticket。</p>
-            </div>
-            <ul class="evidence-list">
-              <li data-i18n="m3Evidence1">沒有 free-form text-to-SQL，tenant scope 只來自身份</li>
-              <li data-i18n="m3Evidence2">所有數字由 code render，模型只寫質性文字</li>
-            </ul>
-          </article>
-
-          <article class="module-card module-four reveal">
-            <div class="module-header">
-              <span class="module-id">M4</span>
-              <span class="module-domain" data-i18n="m4Domain">PARTNER SUPPORT</span>
-            </div>
-            <h3 data-i18n="m4Title">合作夥伴支援 Chatbot</h3>
-            <div class="module-block">
-              <small data-i18n="painLabel">痛點</small>
-              <p data-i18n="m4Pain">不同時區、不同整合方向的夥伴反覆詢問相似問題，客服答不了又轉給工程師。</p>
-            </div>
-            <div class="module-block response">
-              <small data-i18n="responseLabel">架構回應</small>
-              <p data-i18n="m4Response">IAM 身分選擇 provider/operator 隔離語料；clarification、escalation、leakage guard 都由 code 決定。</p>
-            </div>
-            <ul class="evidence-list">
-              <li data-i18n="m4Evidence1">每個受眾每日最多 50 個有效 paid-path 請求</li>
-              <li data-i18n="m4Evidence2">API 全域 0.1 req/s、burst 2，未知身份 fail closed</li>
-            </ul>
+            <h3 data-i18n="p4Title">重複問題一路升級到工程師。</h3>
+            <p data-i18n="p4Body">
+              不同時區的合作夥伴經常反覆詢問類似的產品對接與整合問題：一方面客服需要重複回答；另一方面，若客服無法處理，問題就會升級到工程師層面，進一步增加開發負擔。
+            </p>
           </article>
         </div>
       </section>
 
-      <section class="decisions section-pad" id="decisions" data-section="decisions">
+      <section class="architecture section-pad" id="architecture" data-section="architecture">
         <div class="section-shell">
           <div class="section-heading light reveal">
-            <p class="section-number">03 / 04</p>
+            <p class="section-number">02 / 07</p>
             <div>
-              <p class="kicker" data-i18n="decisionsKicker">THE HARDEST REQUIREMENT</p>
-              <h2 data-i18n="decisionsTitle">不要讓作品集變成一張失控的帳單</h2>
-              <p data-i18n="decisionsIntro">
-                架構不是服務越多越好。每個預設資源都必須回答：閒置會不會收費？什麼指標才值得升級？
+              <p class="kicker" data-i18n="architectureKicker">SYSTEM SHAPE & BOUNDARIES</p>
+              <h2 data-i18n="architectureTitle">三條工作流共用資料湖；第四條走獨立知識路徑。</h2>
+              <p data-i18n="architectureIntro">
+                這裡只呈現元件、資料流與邊界；為什麼暫時不用其他服務，留到 Decisions 再談。
               </p>
             </div>
           </div>
 
-          <div class="cost-layout">
-            <div class="cost-hero reveal">
-              <span data-i18n="grossModel">STEADY-STATE GROSS MODEL</span>
-              <strong>&lt; $2<small data-i18n="perMonth"> / month</small></strong>
-              <p data-i18n="costHeroBody">固定成本主要來自 13 個 CloudWatch alarms；不是 compute。</p>
-              <div class="budget-line">
-                <span><i style="--position: 38%" aria-hidden="true"></i></span>
-                <div>
-                  <small data-i18n="modelMarker">模型值 &lt;$2</small>
-                  <small data-i18n="budgetMarker">$5 預算警報</small>
+          <div class="architecture-canvas reveal" aria-label="System architecture overview">
+            <div class="architecture-lane data-lane">
+              <div class="lane-label">
+                <span>DATA PATH</span>
+                <small data-i18n="dataLaneLabel">M1 · M2 · M3 共用</small>
+              </div>
+              <div class="architecture-flow">
+                <article class="architecture-node source-node">
+                  <small data-i18n="sourceLabel">INPUT</small>
+                  <strong data-i18n="sourceTitle">Game events</strong>
+                  <span data-i18n="sourceBody">Simulated · scripted scenarios</span>
+                </article>
+                <span class="architecture-arrow" aria-hidden="true">→</span>
+                <article class="foundation-node">
+                  <div class="node-heading">
+                    <small data-i18n="foundationLabel">GOVERNED FOUNDATION</small>
+                    <strong data-i18n="foundationTitle">One data definition, one tenant boundary</strong>
+                  </div>
+                  <div class="lake-pipeline">
+                    <span>S3 Bronze</span>
+                    <i aria-hidden="true">→</i>
+                    <span>S3 Silver</span>
+                    <i aria-hidden="true">→</i>
+                    <span>S3 Gold</span>
+                  </div>
+                  <div class="foundation-controls">
+                    <span data-i18n="metricDefinition">KPI_DEFINITIONS.md · shared metric logic</span>
+                    <span data-i18n="lakeIsolation">Glue Catalog · Lake Formation row filters</span>
+                  </div>
+                </article>
+                <span class="architecture-arrow split-arrow" aria-hidden="true">→</span>
+                <div class="consumer-stack">
+                  <article><b>M1</b><span data-i18n="architectureM1">Detect</span></article>
+                  <article><b>M2</b><span data-i18n="architectureM2">Experiment Ops</span></article>
+                  <article><b>M3</b><span data-i18n="architectureM3">Analytics</span></article>
                 </div>
               </div>
             </div>
 
-            <div class="decision-list">
-              <article class="decision-card reveal">
-                <div class="decision-icon" aria-hidden="true">✓</div>
-                <div>
-                  <h3 data-i18n="defaultTitle">預設部署</h3>
-                  <p data-i18n="defaultBody">Lambda、Athena、DynamoDB on-demand、Step Functions、EventBridge、SNS/SQS。沒有流量就近乎不產生 data-plane 成本。</p>
-                </div>
-              </article>
-              <article class="decision-card reveal">
-                <div class="decision-icon decision-icon-off" aria-hidden="true">×</div>
-                <div>
-                  <h3 data-i18n="excludedTitle">刻意排除</h3>
-                  <p data-i18n="excludedBody">NAT Gateway、RDS、OpenSearch、Redshift、EMR、常駐 Kinesis 與向量資料庫；目前規模沒有合理化其固定成本。</p>
-                </div>
-              </article>
-              <article class="decision-card reveal">
-                <div class="decision-icon decision-icon-warn" aria-hidden="true">!</div>
-                <div>
-                  <h3 data-i18n="ephemeralTitle">短生命週期例外</h3>
-                  <p data-i18n="ephemeralBody">Kinesis 只可用明確 flag 執行 deploy → demo → destroy → verify，不可能被預設 deploy --all 意外建立。</p>
-                </div>
-              </article>
+            <div class="architecture-lane support-lane">
+              <div class="lane-label">
+                <span>KNOWLEDGE PATH</span>
+                <small data-i18n="supportLaneLabel">M4 獨立語料</small>
+              </div>
+              <div class="architecture-flow compact">
+                <article class="architecture-node source-node">
+                  <small data-i18n="sourceLabel">INPUT</small>
+                  <strong data-i18n="partnerDocsTitle">Partner documents</strong>
+                  <span data-i18n="partnerDocsBody">Provider · client operator</span>
+                </article>
+                <span class="architecture-arrow" aria-hidden="true">→</span>
+                <article class="architecture-node support-node">
+                  <small>M4</small>
+                  <strong data-i18n="supportNodeTitle">Partner support</strong>
+                  <span data-i18n="supportNodeBody">Clarify · answer · escalate</span>
+                </article>
+                <span class="architecture-arrow dashed" aria-hidden="true">⇢</span>
+                <article class="architecture-node human-node">
+                  <small>HUMAN</small>
+                  <strong data-i18n="engineeringTitle">Support / engineering</strong>
+                  <span data-i18n="engineeringBody">Only when judgement is required</span>
+                </article>
+              </div>
+            </div>
+
+            <div class="shared-rail">
+              <p data-i18n="sharedRailTitle">SHARED CONTROL PLANE</p>
+              <div>
+                <span><b>01</b><i data-i18n="sharedIdentity">Identity determines scope</i></span>
+                <span><b>02</b><i data-i18n="sharedFacts">Code owns facts and routing</i></span>
+                <span><b>03</b><i data-i18n="sharedCost">Default deployment is cost-bounded</i></span>
+              </div>
             </div>
           </div>
 
-          <div class="tradeoff-strip reveal">
-            <p data-i18n="tradeoffPrompt">面試追問：為什麼沒有 Redshift、Spark 或向量資料庫？</p>
-            <strong data-i18n="tradeoffAnswer">因為我能說出採用門檻，而不是為了履歷放進一個還不需要的服務。</strong>
+          <div class="architecture-legend reveal">
+            <span><i class="solid-line"></i><b data-i18n="implementedLegend">Implemented integration</b></span>
+            <span><i class="dashed-line"></i><b data-i18n="humanLegend">Human decision / escalation</b></span>
+            <span data-i18n="architectureBoundary">
+              M4 不讀取 Gold tables；它與資料工作流共用控制原則，但不是同一條資料管線。
+            </span>
           </div>
         </div>
       </section>
 
-      <section class="proof section-shell section-pad" id="proof" data-section="proof">
+      <section class="workflows section-shell section-pad" id="workflows" data-section="workflows">
         <div class="section-heading reveal">
-          <p class="section-number">04 / 04</p>
+          <p class="section-number">03 / 07</p>
           <div>
-            <p class="kicker" data-i18n="proofKicker">CLAIMS NEED EVIDENCE</p>
-            <h2 data-i18n="proofTitle">不是架構圖說了算，是負向測試與失敗路徑說了算</h2>
-            <p data-i18n="proofIntro">
-              PoC 不等於 production 經驗；但每個作品集主張都應該有程式、測試、成本或誠實邊界可以追。
+            <p class="kicker" data-i18n="workflowsKicker">SYSTEM OWNS REPETITION · PEOPLE OWN JUDGEMENT</p>
+            <h2 data-i18n="workflowsTitle">四個工作流，改變四種人的工作方式。</h2>
+            <p data-i18n="workflowsIntro">
+              每張卡只回答：原本怎麼做、系統接手什麼、人保留什麼決策，以及目前真正的實作邊界。
             </p>
           </div>
         </div>
 
-        <div class="evidence-metrics reveal">
+        <div class="workflow-list">
+          <article class="workflow-card reveal">
+            <header>
+              <span class="workflow-index">01</span>
+              <div>
+                <small>M1 · DETECTION</small>
+                <h3 data-i18n="wf1Title">異常與套利偵測</h3>
+              </div>
+            </header>
+            <div class="workflow-grid">
+              <div>
+                <small data-i18n="beforeLabel">原本怎麼做</small>
+                <p data-i18n="wf1Before">依賴人主動查看報表，發現下滑後才開始追查；套利調查依賴既有經驗。</p>
+              </div>
+              <div>
+                <small data-i18n="systemLabel">系統接手</small>
+                <p data-i18n="wf1System">定期檢查 DAU、GGR、成熟 cohort 留存，並輸出 threshold、baseline 與風險證據。</p>
+              </div>
+              <div>
+                <small data-i18n="humanLabel">人保留決策</small>
+                <p data-i18n="wf1Human">判斷根因、採取營運處置；套利結果只進入人工風險審查。</p>
+              </div>
+              <div class="boundary-cell">
+                <small data-i18n="boundaryLabel">實作邊界</small>
+                <p data-i18n="wf1Boundary">套利目前是規則式，只識別已定義的雙訊號模式，不宣稱能抓未知手法。</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="workflow-card reveal">
+            <header>
+              <span class="workflow-index">02</span>
+              <div>
+                <small>M3 · NL ANALYTICS</small>
+                <h3 data-i18n="wf3Title">Analytics NL Assistant</h3>
+              </div>
+            </header>
+            <div class="workflow-grid">
+              <div>
+                <small data-i18n="beforeLabel">原本怎麼做</small>
+                <p data-i18n="wf3Before">突發的 what／why 問題打斷分析師，還要重新查基線、遊戲別與共變動。</p>
+              </div>
+              <div>
+                <small data-i18n="systemLabel">系統接手</small>
+                <p data-i18n="wf3System">允許清單 SQL 回答 what；first-look 與 diagnose 組合證據回答 why；答不了就建 ticket。</p>
+              </div>
+              <div>
+                <small data-i18n="humanLabel">人保留決策</small>
+                <p data-i18n="wf3Human">判讀營運脈絡、確認根因，並決定後續處置。</p>
+              </div>
+              <div class="boundary-cell">
+                <small data-i18n="boundaryLabel">實作邊界</small>
+                <p data-i18n="wf3Boundary">只支援受治理的 KPI 與查詢模板；沒有 free-form text-to-SQL，也不支援未治理的 country／player 維度。</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="workflow-card core-workflow reveal">
+            <header>
+              <span class="workflow-index">03</span>
+              <div>
+                <small>M2 · EXPERIMENT OPS</small>
+                <h3 data-i18n="wf2Title">實驗運營平台</h3>
+              </div>
+              <span class="core-badge" data-i18n="corePriority">CORE PRIORITY</span>
+            </header>
+            <div class="workflow-grid">
+              <div>
+                <small data-i18n="beforeLabel">原本怎麼做</small>
+                <p data-i18n="wf2Before">並行實驗狀態散落在人與站會中；SRM、guardrail 靠人工抽查，共用 feature 重複開發。</p>
+              </div>
+              <div>
+                <small data-i18n="systemLabel">系統接手</small>
+                <p data-i18n="wf2System">中央 registry、IAM-derived owner、SRM、guardrail、allocation kill switch 與共享 feature registry。</p>
+              </div>
+              <div>
+                <small data-i18n="humanLabel">人保留決策</small>
+                <p data-i18n="wf2Human">決定假設、指標、是否採納結果，以及異常實驗後的產品處置。</p>
+              </div>
+              <div class="boundary-cell">
+                <small data-i18n="boundaryLabel">實作邊界</small>
+                <p data-i18n="wf2Boundary">監控 cadence 最差為一小時；目前是本機簽名 console，尚未提供 hosted SSO team UI。</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="workflow-card reveal">
+            <header>
+              <span class="workflow-index">04</span>
+              <div>
+                <small>M4 · PARTNER SUPPORT</small>
+                <h3 data-i18n="wf4Title">合作夥伴支援 Chatbot</h3>
+              </div>
+            </header>
+            <div class="workflow-grid">
+              <div>
+                <small data-i18n="beforeLabel">原本怎麼做</small>
+                <p data-i18n="wf4Before">客服重複回答整合問題；無法處理時再把缺乏脈絡的問題轉給工程師。</p>
+              </div>
+              <div>
+                <small data-i18n="systemLabel">系統接手</small>
+                <p data-i18n="wf4System">依身份選擇 provider／operator 語料，先澄清，再回答或建立可追蹤的 escalation。</p>
+              </div>
+              <div>
+                <small data-i18n="humanLabel">人保留決策</small>
+                <p data-i18n="wf4Human">處理文件無法回答、需要產品判斷或真正涉及工程變更的案件。</p>
+              </div>
+              <div class="boundary-cell">
+                <small data-i18n="boundaryLabel">實作邊界</small>
+                <p data-i18n="wf4Boundary">使用模擬 IAM 身份與小型語料；partner IdP、CRM delivery、時區 profile 尚未 production-ready。</p>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="demo section-pad" id="demo" data-section="demo">
+        <div class="section-shell">
+          <div class="section-heading light reveal">
+            <p class="section-number">04 / 07</p>
+            <div>
+              <p class="kicker" data-i18n="demoKicker">FOUR CHAPTERS · UNDER TWO MINUTES</p>
+              <h2 data-i18n="demoTitle">先理解工作流，再看它實際輸出什麼。</h2>
+              <p data-i18n="demoIntro">
+                這個互動導覽同時是最終兩分鐘影片的章節設計：每段只呈現痛點、執行結果、人的決策與邊界。
+              </p>
+            </div>
+          </div>
+
+          <div class="demo-layout reveal">
+            <div class="demo-chapters" role="tablist" aria-label="Demo chapters">
+              <button type="button" role="tab" aria-selected="true" data-demo="m1" aria-controls="demo-panel">
+                <span>00:05</span>
+                <b data-i18n="demoM1">M1 · Detect</b>
+                <small data-i18n="demoM1Time">25 sec</small>
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-demo="m3" aria-controls="demo-panel">
+                <span>00:30</span>
+                <b data-i18n="demoM3">M3 · Investigate</b>
+                <small data-i18n="demoM3Time">25 sec</small>
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-demo="m2" aria-controls="demo-panel">
+                <span>00:55</span>
+                <b data-i18n="demoM2">M2 · Experiment Ops</b>
+                <small data-i18n="demoM2Time">35 sec · core</small>
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-demo="m4" aria-controls="demo-panel">
+                <span>01:30</span>
+                <b data-i18n="demoM4">M4 · Support</b>
+                <small data-i18n="demoM4Time">25 sec</small>
+              </button>
+            </div>
+
+            <div class="demo-panel" id="demo-panel" role="tabpanel" tabindex="0">
+              <div class="terminal-bar">
+                <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
+                <small id="demo-window-title">M1 / VERIFIED DEMO OUTPUT</small>
+              </div>
+              <div class="demo-context">
+                <p><small data-i18n="demoPainLabel">PAIN</small><span id="demo-pain"></span></p>
+                <p><small data-i18n="demoResultLabel">RESULT</small><span id="demo-result"></span></p>
+              </div>
+              <pre id="demo-terminal" aria-live="polite"></pre>
+              <div class="demo-takeaway">
+                <p><small data-i18n="demoHumanLabel">HUMAN DECISION</small><span id="demo-human"></span></p>
+                <p><small data-i18n="demoBoundaryLabel">BOUNDARY</small><span id="demo-boundary"></span></p>
+              </div>
+            </div>
+          </div>
+
+          <div class="incident-loop reveal">
+            <span class="loop-step auto"><b>01</b><i data-i18n="loopDetect">Detect</i></span>
+            <em aria-hidden="true">→</em>
+            <span class="loop-step auto"><b>02</b><i data-i18n="loopFirstLook">First look</i></span>
+            <em aria-hidden="true">→</em>
+            <span class="loop-step human"><b>03</b><i data-i18n="loopInvestigate">Investigate</i></span>
+            <em aria-hidden="true">→</em>
+            <span class="loop-step human"><b>04</b><i data-i18n="loopAct">Act</i></span>
+            <em aria-hidden="true">→</em>
+            <span class="loop-step human-led"><b>05</b><i data-i18n="loopValidate">Validate</i></span>
+          </div>
+          <p class="loop-note reveal" data-i18n="loopNote">
+            這條閉環只適用 KPI／留存異常。套利偵測走獨立的 flagged players → human review；M2 只在適合以受控實驗驗證時介入。
+          </p>
+        </div>
+      </section>
+
+      <section class="decisions section-shell section-pad" id="decisions" data-section="decisions">
+        <div class="section-heading reveal">
+          <p class="section-number">05 / 07</p>
           <div>
+            <p class="kicker" data-i18n="decisionsKicker">NOT NOW — AND WHAT WOULD CHANGE THE DECISION</p>
+            <h2 data-i18n="decisionsTitle">不逐項背服務；只談三類判準。</h2>
+            <p data-i18n="decisionsIntro">
+              每一類 trade-off 都回答同一件事：現在為什麼不需要，以及什麼可量測條件會讓答案翻轉。
+            </p>
+          </div>
+        </div>
+
+        <div class="decision-grid">
+          <article class="decision-card reveal">
+            <span class="decision-number">01</span>
+            <p class="decision-category" data-i18n="decision1Category">WORKLOAD ECONOMICS</p>
+            <h3 data-i18n="decision1Title">目前的使用頻率，值得支付常駐成本嗎？</h3>
+            <p class="service-examples">Redshift / EMR · persistent Kinesis</p>
+            <div>
+              <small data-i18n="nowLabel">NOW</small>
+              <p data-i18n="decision1Now">資料量小、查詢間歇；預設採用 request-priced 或 scale-to-zero 元件，Kinesis 只做短生命週期示範。</p>
+            </div>
+            <div class="flip-trigger">
+              <small data-i18n="flipLabel">DECISION FLIPS WHEN</small>
+              <p data-i18n="decision1Flip">出現持續查詢併發、穩定高流量，或 sub-minute SLA 成為正式需求。</p>
+            </div>
+          </article>
+
+          <article class="decision-card reveal">
+            <span class="decision-number">02</span>
+            <p class="decision-category" data-i18n="decision2Category">DATA ACCESS PATTERN</p>
+            <h3 data-i18n="decision2Title">真的需要線上低延遲 serving 或大規模 retrieval 嗎？</h3>
+            <p class="service-examples">SageMaker Feature Store · OpenSearch / vector store</p>
+            <div>
+              <small data-i18n="nowLabel">NOW</small>
+              <p data-i18n="decision2Now">Feature 用於 batch analysis；合作夥伴 corpus 小且可受控放入 context，現階段不需要新增 serving 與 retrieval 平面。</p>
+            </div>
+            <div class="flip-trigger">
+              <small data-i18n="flipLabel">DECISION FLIPS WHEN</small>
+              <p data-i18n="decision2Flip">Feature 需要毫秒級線上查詢，或文件量超出 in-context 方法可治理的範圍。</p>
+            </div>
+          </article>
+
+          <article class="decision-card reveal">
+            <span class="decision-number">03</span>
+            <p class="decision-category" data-i18n="decision3Category">MANAGED WORKFLOW VS CONTROL</p>
+            <h3 data-i18n="decision3Title">應該購買完整工作流，還是保留較窄但可驗證的控制？</h3>
+            <p class="service-examples">Amazon Quick · Amazon Q Business · direct Bedrock</p>
+            <div>
+              <small data-i18n="nowLabel">NOW</small>
+              <p data-i18n="decision3Now">PoC 使用窄範圍自訂流程，展示 SQL allowlist、數字所有權、tenant scope 與 disclosure control。</p>
+            </div>
+            <div class="flip-trigger">
+              <small data-i18n="flipLabel">DECISION FLIPS WHEN</small>
+              <p data-i18n="decision3Flip">真實團隊需要完整 BI、自助報表、企業搜尋、內容維護與使用者管理，managed workflow 的組織價值開始更高。</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="learnings section-pad" id="learnings" data-section="learnings">
+        <div class="section-shell">
+          <div class="section-heading light reveal">
+            <p class="section-number">06 / 07</p>
+            <div>
+              <p class="kicker" data-i18n="learningsKicker">THREE IMPLEMENTATION TRAPS</p>
+              <h2 data-i18n="learningsTitle">不是心得，而是測試後真的改了設計。</h2>
+              <p data-i18n="learningsIntro">
+                這些問題是在建置與驗證這個 PoC 時發現，不是宣稱來自 production incident。
+              </p>
+            </div>
+          </div>
+
+          <div class="learning-list">
+            <article class="learning-card reveal">
+              <div class="learning-marker"><span>01</span><b>AWS</b></div>
+              <div class="learning-content">
+                <h3 data-i18n="learning1Title">看得到 row filter，不代表租戶真的被隔離。</h3>
+                <div class="assumption">
+                  <small data-i18n="assumedLabel">I ASSUMED</small>
+                  <p data-i18n="learning1Assumed">建立 Lake Formation row-level filter 後，各 tenant 就只能看到自己的資料。</p>
+                </div>
+                <div class="case-evidence">
+                  <strong>IAM_ALLOWED_PRINCIPALS</strong>
+                  <p data-i18n="learning1Found">
+                    Glue table 的向下相容 grant 仍可能把權限交回 IAM，讓 filter 看起來存在、實際卻是 no-op；直接 S3 GetObject 也是另一條繞過路徑。
+                  </p>
+                </div>
+                <div class="changed">
+                  <small data-i18n="changedLabel">DESIGN CHANGED</small>
+                  <p data-i18n="learning1Changed">
+                    撤銷該表的 compatibility grant、移除 analyst 的直接 S3 data access，再同時驗證 Athena 只看得到自己的 site，且 GetObject 必須被拒。
+                  </p>
+                </div>
+                <blockquote data-i18n="learning1Takeaway">租戶隔離只有在繞過路徑也失敗時才是真的。</blockquote>
+              </div>
+            </article>
+
+            <article class="learning-card reveal">
+              <div class="learning-marker"><span>02</span><b>DATA</b></div>
+              <div class="learning-content">
+                <h3 data-i18n="learning2Title">同一場異常，第一天會響，第三天可能不再響。</h3>
+                <div class="assumption">
+                  <small data-i18n="assumedLabel">I ASSUMED</small>
+                  <p data-i18n="learning2Assumed">只要 DAU 持續低迷，EWMA detector 就會持續認為它異常。</p>
+                </div>
+                <div class="timeline-evidence">
+                  <div>
+                    <small>2026-06-10 · DAY 1</small>
+                    <strong>DAU 91 <i>vs</i> baseline 204</strong>
+                    <span data-i18n="learning2Day1">約 3.9σ → ALERT</span>
+                  </div>
+                  <em aria-hidden="true">→</em>
+                  <div>
+                    <small>2026-06-12 · DAY 3</small>
+                    <strong data-i18n="learning2Day3Strong">2 個低迷日已進入 window</strong>
+                    <span data-i18n="learning2Day3">baseline 下移、標準差擴大 → NO ALERT</span>
+                  </div>
+                </div>
+                <div class="changed">
+                  <small data-i18n="changedLabel">DESIGN CHANGED</small>
+                  <p data-i18n="learning2Changed">
+                    將目前 detector 明確定義為 onset detection：負責盡早觸發第一次調查，不假裝它同時管理持續事件狀態；production 若要持續告警，需另保留不會適應的 reference baseline。
+                  </p>
+                </div>
+                <blockquote data-i18n="learning2Takeaway">偵測「事件開始」與追蹤「事件仍在發生」是兩個不同問題。</blockquote>
+              </div>
+            </article>
+
+            <article class="learning-card reveal">
+              <div class="learning-marker"><span>03</span><b>AI</b></div>
+              <div class="learning-content">
+                <h3 data-i18n="learning3Title">Prompt 說不能洩漏，模型仍然洩漏了。</h3>
+                <div class="assumption">
+                  <small data-i18n="assumedLabel">I ASSUMED</small>
+                  <p data-i18n="learning3Assumed">明確要求模型不得顯示內部文件名稱與 ID，就足以保護對外回答。</p>
+                </div>
+                <div class="case-evidence leak-evidence">
+                  <small>MODEL OUTPUT · INTERNAL AUDIT ONLY</small>
+                  <strong data-i18n="learning3Leak">“Document ID: [internal identifier]”</strong>
+                  <span>validation: internal_identifier_leak · fallback: true</span>
+                </div>
+                <div class="changed">
+                  <small data-i18n="changedLabel">DESIGN CHANGED</small>
+                  <p data-i18n="learning3Changed">
+                    在送給合作夥伴前，由 deterministic validator 檢查並替換不安全輸出；完整證據只保留在內部 audit path。
+                  </p>
+                </div>
+                <blockquote data-i18n="learning3Takeaway">Prompt 是要求；code validator 才是 enforcement boundary。</blockquote>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="evidence section-shell section-pad" id="evidence" data-section="evidence">
+        <div class="section-heading reveal">
+          <p class="section-number">07 / 07</p>
+          <div>
+            <p class="kicker" data-i18n="evidenceKicker">CLAIMS NEED EVIDENCE</p>
+            <h2 data-i18n="evidenceTitle">最後只談可以回到程式、測試或 AWS 紀錄的主張。</h2>
+            <p data-i18n="evidenceIntro">
+              限制已放回各 workflow；這裡只留下能被驗證的證據。
+            </p>
+          </div>
+        </div>
+
+        <div class="evidence-grid reveal">
+          <article>
             <strong>144 / 144</strong>
-            <span data-i18n="metricTests">離線測試通過</span>
-          </div>
-          <div>
+            <span data-i18n="evidenceTests">offline tests passing</span>
+          </article>
+          <article>
             <strong>8</strong>
-            <span data-i18n="metricStacks">預設 CDK stacks 可 synth</span>
-          </div>
-          <div>
-            <strong>0</strong>
-            <span data-i18n="metricAlerts">公開安全 alerts</span>
-          </div>
-          <div>
+            <span data-i18n="evidenceStacks">default CDK stacks synthesize</span>
+          </article>
+          <article>
+            <strong>2026-07-29</strong>
+            <span data-i18n="evidenceAws">baseline exercised against AWS</span>
+          </article>
+          <article>
+            <strong>$0.1156</strong>
+            <span data-i18n="evidenceCost">gross Cost Explorer usage snapshot</span>
+          </article>
+          <article>
             <strong>2-way</strong>
-            <span data-i18n="metricIsolation">租戶隔離負向驗證</span>
-          </div>
+            <span data-i18n="evidenceIsolation">Athena scoped · direct S3 denied</span>
+          </article>
+          <article>
+            <strong>6 / 6</strong>
+            <span data-i18n="evidenceRing">scripted ring players flagged</span>
+          </article>
+          <article>
+            <strong>891.83 USD</strong>
+            <span data-i18n="evidenceAnswer">assistant answer matched Athena</span>
+          </article>
+          <article>
+            <strong>LIST → 0</strong>
+            <span data-i18n="evidenceTeardown">Kinesis teardown independently verified</span>
+          </article>
         </div>
 
         <div class="proof-links">
-          <a
-            class="proof-link reveal"
-            href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/ARCHITECTURE.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span class="proof-link-index">01</span>
-            <div>
-              <strong data-i18n="linkArchitecture">架構與服務取捨</strong>
-              <small>ARCHITECTURE.md</small>
-            </div>
-            <span aria-hidden="true">↗</span>
+          <a href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/ARCHITECTURE.md" target="_blank" rel="noreferrer">
+            <span>01</span>
+            <div><strong data-i18n="architectureLink">Architecture & trade-offs</strong><small>ARCHITECTURE.md</small></div>
+            <b aria-hidden="true">↗</b>
           </a>
-          <a
-            class="proof-link reveal"
-            href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/cost-analysis.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span class="proof-link-index">02</span>
-            <div>
-              <strong data-i18n="linkCost">成本模型與 100× 推估</strong>
-              <small>docs/cost-analysis.md</small>
-            </div>
-            <span aria-hidden="true">↗</span>
+          <a href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/cost-analysis.md" target="_blank" rel="noreferrer">
+            <span>02</span>
+            <div><strong data-i18n="costLink">Cost evidence & scale model</strong><small>docs/cost-analysis.md</small></div>
+            <b aria-hidden="true">↗</b>
           </a>
-          <a
-            class="proof-link reveal"
-            href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/threat-model.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span class="proof-link-index">03</span>
-            <div>
-              <strong data-i18n="linkThreat">威脅模型與剩餘風險</strong>
-              <small>docs/threat-model.md</small>
-            </div>
-            <span aria-hidden="true">↗</span>
+          <a href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/data-foundation/governance/README.md" target="_blank" rel="noreferrer">
+            <span>03</span>
+            <div><strong data-i18n="isolationLink">Tenant isolation proof</strong><small>governance/README.md</small></div>
+            <b aria-hidden="true">↗</b>
           </a>
-          <a
-            class="proof-link reveal"
-            href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/what-i-got-wrong-first.md"
-            target="_blank"
-            rel="noreferrer"
-          >
-            <span class="proof-link-index">04</span>
-            <div>
-              <strong data-i18n="linkLessons">五個實測後修正的設計</strong>
-              <small>docs/what-i-got-wrong-first.md</small>
-            </div>
-            <span aria-hidden="true">↗</span>
+          <a href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/what-i-got-wrong-first.md" target="_blank" rel="noreferrer">
+            <span>04</span>
+            <div><strong data-i18n="lessonsLink">Designs changed by testing</strong><small>what-i-got-wrong-first.md</small></div>
+            <b aria-hidden="true">↗</b>
           </a>
         </div>
 
-        <div class="boundaries reveal">
-          <div>
-            <p class="kicker" data-i18n="boundariesKicker">HONEST BOUNDARIES</p>
-            <h3 data-i18n="boundariesTitle">我不會把還沒做到的事藏起來。</h3>
-          </div>
-          <ul>
-            <li data-i18n="boundary1">沒有真實產品 ingestion，因此不宣稱端到端 freshness SLA。</li>
-            <li data-i18n="boundary2">沒有 reviewed labels，因此不宣稱能抓未知套利手法。</li>
-            <li data-i18n="boundary3">沒有 partner IdP contract，因此 M3/M4 外部 federation 尚未 production-ready。</li>
-          </ul>
+        <div class="evidence-scope reveal">
+          <strong data-i18n="scopeTitle">Honest scope</strong>
+          <p data-i18n="scopeBody">
+            這是使用 synthetic data 的 verified PoC。最新版增量已通過本機與 CI 驗證，但沒有重新部署到付費 AWS 帳號，因此不宣稱目前 commit 是 production deployment。
+          </p>
         </div>
       </section>
 
       <section class="closing">
         <div class="section-shell closing-inner reveal">
-          <p class="kicker" data-i18n="closingKicker">THE INTERVIEW TAKEAWAY</p>
-          <h2 data-i18n="closingTitle">我想展示的不是「我用了多少 AWS 服務」。</h2>
+          <p class="kicker" data-i18n="closingKicker">THE TAKEAWAY</p>
+          <h2 data-i18n="closingTitle">不是用了多少 AWS 服務，而是每個服務解決了什麼問題。</h2>
           <p data-i18n="closingBody">
-            而是我如何把營運摩擦翻譯成可治理的系統、如何讓 LLM 留在可控邊界內，以及如何在每個架構決策前先算成本與風險。
+            這個專案展示我如何把營運摩擦翻譯成可治理的系統、把人的判斷留在人手上，並在增加服務以前先說清楚成本、控制與採用門檻。
           </p>
           <div class="closing-actions">
-            <a
-              class="button button-light"
-              href="https://github.com/leonlaiyc/aws_game_data_platform"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span data-i18n="exploreCode">探索完整程式碼</span>
-              <span aria-hidden="true">↗</span>
+            <a class="button button-light" href="https://github.com/leonlaiyc/aws_game_data_platform" target="_blank" rel="noreferrer">
+              <span data-i18n="exploreRepo">Explore the repository</span><span aria-hidden="true">↗</span>
             </a>
-            <a
-              class="text-link"
-              href="https://github.com/leonlaiyc/aws_game_data_platform/blob/main/docs/project-closeout.md"
-              target="_blank"
-              rel="noreferrer"
-            >
-              <span data-i18n="readBoundaries">閱讀專案邊界</span>
-              <span aria-hidden="true">→</span>
+            <a class="button button-outline-light" href="#overview">
+              <span data-i18n="backTop">回到頂部</span><span aria-hidden="true">↑</span>
             </a>
           </div>
         </div>
@@ -489,11 +735,11 @@
     <footer>
       <div class="section-shell">
         <span>Leon Lai · AWS Solutions Architect Portfolio</span>
-        <span data-i18n="footerNote">Fictional company · Synthetic data · Built for responsible discussion</span>
-        <a href="#overview" data-i18n="backTop">回到頂部 ↑</a>
+        <span data-i18n="footerNote">Synthetic data · Verified PoC · Public repository</span>
+        <a href="https://github.com/leonlaiyc/aws_game_data_platform" target="_blank" rel="noreferrer">GitHub ↗</a>
       </div>
     </footer>
 
-    <p class="sr-only" id="language-status" aria-live="polite"></p>
+    <div class="language-announcer" aria-live="polite" aria-atomic="true"></div>
   </body>
 </html>

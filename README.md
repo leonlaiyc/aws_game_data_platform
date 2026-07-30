@@ -5,7 +5,7 @@
 [![CI](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[**Open the bilingual interview demo →**](https://leonlaiyc.github.io/aws_game_data_platform/)
+[**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/)
 
 This project shows how I translate operating problems from B2B game analytics
 into a governed, testable, and cost-conscious AWS architecture. It is a
@@ -16,10 +16,10 @@ experience.
 
 | Area | Operating problem |
 |---|---|
-| Anomaly and risk detection | Retention or revenue drops are noticed too late; known multi-account arbitrage patterns require manual investigation |
-| Experiment operations | Concurrent A/B tests have no central status view, so people wait for stand-ups or ask owners one by one |
-| Ad-hoc analytics | Sudden “why did revenue drop?” questions do not fit dashboards and repeatedly interrupt analysts |
-| Partner support | Game providers and client operators repeat similar integration questions; unresolved cases consume engineering time |
+| Anomaly and risk detection | Without proactive monitoring, retention or revenue drops wait for someone to notice; previously unseen arbitrage techniques outgrow known rules |
+| Experiment operations | Concurrent game experiments have no central status view; SRM/guardrails are spot-checked manually, while common data features are rebuilt by different owners |
+| Ad-hoc analytics | Urgent, unpredictable “why did revenue drop?” questions do not fit dashboards, and their frequency grows with the client base |
+| Partner support | Partners across time zones repeat product-integration questions; unresolved cases escalate from support to engineering |
 
 The design goal is not to use as many AWS services as possible. It is to reduce
 those four forms of operating friction while keeping tenant isolation,
@@ -162,7 +162,7 @@ from authenticated identity rather than a request body.
 - [Cost model and 100× projection](docs/cost-analysis.md)
 - [Threat model and SLOs](docs/threat-model.md)
 - [Project closeout and intentional boundaries](docs/project-closeout.md)
-- [Five designs changed by testing](docs/what-i-got-wrong-first.md)
+- [Designs changed by testing](docs/what-i-got-wrong-first.md)
 - [Operational runbook](docs/runbook.md)
 
 ### Verification status
@@ -216,7 +216,7 @@ module3-analytics-assistant/         governed Q&A and first-look diagnosis
 module4-partner-support-chatbot/     audience-isolated partner support
 infra/                               AWS CDK application
 tests/                               offline unit, security, and CDK assertions
-site/                                bilingual GitHub Pages interview demo
+site/                                bilingual GitHub Pages project walkthrough
 docs/                                cost, threat model, runbook, boundaries, lessons
 ```
 

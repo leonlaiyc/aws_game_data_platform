@@ -1,4 +1,4 @@
-"""Static acceptance checks for the GitHub Pages interview demo."""
+"""Static acceptance checks for the GitHub Pages project walkthrough."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ class _SiteParser(HTMLParser):
                 self.references.append(reference)
 
 
-def test_interview_site_is_self_contained_bilingual_and_publishable() -> None:
+def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> None:
     html = (SITE / "index.html").read_text(encoding="utf-8")
     javascript = (SITE / "app.js").read_text(encoding="utf-8")
 
@@ -38,13 +38,45 @@ def test_interview_site_is_self_contained_bilingual_and_publishable() -> None:
     parser.feed(html)
 
     assert len(parser.ids) == len(set(parser.ids)), "HTML ids must be unique"
-    assert {"overview", "story", "modules", "decisions", "proof"} <= set(parser.ids)
+    expected_sections = [
+        "overview",
+        "problems",
+        "architecture",
+        "workflows",
+        "demo",
+        "decisions",
+        "learnings",
+        "evidence",
+    ]
+    assert set(expected_sections) <= set(parser.ids)
+    assert [parser.ids.index(section) for section in expected_sections] == sorted(
+        parser.ids.index(section) for section in expected_sections
+    )
     assert "http://" not in html
     assert "http://" not in javascript
     assert "Leon Lai" in html
-    assert {"flowDetect", "flowDiagnose", "flowInvestigate", "flowAct", "flowValidate"} <= (
+    assert {
+        "problemsTitle",
+        "architectureTitle",
+        "workflowsTitle",
+        "demoTitle",
+        "decisionsTitle",
+        "learningsTitle",
+        "evidenceTitle",
+    } <= parser.translation_keys
+    assert {
+        "beforeLabel",
+        "systemLabel",
+        "humanLabel",
+        "boundaryLabel",
+    } <= (
         parser.translation_keys
     )
+    assert re.findall(r'data-demo="(m[1-4])"', html) == ["m1", "m3", "m2", "m4"]
+    assert "IAM_ALLOWED_PRINCIPALS" in html
+    assert "2026-06-10" in html
+    assert "DAU 91" in html
+    assert "2026-06-12" in html
     for obsolete_copy in ("Aurora Games", "Experiment safely", "安全跑實驗"):
         assert obsolete_copy not in html
         assert obsolete_copy not in javascript

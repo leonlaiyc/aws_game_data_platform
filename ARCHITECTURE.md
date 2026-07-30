@@ -1,6 +1,6 @@
 # Architecture
 
-Design rationale for the Aurora Games data platform. Each module section covers Pain → Reasoning →
+Design rationale for this B2B game data platform. Each module section covers Pain → Reasoning →
 Architecture → Trade-offs, and the [Design review](#design-review--aws-data-analytics-lens-questions)
 section at the end answers AWS Data Analytics Lens-style questions against the deployed baseline
 and clearly labels acceptance-hardening controls that still await an authorised deploy.

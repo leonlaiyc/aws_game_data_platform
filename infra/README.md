@@ -1,4 +1,4 @@
-# Aurora Games CDK application
+# AWS Game Data Platform — CDK application
 
 This directory defines the complete AWS infrastructure for the portfolio platform. The default app
 synthesizes eight steady-state stacks:
