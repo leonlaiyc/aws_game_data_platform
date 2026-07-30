@@ -41,6 +41,13 @@ def test_interview_site_is_self_contained_bilingual_and_publishable() -> None:
     assert {"overview", "story", "modules", "decisions", "proof"} <= set(parser.ids)
     assert "http://" not in html
     assert "http://" not in javascript
+    assert "Leon Lai" in html
+    assert {"flowDetect", "flowDiagnose", "flowInvestigate", "flowAct", "flowValidate"} <= (
+        parser.translation_keys
+    )
+    for obsolete_copy in ("Aurora Games", "Experiment safely", "安全跑實驗"):
+        assert obsolete_copy not in html
+        assert obsolete_copy not in javascript
 
     for reference in parser.references:
         if reference.startswith("#"):

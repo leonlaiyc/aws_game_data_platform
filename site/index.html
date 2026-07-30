@@ -9,7 +9,7 @@
       content="A bilingual, business-first walkthrough of a cost-conscious AWS game data platform."
     >
     <meta property="og:type" content="website">
-    <meta property="og:title" content="Aurora Games · AWS SA Portfolio">
+    <meta property="og:title" content="Leon Lai · Business-First AWS SA Portfolio">
     <meta
       property="og:description"
       content="Four operating pains. One governed, cost-conscious AWS platform."
@@ -17,9 +17,10 @@
     <meta property="og:url" content="https://leonlaiyc.github.io/aws_game_data_platform/">
     <meta property="og:image" content="https://leonlaiyc.github.io/aws_game_data_platform/og.png">
     <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Leon Lai · Business-First AWS SA Portfolio">
     <meta name="twitter:image" content="https://leonlaiyc.github.io/aws_game_data_platform/og.png">
     <link rel="canonical" href="https://leonlaiyc.github.io/aws_game_data_platform/">
-    <title>Aurora Games · AWS SA Portfolio</title>
+    <title>Leon Lai · AWS Solutions Architect Portfolio</title>
     <script>document.documentElement.classList.add("js");</script>
     <link rel="stylesheet" href="styles.css">
     <script src="app.js" defer></script>
@@ -32,11 +33,11 @@
     </div>
 
     <header class="site-header">
-      <a class="brand" href="#overview" aria-label="Aurora Games portfolio home">
-        <span class="brand-mark" aria-hidden="true">AG</span>
+      <a class="brand" href="#overview" aria-label="Leon Lai portfolio home">
+        <span class="brand-mark" aria-hidden="true">LL</span>
         <span class="brand-copy">
-          <strong>Aurora Games</strong>
-          <small>AWS SA Portfolio</small>
+          <strong>Leon Lai</strong>
+          <small>AWS Solutions Architect</small>
         </span>
       </a>
 
@@ -58,7 +59,7 @@
         <div class="hero-copy reveal">
           <p class="eyebrow">
             <span class="eyebrow-dot" aria-hidden="true"></span>
-            <span data-i18n="heroEyebrow">BUSINESS-FIRST · COST-CONSCIOUS · VERIFIED PoC</span>
+            <span data-i18n="heroEyebrow">LEON LAI · BUSINESS-FIRST AWS SA PORTFOLIO</span>
           </p>
           <h1>
             <span data-i18n="heroTitle1">從四個營運痛點，</span>
@@ -134,7 +135,7 @@
           <p data-i18n="manifesto">只有偵測、沒有調查，只是在製造噪音；只有調查、沒有驗證，只是一個意見。</p>
         </blockquote>
 
-        <div class="incident-chain reveal" aria-label="Incident to experiment flow">
+        <div class="incident-chain reveal" aria-label="Anomaly detection to outcome validation flow">
           <article class="chain-step">
             <div class="step-topline">
               <span class="step-index">01</span>
@@ -160,20 +161,35 @@
               <span class="step-index">03</span>
               <span class="mode mode-human" data-i18n="human">人工</span>
             </div>
-            <h3 data-i18n="flowHypothesis">形成假設</h3>
-            <p data-i18n="flowHypothesisBody">分析師閱讀證據，決定要驗證的產品假設。</p>
-            <span class="service-tag" data-i18n="humanJudgement">Human judgement</span>
+            <h3 data-i18n="flowInvestigate">深入調查</h3>
+            <p data-i18n="flowInvestigateBody">分析師結合系統證據與營運脈絡，確認可能根因。</p>
+            <span class="service-tag" data-i18n="investigationEvidence">Context · root cause · hypothesis</span>
           </article>
           <span class="chain-arrow" aria-hidden="true">→</span>
           <article class="chain-step">
             <div class="step-topline">
               <span class="step-index">04</span>
-              <span class="mode mode-auto" data-i18n="auto">自動</span>
+              <span class="mode mode-human" data-i18n="human">人工</span>
             </div>
-            <h3 data-i18n="flowExperiment">安全跑實驗</h3>
-            <p data-i18n="flowExperimentBody">中央 registry、SRM、guardrail 與 kill switch。</p>
-            <span class="service-tag">DynamoDB · Step Functions</span>
+            <h3 data-i18n="flowAct">採取行動</h3>
+            <p data-i18n="flowActBody">依根因執行營運修正、技術處置或候選產品變更。</p>
+            <span class="service-tag" data-i18n="actionOptions">Operational fix · product change</span>
           </article>
+          <span class="chain-arrow" aria-hidden="true">→</span>
+          <article class="chain-step">
+            <div class="step-topline">
+              <span class="step-index">05</span>
+              <span class="mode mode-human" data-i18n="humanLed">人工主導</span>
+            </div>
+            <h3 data-i18n="flowValidate">驗證結果</h3>
+            <p data-i18n="flowValidateBody">觀察 KPI 是否恢復；適合時才用 Module 2 做受控實驗。</p>
+            <span class="service-tag" data-i18n="validationOptions">Monitor recovery · experiment if appropriate</span>
+          </article>
+        </div>
+
+        <div class="flow-scope-note reveal">
+          <strong data-i18n="flowScopeTitle">這條閉環只描述 KPI／留存異常。</strong>
+          <span data-i18n="flowScopeBody">規則式套利偵測已實作，但走 flagged players → human review 的獨立路徑，不會觸發 Module 3 first-look；未知手法偵測尚未宣稱。</span>
         </div>
 
         <div class="sidecar reveal">
@@ -472,7 +488,7 @@
 
     <footer>
       <div class="section-shell">
-        <span>Aurora Games · AWS SA Portfolio</span>
+        <span>Leon Lai · AWS Solutions Architect Portfolio</span>
         <span data-i18n="footerNote">Fictional company · Synthetic data · Built for responsible discussion</span>
         <a href="#overview" data-i18n="backTop">回到頂部 ↑</a>
       </div>

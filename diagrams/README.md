@@ -39,8 +39,8 @@ flowchart LR
         FLR["first_look_report"]
     end
 
-    subgraph M2["Module 2 — Optimize"]
-        EXP["Experiment lifecycle<br/>Step Functions"]
+    subgraph M2["Module 2 — Validate when appropriate"]
+        EXP["Controlled experiment lifecycle<br/>Step Functions"]
     end
 
     subgraph M4["Module 4 — Deflect"]
@@ -48,6 +48,9 @@ flowchart LR
     end
 
     ANALYST(["Analyst / client success"])
+    ACTION["Operational fix or<br/>candidate product change"]
+    VALIDATE{"Choose a validation method"}
+    MONITOR["Monitor KPI recovery"]
     PARTNER(["External integration partner"])
     PARTNER --> BOT
     BOT -->|"escalation ticket<br/>only when it must"| ANALYST
@@ -58,19 +61,29 @@ flowchart LR
     EWMA -->|"SNS alert - wired in code"| FLR
     FLR -->|"pre-investigated report"| ANALYST
     ASK -->|"grounded answer"| ANALYST
-    ARB -->|"flagged players"| ANALYST
-    ANALYST -.->|"human: forms a hypothesis"| EXP
+    ARB -->|"separate flagged-player review path"| ANALYST
+    ANALYST -.->|"human: investigate and choose a response"| ACTION
+    ACTION -.->|"human-led: validate the outcome"| VALIDATE
+    VALIDATE -.->|"when a controlled test is appropriate"| EXP
+    VALIDATE -.->|"when direct recovery is observable"| MONITOR
     EXP -->|"traceable readout"| ANALYST
-    ANALYST -.->|"human: business ships the change"| LAKE
+    MONITOR --> ANALYST
+    ACTION -.->|"future product data<br/>(not wired in this PoC)"| LAKE
 
     KPI -.->|governs| LAKE
     KPI -.->|governs| ASK
     KPI -.->|governs| EXP
 ```
 
-The dotted lines matter as much as the solid ones: one metric-definition document governs the
-lake's Gold tables, Module 3's semantic layer, and Module 2's experiment metrics. That's what
-stops "GGR" from meaning three different things in three different places.
+The KPI/retention anomaly path is the only alert path wired into Module 3's
+first-look report. Arbitrage detection is implemented, but ends in a separate
+human-review path. Module 2 is a validation option, not an automatic successor
+to every alert.
+
+The dotted lines matter as much as the solid ones: one metric-definition
+document governs the lake's Gold tables, Module 3's semantic layer, and Module
+2's experiment metrics. That's what stops "GGR" from meaning three different
+things in three different places.
 
 ---
 

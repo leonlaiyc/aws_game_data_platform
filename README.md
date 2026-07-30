@@ -1,287 +1,225 @@
-# Aurora Games — B2B Game Data Platform (AWS SA Portfolio Project)
+# Business-First AWS Game Data Platform
+
+**Leon Lai · AWS Solutions Architect Portfolio**
 
 [![CI](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [**Open the bilingual interview demo →**](https://leonlaiyc.github.io/aws_game_data_platform/)
 
-A simulation of acting as an AWS Solutions Architect for **Aurora Games**, a fictional B2B gaming
-technology company serving multiple client sites. Built under a hard constraint that shaped every
-design decision: **serverless-first with an explicit observability floor** — compute and data-plane
-services scale down when nobody is using them; 13 CloudWatch alarms are the deliberate fixed idle
-cost paid to know when the platform is broken.
+This project shows how I translate operating problems from B2B game analytics
+into a governed, testable, and cost-conscious AWS architecture. It is a
+portfolio PoC built with synthetic data—not a claim of production workload
+experience.
 
-The platform and its acceptance-hardening changes were deployed and exercised
-against real AWS calls on 2026-07-29. This repository treats that evidence as
-an operationally verified PoC, not as production workload experience. Where
-something is not implemented, [ARCHITECTURE.md](ARCHITECTURE.md) names it as a
-gap rather than omitting it.
+## 1. Problems this project addresses
 
-*Fictional entities (games, client sites, player data) have no relation to any real company.*
-No production credentials or customer/player data belong in this repository;
-see [SECURITY.md](SECURITY.md).
+| Area | Operating problem |
+|---|---|
+| Anomaly and risk detection | Retention or revenue drops are noticed too late; known multi-account arbitrage patterns require manual investigation |
+| Experiment operations | Concurrent A/B tests have no central status view, so people wait for stand-ups or ask owners one by one |
+| Ad-hoc analytics | Sudden “why did revenue drop?” questions do not fit dashboards and repeatedly interrupt analysts |
+| Partner support | Game providers and client operators repeat similar integration questions; unresolved cases consume engineering time |
 
----
+The design goal is not to use as many AWS services as possible. It is to reduce
+those four forms of operating friction while keeping tenant isolation,
+explainability, and cloud cost explicit.
 
-## This is one system, not four demos
+## 2. System architecture
 
-Follow a single real incident through it — the scripted `site_b` DAU drop the demos actually use.
-Steps marked **[auto]** are wired together in code; steps marked **[human]** are where a person
-decides something. The distinction matters, and blurring it is how architecture diagrams start
-lying:
+```mermaid
+flowchart TB
+    SRC["Synthetic game events<br/>(stand-in for real product sources)"]
 
+    subgraph LAKE["Governed data foundation"]
+        B["S3 Bronze<br/>raw events"]
+        S["S3 Silver<br/>typed events"]
+        G["S3 Gold<br/>KPI, retention, player features"]
+        CAT["Glue Catalog + Lake Formation<br/>tenant filters"]
+        B -->|"Athena CTAS"| S -->|"Athena CTAS"| G
+        CAT --- G
+    end
+
+    subgraph M1["M1 · Detect"]
+        ANOM["Daily DAU/GGR + weekly retention"]
+        ARB["Rule-based arbitrage review"]
+    end
+
+    subgraph M2["M2 · Experiment operations"]
+        REG["DynamoDB registry + central view"]
+        EXP["Step Functions<br/>SRM, guardrails, analysis"]
+    end
+
+    subgraph M3["M3 · Investigate and self-serve"]
+        FL["Alert-triggered first look"]
+        ASK["Governed NL analytics"]
+    end
+
+    subgraph M4["M4 · Partner support"]
+        BOT["Audience-isolated chatbot<br/>clarify or escalate"]
+    end
+
+    SRC --> B
+    G --> ANOM
+    S --> ARB
+    G --> ARB
+    G --> ASK
+    G --> EXP
+    REG --> EXP
+
+    ANOM -->|"SNS · implemented"| FL
+    FL --> ANALYST(["Analyst / operator"])
+    ASK --> ANALYST
+    ARB -->|"flagged players"| REVIEW(["Human risk review"])
+    BOT -->|"durable ticket only when needed"| ANALYST
+
+    ANALYST -.->|"investigate → act → validate"| PRODUCT["Product / operational action"]
+    PRODUCT -.->|"new data shows the outcome"| G
 ```
-  site_b's DAU falls 55% on 2026-06-10
-    │
- 1. [auto]   Module 1's daily EWMA check flags it, publishes an SNS alert
-    │
- 2. [auto]   Module 3 is subscribed to that topic. It drills down before anyone
-    │        asks: per-game GGR breakdown, 7-day baseline comparison, and a
-    │        co-movement check ("DAU and GGR fell together - looks like a broad
-    │        usage change, not a payout bug")
-    │
- 3. [human]  An analyst reads it and wants a follow-up: "what about retention?"
-    │        They ask Module 3 directly instead of queueing behind an analyst
-    │
- 4. [human]  They form a hypothesis: "onboarding got too long"
-    │        and register an experiment in Module 2
-    │
- 5. [auto]   Module 2 runs assignment -> SRM check -> guardrail monitoring ->
-    │        analysis -> a readout whose every number is code-rendered
-    │
- 6. [human]  The business ships the winning variant
-    │
-    └──────▶ next month's gold_daily_kpi reflects it, and the loop closes
+
+**Solid arrows are implemented system integrations. Dashed arrows are human
+decisions.** Module 2 is available when a controlled experiment is the right
+validation method; it is not an automatic next step after every anomaly.
+
+Default deployment uses eight CDK stacks across S3, Athena, Glue, Lake
+Formation, Lambda, DynamoDB, Step Functions, EventBridge, SNS/SQS, API Gateway,
+Bedrock, CloudWatch, and AWS Budgets. Kinesis is an explicit short-lived demo
+stack and cannot be created by the default `cdk deploy --all`.
+
+## 3. Data flow
+
+### KPI / retention anomaly path
+
+1. **[auto] Detect** — EventBridge runs daily DAU/GGR and weekly mature-cohort
+   retention checks against published Gold data.
+2. **[auto] First look** — Module 1 publishes an SNS alert; Module 3 builds
+   baseline, per-game, or retention evidence before an analyst starts.
+3. **[human] Investigate** — an analyst checks the evidence, business context,
+   and likely root cause.
+4. **[human] Act** — the team applies the appropriate operational or product
+   response.
+5. **[human-led] Validate** — confirm recovery through later KPI data, or use
+   Module 2 when an A/B test is appropriate.
+
+> Detection without investigation is noise. Investigation without validation
+> is opinion. Action sits between them: evidence must lead to a response, and
+> the response must be checked.
+
+### Arbitrage path is separate
+
+The rule-based arbitrage detector combines device fan-out with abnormal
+cash-out behaviour, writes explainable evidence, and returns
+`REVIEW_REQUIRED`. It is implemented and demoed, but it does **not** enter
+Module 3's KPI first-look flow. Unknown-technique novelty detection is
+deliberately not claimed because the PoC has no reviewed labels or calibrated
+false-positive threshold.
+
+### Shared governed data flow
+
+```text
+synthetic events
+  → S3 Bronze
+  → Athena CTAS / S3 Silver
+  → Athena CTAS / S3 Gold
+  → Glue Catalog + Lake Formation policy
+  → M1 detection / M2 experiment analysis / M3 governed analytics
 ```
 
-**The claim is not that data flows in a circle.** Steps 3, 4 and 6 are human judgement, and step 6
-closes the loop through the product, not through a pipeline. What the platform automates is 1, 2
-and 5 — the detection, the first-pass investigation, and the statistical rigour — which is exactly
-the work that is repetitive, easy to skip under time pressure, and damaging when skipped.
+`KPI_DEFINITIONS.md` governs Gold tables, Module 2 metrics, and Module 3 query
+templates. `FEATURES.md` defines shared experiment features. Tenant scope comes
+from authenticated identity rather than a request body.
 
-Module 4 sits alongside rather than inside this loop: it absorbs inbound partner questions so that
-the escalations reaching this team are the ones that actually need it.
+## 4. How the architecture solves the problems
 
-Detection without investigation is just noise. Investigation without a way to validate a fix is
-just opinion. See [`diagrams/`](diagrams/) for the rendered architecture diagrams.
-
-### The thread that runs through all of it
-
-Two principles applied consistently, not per-module:
-
-**1. One definition of every metric.** `KPI_DEFINITIONS.md` governs the lake's Gold tables,
-Module 3's semantic layer, and Module 2's experiment metrics. `FEATURES.md` does the same for
-experiment features. A number in any output can be traced to the document that defines it.
-
-**2. Code renders every number; the LLM only ever writes qualitative text.** Module 1's alerts,
-Module 2's experiment readouts, and Module 3's answers all follow this. The model is never asked to
-produce a figure, so it cannot invent one — the guarantee is structural, with automated grounding
-checks as a secondary net rather than the primary defense.
-
----
-
-## Modules
-
-| Module | Pain point | Current maturity |
+| Problem | Implemented response | Honest boundary |
 |---|---|---|
-| [data-foundation](data-foundation/) | Multiple client sites and game providers, inconsistent metric definitions, and a hard data-isolation requirement need a governed platform, not just a lake | Deployed PoC; live ingestion and atomic publication remain |
-| [module1-anomaly-detection](module1-anomaly-detection/) | Silent retention/revenue drops and multi-account arbitrage rings go undetected for weeks; batch-only monitoring misses same-hour incidents | Operationally verified PoC; explainable detector and publication-marker paths passed against AWS |
-| [module2-experimentation-platform](module2-experimentation-platform/) | No central view of which concurrent experiments are live, which already tripped a guardrail, and which are on their third iteration | Operationally verified PoC; live exposure SRM, kill switch, historical lifecycle, and central view passed |
-| [module3-analytics-assistant](module3-analytics-assistant/) | Analysts field cross-cut business questions no prebuilt dashboard answers, and every anomaly alert starts a drill-down from scratch | Operationally verified PoC; governed queries, durable tickets, first-look report, and delivery passed |
-| [module4-partner-support-chatbot](module4-partner-support-chatbot/) | Integration engineers answer the same partner questions every week, and the questions that genuinely need an engineer queue behind the ones that don't | Operationally verified PoC; durable sessions, tickets, leakage controls, and notifications passed |
+| Late anomaly discovery | Scheduled DAU/GGR and mature-retention checks; SNS automatically triggers a code-rendered first look | No real ingestion source, so no end-to-end freshness SLA claim |
+| Known arbitrage patterns | Two independent signals, explainable evidence, and a non-final `REVIEW_REQUIRED` decision | No claim of detecting previously unseen techniques |
+| Invisible experiment status | Central registry/view with owner, IAM-derived provenance, lifecycle, SRM, guardrail, and allocation state | Local signed UI; hosted SSO UI waits for regular multi-user demand |
+| Delayed experiment stopping | Live-exposure SRM, hourly guardrail monitoring, and an atomic allocation kill switch | Worst-case monitoring cadence is one hour, not real time |
+| Repeated feature work | Shared `gold_player_features` registry and documented feature definitions | Automated lineage waits for a measurable duplication incident |
+| Ad-hoc “what/why” questions | Allow-listed SQL, on-demand `diagnose`, alert-triggered reports, and durable tickets | Country/player-level external analytics waits for governed dimensions and federation |
+| Repeated partner questions | Identity-derived provider/operator corpora, clarification before escalation, leakage guard, daily quota, and API throttle | Production partner IdP, time-zone profiles, conversation history, and CRM delivery remain |
 
-The latest cost-safe increment is locally verified and deployment-pending:
-weekly mature retention detection, identity-derived experiment ownership,
-on-demand “why did it drop?” diagnosis, and separate game-provider/client-
-operator support corpora. See
-[the business-pain implementation plan](docs/business-pain-implementation-plan.md)
-for the exact scope, cost shape, and deliberately deferred boundaries.
+## 5. Additional design evidence
 
-Project-wide delivery constraints are explicit: the paid AWS account still
-uses a [free-first cost policy](docs/project-constraints.md), player-risk
-alerts must satisfy an explainability contract, and every finished capability
-must have a deterministic operation-only demo. Recording checklists and
-goal-fit review notes are maintained as local delivery documents rather than
-published repository artifacts.
+### Design principles
 
-**Highlights worth reading the code for:**
+- **Business first:** each service must map to an operating problem.
+- **Cost first:** default resources are request-priced or scale to zero; the
+  steady-state gross model is under **USD 2/month**, with a USD 5 budget alert.
+- **Identity owns scope:** tenant or audience scope is never trusted from the
+  request body.
+- **Code owns facts:** SQL, numbers, risk evidence, routing, and disclosure are
+  deterministic; an LLM only phrases approved qualitative content.
+- **Gaps stay visible:** production boundaries have adoption triggers instead
+  of aspirational architecture boxes.
 
-- **Catalog-level tenant isolation** — Lake Formation row-level filters mean an analyst role is
-  *physically unable* to read another client's rows — verified by assuming each role via STS and
-  checking **both** directions: the Athena path returns only its own site, and a direct
-  `GetObject` on the underlying Parquet is denied. Application-level filtering would be one
-  forgotten `WHERE` clause from a leak.
-- **Two independent signals required before flagging fraud** — device fan-out alone is a shared
-  family computer; an abnormal cash-out ratio alone is a lucky winner. Only both together flag.
-- **Caveats the model cannot skip** — Module 2 computes caveat flags deterministically in code and
-  requires the readout to address every one. The model chooses phrasing, never whether to mention.
-- **No free-form text-to-SQL** — Module 3's model picks from pre-approved SQL templates and fills
-  whitelisted slots. Less capable by design; provably correct in exchange.
-- **A real Guardrails false positive, documented** — `PROMPT_ATTACK` blocked 100% of requests until
-  the system prompt was moved out of the user turn. See
-  [module3's README](module3-analytics-assistant/README.md).
-- **A leak the model actually attempted, caught by code** — told not to cite sources, it emitted an
-  internal document ID anyway. A validator replaced the response before the partner saw it. The
-  prompt asked; only the code enforced.
-- **The same governance rule producing opposite behaviour** — Module 2 shows its citations because
-  the reader is an internal analyst; Module 4 suppresses them because the reader is an external
-  partner. Same philosophy, and the deciding variable is the audience.
+### Evidence
 
----
+- [Architecture and service trade-offs](ARCHITECTURE.md)
+- [Rendered Mermaid diagrams](diagrams/)
+- [Cost model and 100× projection](docs/cost-analysis.md)
+- [Threat model and SLOs](docs/threat-model.md)
+- [Project closeout and intentional boundaries](docs/project-closeout.md)
+- [Five designs changed by testing](docs/what-i-got-wrong-first.md)
+- [Operational runbook](docs/runbook.md)
 
-## Region & cost
+### Verification status
 
-- Deployed in **ap-northeast-1 (Tokyo)**.
-- **Steady-state gross list-price model is under $2/month**, dominated by 13 standard CloudWatch
-  alarms (~$1.30/month before any free allocation), not compute. There is no always-on EC2, NAT
-  Gateway, RDS, or provisioned cluster. An AWS Budgets notification fires at $5, forecast and
-  actual.
-- The one deliberate exception is Module 1's Kinesis streaming path, which has **no free tier and
-  bills per shard-hour** (~$14/month if left running). It is excluded from the default CDK app
-  behind a context flag, so `cdk deploy --all` cannot create it, and its demo script verifies
-  teardown by listing streams directly rather than trusting the destroy exit code.
-- **Cost Explorer snapshot on 2026-07-29: $0.1156 estimated gross usage** (fully offset by credits
-  in this account). It is useful evidence, not a settled lifetime invoice; standard alarm charges
-  can post later in the month. The largest line item in that snapshot was the Cost Explorer API at
-  $0.04 — investigating the cost cost more than running the data plane.
-- Full breakdown, verified unit prices, the Amazon Quick build-vs-buy analysis, and a 100x
-  projection: [docs/cost-analysis.md](docs/cost-analysis.md). Operational responses:
-  [docs/runbook.md](docs/runbook.md). Attack surface and service levels:
-  [docs/threat-model.md](docs/threat-model.md).
+- **144 offline tests** plus Python compilation and CDK assertion coverage.
+- **Eight default stacks** synthesize without Kinesis, NAT Gateway, RDS,
+  OpenSearch, or provisioned compute.
+- The earlier baseline was deployed and exercised against AWS on 2026-07-29.
+  The latest cost-safe increment is locally/CI verified and was not redeployed,
+  so no new AWS cost was created during closeout.
+- All entities and data are fictional. See [SECURITY.md](SECURITY.md).
 
----
+<details>
+<summary><strong>Run locally</strong></summary>
 
-## Project status and boundaries
-
-The repository is **portfolio-complete**. The latest cost-safe increment is
-locally verified and intentionally not deployed as part of closeout: deploying
-to a paid account remains a separate decision behind the documented preflight.
-
-The remaining items are explicit production boundaries, not hidden TODOs:
-live ingestion, an evidence-backed unknown-arbitrage model, a hosted/SSO team
-UI, external federation, governed country/player analytics, partner profiles
-and CRM delivery, and scale-up services whose adoption thresholds have not
-been crossed. See
-[the project closeout](docs/project-closeout.md) for the exact list and
-triggers, and [what I got wrong first](docs/what-i-got-wrong-first.md) for the
-test-driven design corrections behind the final architecture.
-
----
-
-## Running it
+Tests and synthesis do not require an AWS deployment:
 
 ```bash
-cd infra && cdk deploy --all
+python -m pytest -q
+cd infra
+cdk synth --quiet
 ```
 
-That deploys everything except the billable streaming stack, which needs
-`-c enable_streaming=true` and should be run via
-`module1-anomaly-detection/streaming/run_streaming_demo.sh` (deploy → demo → destroy → verify).
-
-Then run the tests, which need no AWS account:
+Before any later deployment:
 
 ```bash
-python -m pytest
+python scripts/verify_paid_account_controls.py
+cd infra
+cdk deploy --all
 ```
 
-Then the demos, each end-to-end against real deployed infrastructure and each exiting non-zero on
-failure:
+The streaming demo is opt-in only:
 
 ```bash
-python data-foundation/governance/verify_isolation.py
+cdk deploy AuroraGamesStreamingStack -c enable_streaming=true
 ```
 
-```bash
-python module1-anomaly-detection/demo/run_demo.py
+Use the wrapper in `module1-anomaly-detection/streaming/` to deploy, demo,
+destroy, and independently verify teardown.
+
+</details>
+
+<details>
+<summary><strong>Repository map</strong></summary>
+
+```text
+data-foundation/                     governed lake, KPI definitions, tenant isolation
+module1-anomaly-detection/           KPI/retention anomaly and rule-based arbitrage paths
+module2-experimentation-platform/    central registry, live controls, feature registry
+module3-analytics-assistant/         governed Q&A and first-look diagnosis
+module4-partner-support-chatbot/     audience-isolated partner support
+infra/                               AWS CDK application
+tests/                               offline unit, security, and CDK assertions
+site/                                bilingual GitHub Pages interview demo
+docs/                                cost, threat model, runbook, boundaries, lessons
 ```
 
-```bash
-python module2-experimentation-platform/demo/run_demo.py
-```
+</details>
 
-```bash
-python module3-analytics-assistant/demo/run_demo.py
-```
-
-```bash
-python module4-partner-support-chatbot/demo/run_demo.py
-```
-
-The scripted scenarios (a site_b retention drop, a site_a six-account arbitrage ring) are baked
-into the simulated data, so each demo asserts against known ground truth rather than just printing
-output.
-
-**Note:** newly created Glue tables need Lake Formation grants before a Lambda role can query them —
-see [data-foundation/governance/README.md](data-foundation/governance/README.md). This trips
-everyone once.
-
----
-
-## Repo layout
-
-```
-infra/                              CDK app (Python) — all infrastructure as code
-tests/                              pytest: CDK security assertions + unit tests, no AWS needed
-.github/workflows/ci.yml            Compiles every Lambda handler, then runs the suite
-site/                               Bilingual one-page interview demo, deployed by GitHub Pages
-diagrams/                           Architecture diagrams (Mermaid, renders on GitHub)
-docs/cost-analysis.md               Verified unit prices, observed estimate, 100x projection
-docs/runbook.md                     What each alarm means and what to do about it
-docs/threat-model.md                Who would attack this, whether it holds, and the SLOs
-docs/project-closeout.md             Implemented scope, intentional boundaries, adoption triggers
-docs/what-i-got-wrong-first.md       Five tests that changed the design
-
-data-foundation/
-  event_simulator/                  Synthetic B2B gaming event generator, with scripted scenarios
-  lake/                             S3 Bronze/Silver/Gold, Glue Catalog DDL, example Athena queries
-  KPI_DEFINITIONS.md                Single source of truth for GGR/DAU/ARPU/retention logic
-  governance/                       Client isolation (Lake Formation row-level filters) + verifier
-
-module1-anomaly-detection/
-  data_anomaly/                     EWMA control-limit detection on DAU/GGR -> SNS
-  arbitrage_detection/              Two-signal multi-account arbitrage detection
-  streaming/                        Short-lived Kinesis real-time path (deploy / demo / destroy)
-  demo/                             Both batch detectors against scripted ground truth
-
-module2-experimentation-platform/
-  registry/                         DynamoDB experiment registry + CRUD API
-  orchestration/                    Step Functions: assignment -> SRM -> monitoring -> analysis -> readout
-  feature_registry/                 gold_player_features + FEATURES.md
-  demo/                             3 concurrent experiments: clean winner, guardrail stop, SRM violation
-
-module3-analytics-assistant/
-  semantic_layer/                   Pre-approved parameterized Athena SQL templates
-  lambda/ask_answer/                Capability A — NL Q&A, six deterministic outcomes
-  lambda/first_look_report/         Capability B — alert-triggered drill-down report
-  demo/                             All six outcomes + a real alert-triggered report
-
-module4-partner-support-chatbot/
-  lambda/chat/knowledge_base/       In-context corpus (no vector store, by design)
-  lambda/chat/prompts/              Versioned prompt + all code-owned fixed copy
-  lambda/chat/config.py             Every classifier threshold, with its rationale
-  demo/                             All four fallback categories + the leakage guard
-```
-
----
-
-## Prerequisites
-
-- AWS account with CLI credentials configured (`aws configure`).
-- `cdk bootstrap` run once per account/region.
-- A billing alarm (this project's target: alert above $5/month).
-- Bedrock access to **Amazon Nova Lite** in ap-northeast-1 (auto-enabled on first invocation as of
-  2026 — no manual model-access step). No embedding model is needed; there is no vector store
-  anywhere in this project, by design.
-- A registered Lake Formation Data Lake Administrator. This **cannot** be done from CDK — the
-  bootstrap execution role isn't an admin — so it runs as a boto3 script with the account's own
-  credentials.
-
-## Teardown
-
-```bash
-cd infra && cdk destroy --all
-```
-
-Then verify by listing resources directly rather than trusting the command's exit code — a stack
-deletion that silently fails leaves a meter running. Module READMEs list any non-CDK cleanup (e.g.
-Athena query result objects in S3).
+Licensed under the [MIT License](LICENSE).

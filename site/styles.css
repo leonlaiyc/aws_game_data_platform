@@ -482,7 +482,7 @@ kbd {
 
 .incident-chain {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr auto 1fr;
   gap: 12px;
   align-items: stretch;
 }
@@ -564,6 +564,24 @@ kbd {
   color: var(--white);
   background: var(--forest-2);
   border-radius: 14px;
+}
+
+.flow-scope-note {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 22px 0 0;
+  padding: 14px 18px;
+  color: var(--ink-soft);
+  background: rgba(232, 184, 76, 0.13);
+  border: 1px solid rgba(160, 116, 22, 0.24);
+  border-radius: 11px;
+  font-size: 0.74rem;
+}
+
+.flow-scope-note strong {
+  flex: 0 0 auto;
+  color: var(--ink);
 }
 
 .sidecar-index {
@@ -1249,6 +1267,11 @@ footer a {
   .sidecar {
     grid-template-columns: 1fr;
     margin-top: 14px;
+  }
+
+  .flow-scope-note {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .module-card {
