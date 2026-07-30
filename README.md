@@ -3,6 +3,8 @@
 [![CI](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
+[**Open the bilingual interview demo →**](https://leonlaiyc.github.io/aws_game_data_platform/)
+
 A simulation of acting as an AWS Solutions Architect for **Aurora Games**, a fictional B2B gaming
 technology company serving multiple client sites. Built under a hard constraint that shaped every
 design decision: **serverless-first with an explicit observability floor** — compute and data-plane
@@ -221,6 +223,7 @@ everyone once.
 infra/                              CDK app (Python) — all infrastructure as code
 tests/                              pytest: CDK security assertions + unit tests, no AWS needed
 .github/workflows/ci.yml            Compiles every Lambda handler, then runs the suite
+site/                               Bilingual one-page interview demo, deployed by GitHub Pages
 diagrams/                           Architecture diagrams (Mermaid, renders on GitHub)
 docs/cost-analysis.md               Verified unit prices, observed estimate, 100x projection
 docs/runbook.md                     What each alarm means and what to do about it
