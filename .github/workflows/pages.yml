@@ -1,4 +1,4 @@
-name: Deploy interview demo to Pages
+name: Deploy project walkthrough to Pages
 
 on:
   push:
