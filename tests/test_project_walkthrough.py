@@ -95,6 +95,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "Only when judgement is required",
         "service-examples",
         "這些問題是在建置與驗證這個 PoC 時發現",
+        "先有營運問題，才有架構",
+        "重複問題一路升級到工程師",
+        "先理解工作流，再看它實際輸出什麼",
+        "同一場異常",
     ):
         assert obsolete_copy not in html
         assert obsolete_copy not in javascript
@@ -112,22 +116,26 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "工程驗證與架構文件",
         "測試通過率（100%）",
         "本專案的核心價值在於",
+        "雲端 AI 技術鏈接實務痛點",
+        "重複性客戶問題消耗客服與開發資源",
+        "資料生成、治理與發布路徑",
+        "四個模組如何消費資料並交付結果",
+        "兩分鐘精華：工作流運行與產出展示",
+        "同一個異常",
     ):
         assert required_copy in html
         assert required_copy in javascript
 
-    evidence_cards = html.split('<div class="evidence-grid reveal">', 1)[1].split(
-        "</div>", 1
-    )[0]
-    assert evidence_cards.count("<article>") == 2
+    assert html.count('<article class="evidence-card ') == 2
 
     for readability_rule in (
         ".workflow-grid p {\n  margin: 0;\n  color: var(--ink-soft);\n  font-size: 0.98rem;",
         ".workflow-grid small {\n  display: block;\n  margin-bottom: 12px;\n  color: var(--teal);\n  font-family: var(--mono);\n  font-size: 1.06rem;",
-        ".architecture-node span {\n  margin-top: 5px;\n  color: rgba(255, 255, 255, 0.58);\n  font-size: 0.9rem;",
-        ".section-heading p:last-child {\n  max-width: 760px;\n  margin-bottom: 0;\n  color: var(--ink-soft);\n  font-size: 1.45rem;",
-        "font-size: 1.14rem;",
-        "font-size: 1.05rem;",
+        ".service-node span {\n  margin-top: 10px;\n  color: rgba(255, 255, 255, 0.68);\n  font-size: 0.98rem;",
+        ".section-heading p:last-child {\n  max-width: 920px;\n  margin-bottom: 0;\n  color: var(--ink-soft);\n  font-size: 1.45rem;",
+        "font-size: 1.12rem;",
+        "font-size: 1.16rem;",
+        "font-size: clamp(3.4rem, 7vw, 6.8rem);",
     ):
         assert readability_rule in stylesheet
 
