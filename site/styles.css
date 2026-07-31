@@ -252,9 +252,9 @@ blockquote {
 .eyebrow,
 .kicker {
   color: var(--teal);
-  font-size: 0.7rem;
+  font-size: 1.05rem;
   font-weight: 900;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
@@ -317,7 +317,7 @@ blockquote {
   padding: 0 20px;
   border: 1px solid var(--ink);
   border-radius: 3px;
-  font-size: 0.76rem;
+  font-size: 1.14rem;
   font-weight: 850;
   letter-spacing: 0.02em;
   text-decoration: none;
@@ -442,7 +442,7 @@ blockquote {
   margin-top: 8px;
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 1.05rem;
   font-weight: 800;
 }
 
@@ -460,7 +460,8 @@ blockquote {
   max-width: 760px;
   margin-bottom: 0;
   color: var(--ink-soft);
-  font-size: 0.95rem;
+  font-size: 1.45rem;
+  line-height: 1.55;
 }
 
 .section-heading.light h2 {
@@ -827,7 +828,7 @@ blockquote {
 .workflow-card header small {
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 1.05rem;
   font-weight: 800;
   letter-spacing: 0.09em;
 }
@@ -859,9 +860,10 @@ blockquote {
   margin-bottom: 12px;
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 1.06rem;
   font-weight: 850;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.03em;
+  line-height: 1.35;
 }
 
 .workflow-grid p {
@@ -1087,7 +1089,7 @@ blockquote {
 
 .decision-card {
   position: relative;
-  min-height: 500px;
+  min-height: 780px;
   padding: 30px;
   background: rgba(251, 248, 241, 0.61);
   border-right: 1px solid var(--line);
@@ -1096,7 +1098,7 @@ blockquote {
 
 .decision-number {
   display: block;
-  margin-bottom: 50px;
+  margin-bottom: 34px;
   color: var(--coral);
   font-family: var(--display);
   font-size: 3.2rem;
@@ -1114,19 +1116,12 @@ blockquote {
 }
 
 .decision-card h3 {
-  min-height: 86px;
+  min-height: 118px;
   margin-bottom: 13px;
   font-family: var(--display);
   font-size: 1.55rem;
   letter-spacing: -0.035em;
   line-height: 1.05;
-}
-
-.service-examples {
-  min-height: 40px;
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 0.72rem;
 }
 
 .decision-card > div {
@@ -1138,7 +1133,7 @@ blockquote {
 .decision-card small {
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.68rem;
+  font-size: 0.82rem;
   font-weight: 850;
   letter-spacing: 0.08em;
 }
@@ -1146,7 +1141,17 @@ blockquote {
 .decision-card div p {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 0.9rem;
+  font-size: 0.98rem;
+  line-height: 1.58;
+}
+
+.decision-card div p + p {
+  margin-top: 12px;
+}
+
+.decision-card .upgrade-action {
+  color: var(--night);
+  font-weight: 760;
 }
 
 .decision-card .flip-trigger {
@@ -1218,7 +1223,7 @@ blockquote {
 .case-evidence small {
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: 1.05rem;
   font-weight: 850;
   letter-spacing: 0.09em;
 }
@@ -1227,7 +1232,12 @@ blockquote {
 .changed p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 0.76rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+
+.changed-copy p + p {
+  margin-top: 12px;
 }
 
 .case-evidence {
@@ -1243,13 +1253,14 @@ blockquote {
 
 .case-evidence strong {
   font-family: var(--mono);
-  font-size: 0.82rem;
+  font-size: 1.05rem;
 }
 
 .case-evidence p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 0.73rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
 }
 
 .timeline-evidence {
@@ -1314,7 +1325,7 @@ blockquote {
 .leak-evidence span {
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 0.61rem;
+  font-size: 0.9rem;
 }
 
 .learning-content blockquote {
@@ -1330,15 +1341,15 @@ blockquote {
 
 .evidence-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   border-top: 1px solid var(--line);
   border-left: 1px solid var(--line);
 }
 
 .evidence-grid article {
   display: grid;
-  min-height: 145px;
-  padding: 22px;
+  min-height: 190px;
+  padding: 30px;
   background: rgba(251, 248, 241, 0.58);
   border-right: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
@@ -1347,7 +1358,7 @@ blockquote {
 .evidence-grid strong {
   align-self: end;
   font-family: var(--display);
-  font-size: clamp(1.65rem, 3vw, 2.7rem);
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
   letter-spacing: -0.05em;
   line-height: 1;
 }
@@ -1356,7 +1367,7 @@ blockquote {
   align-self: end;
   margin-top: 12px;
   color: var(--ink-soft);
-  font-size: 0.67rem;
+  font-size: 1.1rem;
 }
 
 .proof-links {
@@ -1462,6 +1473,8 @@ blockquote {
 .closing p:not(.kicker) {
   max-width: 760px;
   color: rgba(255, 255, 255, 0.67);
+  font-size: 1.35rem;
+  line-height: 1.55;
 }
 
 .closing-actions {
@@ -1491,7 +1504,7 @@ footer .section-shell {
   justify-content: space-between;
   align-items: center;
   min-height: 86px;
-  font-size: 1rem;
+  font-size: 1.05rem;
 }
 
 footer a {
@@ -1568,8 +1581,7 @@ footer a {
     min-height: auto;
   }
 
-  .decision-card h3,
-  .service-examples {
+  .decision-card h3 {
     min-height: auto;
   }
 
