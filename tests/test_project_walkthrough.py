@@ -99,6 +99,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "重複問題一路升級到工程師",
         "先理解工作流，再看它實際輸出什麼",
         "同一場異常",
+        "一套治理模型",
+        "支撐四種遊戲營運工作流",
+        "One governance model",
+        "Four game-operations workflows",
     ):
         assert obsolete_copy not in html
         assert obsolete_copy not in javascript
@@ -122,9 +126,19 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "四個模組如何消費資料並交付結果",
         "兩分鐘精華：工作流運行與產出展示",
         "同一個異常",
+        "一套雲端系統架構",
+        "解決四個實際營運痛點",
+        "以 Serverless 為主的設計",
     ):
         assert required_copy in html
         assert required_copy in javascript
+
+    for required_english_copy in (
+        "One cloud system architecture",
+        "solving four practical operating pain points",
+        "Built primarily on serverless services",
+    ):
+        assert required_english_copy in javascript
 
     assert html.count('<article class="evidence-card ') == 2
 
