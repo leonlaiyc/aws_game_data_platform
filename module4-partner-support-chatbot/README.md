@@ -22,6 +22,18 @@ A bot that answers the easy ones is straightforward. The hard part, and the actu
 module, is **the bot knowing when not to answer** — and being unable to embarrass the company when
 it does.
 
+## Where RAG appears
+
+At this corpus size, the implemented path is a **small-corpus RAG-style
+pipeline**: IAM identity selects the provider or operator corpus, deterministic
+relevance checks decide whether the question belongs, the selected corpus is
+placed into the model context, Bedrock generates a grounded answer, and code
+validates or escalates the result. It does not pretend that a vector store is
+already present. Production onboarding would first replace the simulated files
+with official, versioned, access-tagged partner documents; chunking, vector
+retrieval, or a managed knowledge base becomes justified when that corpus no
+longer fits the controlled full-context approach.
+
 ## Two rules, applied everywhere
 
 **1. Three of the four refusal decisions are made before the model is consulted at all.**

@@ -492,24 +492,6 @@ blockquote {
   border-bottom: 1px solid var(--line);
 }
 
-.problem-card.priority {
-  background:
-    linear-gradient(135deg, rgba(231, 173, 60, 0.17), transparent 55%),
-    var(--card);
-}
-
-.priority-ribbon {
-  position: absolute;
-  top: 16px;
-  right: -1px;
-  padding: 6px 12px;
-  color: var(--night);
-  background: var(--amber);
-  font-size: 0.57rem;
-  font-weight: 950;
-  letter-spacing: 0.1em;
-}
-
 .problem-topline {
   display: flex;
   gap: 12px;
@@ -545,7 +527,7 @@ blockquote {
 .problem-card p,
 .problem-card li {
   color: var(--ink-soft);
-  font-size: 0.87rem;
+  font-size: 1rem;
 }
 
 .problem-card .secondary-pains {
@@ -595,7 +577,7 @@ blockquote {
   padding: 3px 9px;
   background: var(--night-deep);
   font-family: var(--mono);
-  font-size: 0.59rem;
+  font-size: 0.78rem;
 }
 
 .lane-label span {
@@ -644,7 +626,7 @@ blockquote {
 .node-heading small {
   color: var(--amber);
   font-family: var(--mono);
-  font-size: 0.55rem;
+  font-size: 0.75rem;
   letter-spacing: 0.09em;
 }
 
@@ -653,14 +635,14 @@ blockquote {
   margin-top: 5px;
   color: #fff8e9;
   font-family: var(--display);
-  font-size: 1rem;
+  font-size: 1.18rem;
   letter-spacing: -0.02em;
 }
 
 .architecture-node span {
   margin-top: 5px;
   color: rgba(255, 255, 255, 0.58);
-  font-size: 0.64rem;
+  font-size: 0.9rem;
 }
 
 .foundation-node {
@@ -686,7 +668,7 @@ blockquote {
   border: 1px solid rgba(21, 163, 154, 0.42);
   text-align: center;
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.82rem;
 }
 
 .lake-pipeline i {
@@ -705,7 +687,7 @@ blockquote {
   padding: 5px 8px;
   color: rgba(255, 255, 255, 0.64);
   background: rgba(255, 255, 255, 0.06);
-  font-size: 0.57rem;
+  font-size: 0.8rem;
 }
 
 .consumer-stack {
@@ -723,12 +705,12 @@ blockquote {
 .consumer-stack b {
   color: var(--amber);
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.82rem;
 }
 
 .consumer-stack span {
   color: rgba(255, 255, 255, 0.82);
-  font-size: 0.67rem;
+  font-size: 0.9rem;
 }
 
 .support-node {
@@ -749,7 +731,7 @@ blockquote {
 .shared-rail > p {
   margin-bottom: 10px;
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.11em;
 }
@@ -764,7 +746,7 @@ blockquote {
   display: flex;
   gap: 9px;
   align-items: center;
-  font-size: 0.68rem;
+  font-size: 0.9rem;
 }
 
 .shared-rail b {
@@ -782,7 +764,7 @@ blockquote {
   align-items: center;
   margin-top: 18px;
   color: rgba(255, 255, 255, 0.56);
-  font-size: 0.64rem;
+  font-size: 0.82rem;
 }
 
 .architecture-legend > span {
@@ -845,7 +827,7 @@ blockquote {
 .workflow-card header small {
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.57rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.09em;
 }
@@ -853,38 +835,17 @@ blockquote {
 .workflow-card h3 {
   margin: 3px 0 0;
   font-family: var(--display);
-  font-size: 1.45rem;
+  font-size: 1.65rem;
   letter-spacing: -0.03em;
-}
-
-.core-workflow {
-  border: 2px solid rgba(231, 173, 60, 0.72);
-  box-shadow: 0 16px 45px rgba(103, 72, 15, 0.1);
-}
-
-.core-workflow header {
-  background:
-    linear-gradient(90deg, rgba(231, 173, 60, 0.16), transparent 55%),
-    var(--card);
-}
-
-.core-badge {
-  margin-left: auto;
-  padding: 6px 10px;
-  color: var(--night);
-  background: var(--amber);
-  font-size: 0.56rem;
-  font-weight: 950;
-  letter-spacing: 0.09em;
 }
 
 .workflow-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .workflow-grid > div {
-  min-height: 175px;
+  min-height: 230px;
   padding: 24px;
   border-right: 1px solid var(--line);
 }
@@ -898,7 +859,7 @@ blockquote {
   margin-bottom: 12px;
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: 0.08em;
 }
@@ -906,15 +867,16 @@ blockquote {
 .workflow-grid p {
   margin: 0;
   color: var(--ink-soft);
-  font-size: 0.78rem;
+  font-size: 0.98rem;
+  line-height: 1.65;
 }
 
-.workflow-grid .boundary-cell {
-  background: rgba(255, 104, 72, 0.06);
+.workflow-grid .operating-detail {
+  background: rgba(11, 104, 101, 0.07);
 }
 
-.workflow-grid .boundary-cell small {
-  color: #b6412d;
+.workflow-grid .operating-detail small {
+  color: var(--teal);
 }
 
 .demo-layout {
@@ -951,17 +913,17 @@ blockquote {
 .demo-chapters button span {
   color: var(--amber);
   font-family: var(--mono);
-  font-size: 0.61rem;
+  font-size: 0.75rem;
 }
 
 .demo-chapters button b {
   color: inherit;
   font-family: var(--display);
-  font-size: 0.86rem;
+  font-size: 1rem;
 }
 
 .demo-chapters button small {
-  font-size: 0.56rem;
+  font-size: 0.7rem;
   white-space: nowrap;
 }
 
@@ -1007,7 +969,7 @@ blockquote {
   margin-left: auto;
   color: rgba(255, 255, 255, 0.45);
   font-family: var(--mono);
-  font-size: 0.55rem;
+  font-size: 0.68rem;
 }
 
 .demo-context,
@@ -1036,14 +998,14 @@ blockquote {
 .demo-takeaway small {
   color: var(--amber);
   font-family: var(--mono);
-  font-size: 0.55rem;
+  font-size: 0.68rem;
   letter-spacing: 0.09em;
 }
 
 .demo-context span,
 .demo-takeaway span {
   color: rgba(255, 255, 255, 0.73);
-  font-size: 0.75rem;
+  font-size: 0.9rem;
 }
 
 #demo-terminal {
@@ -1112,7 +1074,7 @@ blockquote {
   max-width: 940px;
   margin: 16px auto 0;
   color: rgba(255, 255, 255, 0.56);
-  font-size: 0.69rem;
+  font-size: 0.82rem;
   text-align: center;
 }
 
@@ -1164,7 +1126,7 @@ blockquote {
   min-height: 40px;
   color: var(--ink-soft);
   font-family: var(--mono);
-  font-size: 0.63rem;
+  font-size: 0.72rem;
 }
 
 .decision-card > div {
@@ -1176,7 +1138,7 @@ blockquote {
 .decision-card small {
   color: var(--teal);
   font-family: var(--mono);
-  font-size: 0.56rem;
+  font-size: 0.68rem;
   font-weight: 850;
   letter-spacing: 0.08em;
 }
@@ -1184,7 +1146,7 @@ blockquote {
 .decision-card div p {
   margin: 8px 0 0;
   color: var(--ink-soft);
-  font-size: 0.76rem;
+  font-size: 0.9rem;
 }
 
 .decision-card .flip-trigger {
@@ -1528,8 +1490,8 @@ footer .section-shell {
   gap: 25px;
   justify-content: space-between;
   align-items: center;
-  min-height: 68px;
-  font-size: 0.62rem;
+  min-height: 86px;
+  font-size: 1rem;
 }
 
 footer a {
@@ -1791,12 +1753,6 @@ footer a {
 
   .workflow-index {
     font-size: 1.8rem;
-  }
-
-  .core-badge {
-    position: absolute;
-    top: 8px;
-    right: 8px;
   }
 
   .workflow-grid {

@@ -16,7 +16,7 @@ experience.
 
 | Area | Operating problem |
 |---|---|
-| Anomaly and risk detection | Without proactive monitoring, retention or revenue drops wait for someone to notice; previously unseen arbitrage techniques outgrow known rules |
+| Anomaly and risk detection | Without proactive monitoring, retention or revenue drops wait for someone to notice; known arbitrage reviews lack consistent, explainable evidence |
 | Experiment operations | Concurrent game experiments have no central status view; SRM/guardrails are spot-checked manually, while common data features are rebuilt by different owners |
 | Ad-hoc analytics | Urgent, unpredictable “why did revenue drop?” questions do not fit dashboards, and their frequency grows with the client base |
 | Partner support | Partners across time zones repeat product-integration questions; unresolved cases escalate from support to engineering |
@@ -42,7 +42,7 @@ flowchart TB
 
     subgraph M1["M1 · Detect"]
         ANOM["Daily DAU/GGR + weekly retention"]
-        ARB["Rule-based arbitrage review"]
+        ARB["Known-pattern arbitrage review"]
     end
 
     subgraph M2["M2 · Experiment operations"]
@@ -55,8 +55,8 @@ flowchart TB
         ASK["Governed NL analytics"]
     end
 
-    subgraph M4["M4 · Partner support"]
-        BOT["Audience-isolated chatbot<br/>clarify or escalate"]
+    subgraph M4["M4 · RAG-style partner support"]
+        BOT["Identity-scoped corpus<br/>ground, clarify or escalate"]
     end
 
     SRC --> B
@@ -134,7 +134,7 @@ from authenticated identity rather than a request body.
 | Problem | Implemented response | Honest boundary |
 |---|---|---|
 | Late anomaly discovery | Scheduled DAU/GGR and mature-retention checks; SNS automatically triggers a code-rendered first look | No real ingestion source, so no end-to-end freshness SLA claim |
-| Known arbitrage patterns | Two independent signals, explainable evidence, and a non-final `REVIEW_REQUIRED` decision | No claim of detecting previously unseen techniques |
+| Known arbitrage patterns | Two independent signals, explainable evidence, and a non-final `REVIEW_REQUIRED` decision | Final disposition remains a human review; thresholds need recalibration against real reviewed outcomes |
 | Invisible experiment status | Central registry/view with owner, IAM-derived provenance, lifecycle, SRM, guardrail, and allocation state | Local signed UI; hosted SSO UI waits for regular multi-user demand |
 | Delayed experiment stopping | Live-exposure SRM, hourly guardrail monitoring, and an atomic allocation kill switch | Worst-case monitoring cadence is one hour, not real time |
 | Repeated feature work | Shared `gold_player_features` registry and documented feature definitions | Automated lineage waits for a measurable duplication incident |

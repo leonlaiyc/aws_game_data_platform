@@ -129,16 +129,15 @@
           <article class="problem-card reveal">
             <div class="problem-topline">
               <span class="module-token">M1</span>
-              <span data-i18n="m1Short">異常／套利</span>
+              <span data-i18n="m1Short">異常／風險訊號</span>
             </div>
             <h3 data-i18n="p1Title">沒有主動監控，只能被動發現。</h3>
             <p data-i18n="p1Body">
-              數據缺乏主動監控；一旦留存或營收下滑，通常要等到人為發現才會開始處理，存在時間落差，也讓團隊只能被動應對。另外，當詐欺玩家採用未曾遇過的套利手法時，也很難只靠既有規則識別。
+              數據缺乏主動監控；一旦留存或營收下滑，通常要等到人為發現才開始處理。已知套利風險也缺少一致、可回溯的證據格式，調查品質容易依賴個人經驗。
             </p>
           </article>
 
-          <article class="problem-card priority reveal">
-            <div class="priority-ribbon" data-i18n="corePriority">CORE PRIORITY</div>
+          <article class="problem-card reveal">
             <div class="problem-topline">
               <span class="module-token">M2</span>
               <span data-i18n="m2Short">實驗運營</span>
@@ -238,7 +237,7 @@
             <div class="architecture-lane support-lane">
               <div class="lane-label">
                 <span>KNOWLEDGE PATH</span>
-                <small data-i18n="supportLaneLabel">M4 獨立語料</small>
+                <small data-i18n="supportLaneLabel">M4 · RAG-style knowledge path</small>
               </div>
               <div class="architecture-flow compact">
                 <article class="architecture-node source-node">
@@ -248,9 +247,9 @@
                 </article>
                 <span class="architecture-arrow" aria-hidden="true">→</span>
                 <article class="architecture-node support-node">
-                  <small>M4</small>
-                  <strong data-i18n="supportNodeTitle">Partner support</strong>
-                  <span data-i18n="supportNodeBody">Clarify · answer · escalate</span>
+                  <small>M4 · RAG</small>
+                  <strong data-i18n="supportNodeTitle">RAG-style partner support</strong>
+                  <span data-i18n="supportNodeBody">Scope corpus · relevance gate · grounded answer</span>
                 </article>
                 <span class="architecture-arrow dashed" aria-hidden="true">⇢</span>
                 <article class="architecture-node human-node">
@@ -288,7 +287,7 @@
             <p class="kicker" data-i18n="workflowsKicker">SYSTEM OWNS REPETITION · PEOPLE OWN JUDGEMENT</p>
             <h2 data-i18n="workflowsTitle">四個工作流，改變四種人的工作方式。</h2>
             <p data-i18n="workflowsIntro">
-              每張卡只回答：原本怎麼做、系統接手什麼、人保留什麼決策，以及目前真正的實作邊界。
+              每張卡依序說明：原本怎麼做、系統接手什麼、人保留什麼決策，以及這條工作流如何運行。
             </p>
           </div>
         </div>
@@ -299,25 +298,25 @@
               <span class="workflow-index">01</span>
               <div>
                 <small>M1 · DETECTION</small>
-                <h3 data-i18n="wf1Title">異常與套利偵測</h3>
+                <h3 data-i18n="wf1Title">KPI 異常與已知風險訊號</h3>
               </div>
             </header>
             <div class="workflow-grid">
               <div>
                 <small data-i18n="beforeLabel">原本怎麼做</small>
-                <p data-i18n="wf1Before">依賴人主動查看報表，發現下滑後才開始追查；套利調查依賴既有經驗。</p>
+                <p data-i18n="wf1Before">依賴人主動查看報表，發現下滑後才開始追查；已知套利訊號的調查證據也不一致。</p>
               </div>
               <div>
                 <small data-i18n="systemLabel">系統接手</small>
-                <p data-i18n="wf1System">定期檢查 DAU、GGR、成熟 cohort 留存，並輸出 threshold、baseline 與風險證據。</p>
+                <p data-i18n="wf1System">每日檢查 DAU／GGR 與已知雙訊號風險模式；每週檢查成熟的 D1／D7 cohort 留存，並附上 baseline、threshold 與證據。</p>
               </div>
               <div>
                 <small data-i18n="humanLabel">人保留決策</small>
-                <p data-i18n="wf1Human">判斷根因、採取營運處置；套利結果只進入人工風險審查。</p>
+                <p data-i18n="wf1Human">判斷根因、採取營運處置；風險玩家只進入人工審查，不由模型自動定罪。</p>
               </div>
-              <div class="boundary-cell">
-                <small data-i18n="boundaryLabel">實作邊界</small>
-                <p data-i18n="wf1Boundary">套利目前是規則式，只識別已定義的雙訊號模式，不宣稱能抓未知手法。</p>
+              <div class="operating-detail">
+                <small data-i18n="wf1OpsLabel">掃描與告警窗口</small>
+                <p data-i18n="wf1Ops">DAU／GGR 每 24 小時只檢查最新完整發布日，使用前 20 天建立 baseline；成功完成後以 published_at 記錄消費進度。7/31 告警 7/30 後，8/1 正常只檢查 7/31；舊日期重發為新版本時才重新評估。</p>
               </div>
             </div>
           </article>
@@ -343,21 +342,20 @@
                 <small data-i18n="humanLabel">人保留決策</small>
                 <p data-i18n="wf3Human">判讀營運脈絡、確認根因，並決定後續處置。</p>
               </div>
-              <div class="boundary-cell">
-                <small data-i18n="boundaryLabel">實作邊界</small>
-                <p data-i18n="wf3Boundary">只支援受治理的 KPI 與查詢模板；沒有 free-form text-to-SQL，也不支援未治理的 country／player 維度。</p>
+              <div class="operating-detail">
+                <small data-i18n="wf3ScopeLabel">答案品質控制</small>
+                <p data-i18n="wf3Scope">答案只從受治理 KPI 與 allow-listed templates 產生；無法回答就建立 ticket，不生成任意 SQL，也不碰未治理的 country／player 維度。</p>
               </div>
             </div>
           </article>
 
-          <article class="workflow-card core-workflow reveal">
+          <article class="workflow-card reveal">
             <header>
               <span class="workflow-index">03</span>
               <div>
                 <small>M2 · EXPERIMENT OPS</small>
                 <h3 data-i18n="wf2Title">實驗運營平台</h3>
               </div>
-              <span class="core-badge" data-i18n="corePriority">CORE PRIORITY</span>
             </header>
             <div class="workflow-grid">
               <div>
@@ -372,9 +370,9 @@
                 <small data-i18n="humanLabel">人保留決策</small>
                 <p data-i18n="wf2Human">決定假設、指標、是否採納結果，以及異常實驗後的產品處置。</p>
               </div>
-              <div class="boundary-cell">
-                <small data-i18n="boundaryLabel">實作邊界</small>
-                <p data-i18n="wf2Boundary">監控 cadence 最差為一小時；目前是本機簽名 console，尚未提供 hosted SSO team UI。</p>
+              <div class="operating-detail">
+                <small data-i18n="wf2StateLabel">狀態觸發與儲存</small>
+                <p data-i18n="wf2State">負責人以簽名 API／CLI 建立 draft、PATCH 編輯並按 Start；DynamoDB 保存唯一現況，Streams 同步 S3／Athena snapshot。Start 觸發 running，Step Functions／每小時監控再寫入 stopped_early、completed、analyzed；dashboard 每 15 秒刷新。</p>
               </div>
             </div>
           </article>
@@ -384,7 +382,7 @@
               <span class="workflow-index">04</span>
               <div>
                 <small>M4 · PARTNER SUPPORT</small>
-                <h3 data-i18n="wf4Title">合作夥伴支援 Chatbot</h3>
+                <h3 data-i18n="wf4Title">RAG-style 合作夥伴支援</h3>
               </div>
             </header>
             <div class="workflow-grid">
@@ -394,15 +392,15 @@
               </div>
               <div>
                 <small data-i18n="systemLabel">系統接手</small>
-                <p data-i18n="wf4System">依身份選擇 provider／operator 語料，先澄清，再回答或建立可追蹤的 escalation。</p>
+                <p data-i18n="wf4System">RAG-style 流程先依 IAM 身份選定 provider／operator corpus，再做 relevance gate、把受控文件放入 context，交給 Bedrock 回答；不足就澄清或建 ticket。</p>
               </div>
               <div>
                 <small data-i18n="humanLabel">人保留決策</small>
                 <p data-i18n="wf4Human">處理文件無法回答、需要產品判斷或真正涉及工程變更的案件。</p>
               </div>
-              <div class="boundary-cell">
-                <small data-i18n="boundaryLabel">實作邊界</small>
-                <p data-i18n="wf4Boundary">使用模擬 IAM 身份與小型語料；partner IdP、CRM delivery、時區 profile 尚未 production-ready。</p>
+              <div class="operating-detail">
+                <small data-i18n="wf4RagLabel">RAG 路徑與上線準備</small>
+                <p data-i18n="wf4Rag">PoC 使用小型模擬文件，將所選 corpus 全量放入 context；正式上線要換成有版本與權限 metadata 的正式文件，文件量增長後再導入 chunking、向量檢索或 managed knowledge base。</p>
               </div>
             </div>
           </article>
@@ -417,7 +415,7 @@
               <p class="kicker" data-i18n="demoKicker">FOUR CHAPTERS · UNDER TWO MINUTES</p>
               <h2 data-i18n="demoTitle">先理解工作流，再看它實際輸出什麼。</h2>
               <p data-i18n="demoIntro">
-                這個互動導覽同時是最終兩分鐘影片的章節設計：每段只呈現痛點、執行結果、人的決策與邊界。
+                這個互動導覽同時是最終兩分鐘影片的章節設計：每段呈現痛點、執行結果、人的決策與運行方式。
               </p>
             </div>
           </div>
@@ -437,7 +435,7 @@
               <button type="button" role="tab" aria-selected="false" data-demo="m2" aria-controls="demo-panel">
                 <span>00:55</span>
                 <b data-i18n="demoM2">M2 · Experiment Ops</b>
-                <small data-i18n="demoM2Time">35 sec · core</small>
+                <small data-i18n="demoM2Time">35 sec</small>
               </button>
               <button type="button" role="tab" aria-selected="false" data-demo="m4" aria-controls="demo-panel">
                 <span>01:30</span>
@@ -458,7 +456,7 @@
               <pre id="demo-terminal" aria-live="polite"></pre>
               <div class="demo-takeaway">
                 <p><small data-i18n="demoHumanLabel">HUMAN DECISION</small><span id="demo-human"></span></p>
-                <p><small data-i18n="demoBoundaryLabel">BOUNDARY</small><span id="demo-boundary"></span></p>
+                <p><small id="demo-detail-label">SCAN &amp; ALERT WINDOW</small><span id="demo-detail"></span></p>
               </div>
             </div>
           </div>
@@ -475,7 +473,7 @@
             <span class="loop-step human-led"><b>05</b><i data-i18n="loopValidate">Validate</i></span>
           </div>
           <p class="loop-note reveal" data-i18n="loopNote">
-            這條閉環只適用 KPI／留存異常。套利偵測走獨立的 flagged players → human review；M2 只在適合以受控實驗驗證時介入。
+            這條閉環只適用 KPI／留存異常；已知風險訊號走獨立的 flagged players → human review；M2 只在適合以受控實驗驗證時介入。
           </p>
         </div>
       </section>
@@ -484,10 +482,10 @@
         <div class="section-heading reveal">
           <p class="section-number">05 / 07</p>
           <div>
-            <p class="kicker" data-i18n="decisionsKicker">NOT NOW — AND WHAT WOULD CHANGE THE DECISION</p>
-            <h2 data-i18n="decisionsTitle">不逐項背服務；只談三類判準。</h2>
+            <p class="kicker" data-i18n="decisionsKicker">SYSTEM DESIGN TRADE-OFFS &amp; COST OPTIMIZATION</p>
+            <h2 data-i18n="decisionsTitle">系統設計取捨與成本最佳化。</h2>
             <p data-i18n="decisionsIntro">
-              每一類 trade-off 都回答同一件事：現在為什麼不需要，以及什麼可量測條件會讓答案翻轉。
+              從使用頻率、延遲需求與服務完整度三個問題，決定現階段最合適的 AWS 能力；量測條件改變時再升級。
             </p>
           </div>
         </div>
@@ -496,7 +494,7 @@
           <article class="decision-card reveal">
             <span class="decision-number">01</span>
             <p class="decision-category" data-i18n="decision1Category">WORKLOAD ECONOMICS</p>
-            <h3 data-i18n="decision1Title">目前的使用頻率，值得支付常駐成本嗎？</h3>
+            <h3 data-i18n="decision1Title">依照現有使用頻率，該如何選擇運算模式？</h3>
             <p class="service-examples">Redshift / EMR · persistent Kinesis</p>
             <div>
               <small data-i18n="nowLabel">NOW</small>
@@ -511,7 +509,7 @@
           <article class="decision-card reveal">
             <span class="decision-number">02</span>
             <p class="decision-category" data-i18n="decision2Category">DATA ACCESS PATTERN</p>
-            <h3 data-i18n="decision2Title">真的需要線上低延遲 serving 或大規模 retrieval 嗎？</h3>
+            <h3 data-i18n="decision2Title">這個使用情境需要多低的延遲？</h3>
             <p class="service-examples">SageMaker Feature Store · OpenSearch / vector store</p>
             <div>
               <small data-i18n="nowLabel">NOW</small>
@@ -526,7 +524,7 @@
           <article class="decision-card reveal">
             <span class="decision-number">03</span>
             <p class="decision-category" data-i18n="decision3Category">MANAGED WORKFLOW VS CONTROL</p>
-            <h3 data-i18n="decision3Title">應該購買完整工作流，還是保留較窄但可驗證的控制？</h3>
+            <h3 data-i18n="decision3Title">這個團隊需要多完整的服務能力？</h3>
             <p class="service-examples">Amazon Quick · Amazon Q Business · direct Bedrock</p>
             <div>
               <small data-i18n="nowLabel">NOW</small>
@@ -546,7 +544,7 @@
             <p class="section-number">06 / 07</p>
             <div>
               <p class="kicker" data-i18n="learningsKicker">THREE IMPLEMENTATION TRAPS</p>
-              <h2 data-i18n="learningsTitle">不是心得，而是測試後真的改了設計。</h2>
+              <h2 data-i18n="learningsTitle">分享實作中遇到的三個小坑。</h2>
               <p data-i18n="learningsIntro">
                 這些問題是在建置與驗證這個 PoC 時發現，不是宣稱來自 production incident。
               </p>
@@ -640,9 +638,9 @@
           <p class="section-number">07 / 07</p>
           <div>
             <p class="kicker" data-i18n="evidenceKicker">CLAIMS NEED EVIDENCE</p>
-            <h2 data-i18n="evidenceTitle">最後只談可以回到程式、測試或 AWS 紀錄的主張。</h2>
+            <h2 data-i18n="evidenceTitle">系統驗證：讓每個主張都有可重現的證據。</h2>
             <p data-i18n="evidenceIntro">
-              限制已放回各 workflow；這裡只留下能被驗證的證據。
+              以下數字都能回到測試、AWS 紀錄或程式輸出重新檢查。
             </p>
           </div>
         </div>
@@ -716,7 +714,7 @@
       <section class="closing">
         <div class="section-shell closing-inner reveal">
           <p class="kicker" data-i18n="closingKicker">THE TAKEAWAY</p>
-          <h2 data-i18n="closingTitle">不是用了多少 AWS 服務，而是每個服務解決了什麼問題。</h2>
+          <h2 data-i18n="closingTitle">如何在實際需求與限制中，評估並設計最合適的 AWS 服務組合。</h2>
           <p data-i18n="closingBody">
             這個專案展示我如何把營運摩擦翻譯成可治理的系統、把人的判斷留在人手上，並在增加服務以前先說清楚成本、控制與採用門檻。
           </p>

@@ -33,6 +33,7 @@ class _SiteParser(HTMLParser):
 def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> None:
     html = (SITE / "index.html").read_text(encoding="utf-8")
     javascript = (SITE / "app.js").read_text(encoding="utf-8")
+    stylesheet = (SITE / "styles.css").read_text(encoding="utf-8")
 
     parser = _SiteParser()
     parser.feed(html)
@@ -68,7 +69,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "beforeLabel",
         "systemLabel",
         "humanLabel",
-        "boundaryLabel",
+        "wf1OpsLabel",
+        "wf3ScopeLabel",
+        "wf2StateLabel",
+        "wf4RagLabel",
     } <= (
         parser.translation_keys
     )
@@ -77,9 +81,35 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert "2026-06-10" in html
     assert "DAU 91" in html
     assert "2026-06-12" in html
-    for obsolete_copy in ("Aurora Games", "Experiment safely", "安全跑實驗"):
+    for obsolete_copy in (
+        "Aurora Games",
+        "Experiment safely",
+        "安全跑實驗",
+        "CORE PRIORITY",
+        "不逐項背服務",
+        "不是心得，而是",
+        "未知套利手法",
+        "實作邊界",
+    ):
         assert obsolete_copy not in html
         assert obsolete_copy not in javascript
+
+    for required_copy in (
+        "DynamoDB 保存唯一現況",
+        "每 24 小時",
+        "dashboard 每 15 秒",
+        "RAG-style",
+        "系統設計取捨與成本最佳化",
+    ):
+        assert required_copy in html
+        assert required_copy in javascript
+
+    for readability_rule in (
+        ".workflow-grid p {\n  margin: 0;\n  color: var(--ink-soft);\n  font-size: 0.98rem;",
+        ".architecture-node span {\n  margin-top: 5px;\n  color: rgba(255, 255, 255, 0.58);\n  font-size: 0.9rem;",
+        "min-height: 86px;\n  font-size: 1rem;",
+    ):
+        assert readability_rule in stylesheet
 
     for reference in parser.references:
         if reference.startswith("#"):
