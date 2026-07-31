@@ -7,10 +7,10 @@
 
 [**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/)
 
-This project shows how I translate operating problems from B2B game analytics
-into a governed, testable, and cost-conscious AWS architecture. It is a
-portfolio PoC built with synthetic data—not a claim of production workload
-experience.
+This project connects cloud data and AI capabilities to four recurring
+operating pain points in B2B game analytics, then validates the resulting AWS
+architecture through a governed, testable, and cost-conscious PoC. It uses
+synthetic data and does not claim production-workload experience.
 
 ## 1. Problems this project addresses
 
@@ -19,7 +19,7 @@ experience.
 | Anomaly and risk detection | Without proactive monitoring, retention or revenue drops wait for someone to notice; known arbitrage reviews lack consistent, explainable evidence |
 | Experiment operations | Concurrent game experiments have no central status view; SRM/guardrails are spot-checked manually, while common data features are rebuilt by different owners |
 | Ad-hoc analytics | Urgent, unpredictable “why did revenue drop?” questions do not fit dashboards, and their frequency grows with the client base |
-| Partner support | Partners across time zones repeat product-integration questions; unresolved cases escalate from support to engineering |
+| Partner support | Repeated customer integration questions consume support and engineering capacity across time zones |
 
 The design goal is not to use as many AWS services as possible. It is to reduce
 those four forms of operating friction while keeping tenant isolation,

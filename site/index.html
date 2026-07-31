@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta
       name="description"
-      content="Leon Lai's business-first walkthrough of a governed, cost-conscious AWS game data platform."
+      content="Four practical operating pain points mapped to a governed, cost-conscious AWS data and AI architecture."
     >
     <meta name="theme-color" content="#082f32">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Leon Lai · Business-First AWS SA Portfolio">
     <meta
       property="og:description"
-      content="One governance model. Four operating workflows. A verified, cost-conscious AWS portfolio PoC."
+      content="Cloud data and AI capabilities connected to four recurring operating pain points in a verified AWS portfolio PoC."
     >
     <meta property="og:url" content="https://leonlaiyc.github.io/aws_game_data_platform/">
     <meta property="og:image" content="https://leonlaiyc.github.io/aws_game_data_platform/og.png">
@@ -118,9 +118,9 @@
           <p class="section-number">01 / 07</p>
           <div>
             <p class="kicker" data-i18n="problemsKicker">THE OPERATING REALITY</p>
-            <h2 data-i18n="problemsTitle">先有營運問題，才有架構。</h2>
+            <h2 data-i18n="problemsTitle">雲端 AI 技術鏈接實務痛點</h2>
             <p data-i18n="problemsIntro">
-              這些不是為了套 AWS 服務而整理出的抽象需求，而是會反覆消耗分析、營運、客服與工程資源的工作情境。
+              針對過去重複耗損資源的四大情境，進行架構設計與 PoC 驗證。
             </p>
           </div>
         </div>
@@ -174,7 +174,7 @@
               <span class="module-token">M4</span>
               <span data-i18n="m4Short">合作夥伴支援</span>
             </div>
-            <h3 data-i18n="p4Title">重複問題一路升級到工程師。</h3>
+            <h3 data-i18n="p4Title">重複性客戶問題消耗客服與開發資源。</h3>
             <p data-i18n="p4Body">
               不同時區的合作夥伴經常反覆詢問類似的產品對接與整合問題：一方面客服需要重複回答；另一方面，若客服無法處理，問題就會升級到工程師層面，進一步增加開發負擔。
             </p>
@@ -190,75 +190,141 @@
               <p class="kicker" data-i18n="architectureKicker">SYSTEM SHAPE & BOUNDARIES</p>
               <h2 data-i18n="architectureTitle">三條工作流共用資料湖；第四條走獨立知識路徑。</h2>
               <p data-i18n="architectureIntro">
-                這裡只呈現元件、資料流與邊界；為什麼暫時不用其他服務，留到 Decisions 再談。
+                整合統一資料定義、多租戶隔離與 RAG 輔助決策的完整系統型態。
               </p>
             </div>
           </div>
 
           <div class="architecture-canvas reveal" aria-label="System architecture overview">
-            <div class="architecture-lane data-lane">
-              <div class="lane-label">
-                <span>DATA PATH</span>
-                <small data-i18n="dataLaneLabel">M1 · M2 · M3 共用</small>
-              </div>
-              <div class="architecture-flow">
-                <article class="architecture-node source-node">
-                  <small data-i18n="sourceLabel">INPUT</small>
-                  <strong data-i18n="sourceTitle">Game events</strong>
-                  <span data-i18n="sourceBody">Simulated · scripted scenarios</span>
-                </article>
-                <span class="architecture-arrow" aria-hidden="true">→</span>
-                <article class="foundation-node">
-                  <div class="node-heading">
-                    <small data-i18n="foundationLabel">GOVERNED FOUNDATION</small>
-                    <strong data-i18n="foundationTitle">One data definition, one tenant boundary</strong>
-                  </div>
-                  <div class="lake-pipeline">
-                    <span>S3 Bronze</span>
-                    <i aria-hidden="true">→</i>
-                    <span>S3 Silver</span>
-                    <i aria-hidden="true">→</i>
-                    <span>S3 Gold</span>
-                  </div>
-                  <div class="foundation-controls">
-                    <span data-i18n="metricDefinition">KPI_DEFINITIONS.md · shared metric logic</span>
-                    <span data-i18n="lakeIsolation">Glue Catalog · Lake Formation row filters</span>
-                  </div>
-                </article>
-                <span class="architecture-arrow split-arrow" aria-hidden="true">→</span>
-                <div class="consumer-stack">
-                  <article><b>M1</b><span data-i18n="architectureM1">Detect</span></article>
-                  <article><b>M2</b><span data-i18n="architectureM2">Experiment Ops</span></article>
-                  <article><b>M3</b><span data-i18n="architectureM3">Analytics</span></article>
+            <section class="foundation-map" aria-labelledby="foundation-map-title">
+              <header class="architecture-layer-heading">
+                <span>01</span>
+                <div>
+                  <small data-i18n="foundationMapKicker">END-TO-END DATA FOUNDATION</small>
+                  <h3 id="foundation-map-title" data-i18n="foundationMapTitle">資料生成、治理與發布路徑</h3>
                 </div>
-              </div>
-            </div>
+              </header>
 
-            <div class="architecture-lane support-lane">
-              <div class="lane-label">
-                <span>KNOWLEDGE PATH</span>
-                <small data-i18n="supportLaneLabel">M4 · RAG-style knowledge path</small>
-              </div>
-              <div class="architecture-flow compact">
-                <article class="architecture-node source-node">
+              <div class="foundation-flow">
+                <article class="service-node source-service">
                   <small data-i18n="sourceLabel">INPUT</small>
-                  <strong data-i18n="partnerDocsTitle">Partner documents</strong>
-                  <span data-i18n="partnerDocsBody">Provider · client operator</span>
+                  <strong>event_simulator</strong>
+                  <span data-i18n="sourceStageBody">模擬 client SDK 事件與可重播情境</span>
+                  <b>Synthetic Python CLI</b>
                 </article>
-                <span class="architecture-arrow" aria-hidden="true">→</span>
-                <article class="architecture-node support-node">
-                  <small>M4 · RAG</small>
-                  <strong data-i18n="supportNodeTitle">RAG-style partner support</strong>
-                  <span data-i18n="supportNodeBody">Scope corpus · relevance gate · grounded answer</span>
+                <i class="flow-arrow" aria-hidden="true">→</i>
+                <article class="service-node bronze-service">
+                  <small>INGEST · RAW</small>
+                  <strong>Amazon S3 · Bronze</strong>
+                  <span data-i18n="bronzeStageBody">Raw JSON · 日期／租戶分區</span>
+                  <b data-i18n="directBatchBadge">Direct batch write · 零閒置運算</b>
                 </article>
-                <span class="architecture-arrow dashed" aria-hidden="true">⇢</span>
-                <article class="architecture-node human-node">
-                  <small>HUMAN</small>
-                  <strong data-i18n="engineeringTitle">Support / engineering</strong>
-                  <span data-i18n="engineeringBody">由 OPEN ticket 標示需要人工接手的案件</span>
+                <i class="flow-arrow" aria-hidden="true">→</i>
+                <article class="service-node transform-service">
+                  <small>TRANSFORM</small>
+                  <strong>Amazon Athena · CTAS</strong>
+                  <span data-i18n="transformStageBody">Schema cast · 清理 · 可重跑轉換</span>
+                  <b>AWS Glue Data Catalog</b>
+                </article>
+                <i class="flow-arrow" aria-hidden="true">→</i>
+                <article class="service-node silver-service">
+                  <small>CURATED</small>
+                  <strong>Amazon S3 · Silver</strong>
+                  <span data-i18n="silverStageBody">Typed Parquet events</span>
+                  <b data-i18n="silverBadge">分析與已知風險特徵來源</b>
+                </article>
+                <i class="flow-arrow" aria-hidden="true">→</i>
+                <article class="service-node gold-service">
+                  <small>PUBLISHED</small>
+                  <strong>Amazon S3 · Gold</strong>
+                  <span data-i18n="goldStageBody">KPI · 留存 · 玩家特徵 · 實驗資料</span>
+                  <b data-i18n="publicationBadge">Publication marker 驗證完整版本</b>
                 </article>
               </div>
-            </div>
+
+              <div class="governance-band">
+                <article>
+                  <small>CATALOG</small>
+                  <strong>AWS Glue Data Catalog</strong>
+                  <span data-i18n="catalogControl">固定 Bronze → Silver → Gold 結構與欄位定義</span>
+                </article>
+                <article>
+                  <small>TENANT BOUNDARY</small>
+                  <strong>AWS Lake Formation</strong>
+                  <span data-i18n="tenantControl">依 client_site_id 套用 row-level data cell filter</span>
+                </article>
+                <article>
+                  <small>QUERY CONTROL</small>
+                  <strong>Amazon Athena Workgroup</strong>
+                  <span data-i18n="queryControl">查詢結果隔離與 1 GB 單次掃描上限</span>
+                </article>
+                <article>
+                  <small>DEFINITION OF RECORD</small>
+                  <strong>KPI_DEFINITIONS · FEATURES</strong>
+                  <span data-i18n="definitionControl">同一套指標與特徵定義供 M1、M2、M3 使用</span>
+                </article>
+              </div>
+            </section>
+
+            <section class="module-map" aria-labelledby="module-map-title">
+              <header class="architecture-layer-heading">
+                <span>02</span>
+                <div>
+                  <small data-i18n="moduleMapKicker">AUTOMATION & DECISION PATHS</small>
+                  <h3 id="module-map-title" data-i18n="moduleMapTitle">四個模組如何消費資料並交付結果</h3>
+                </div>
+              </header>
+
+              <div class="architecture-module-grid">
+                <article class="module-architecture m1-architecture">
+                  <header><b>M1</b><div><small>DETECT</small><h4 data-i18n="architectureM1Title">異常與已知風險偵測</h4></div></header>
+                  <div class="module-service-flow">
+                    <span><small>TRIGGER</small><b>EventBridge</b></span><i>→</i>
+                    <span><small>COMPUTE</small><b>AWS Lambda</b></span><i>→</i>
+                    <span><small>QUERY</small><b>Amazon Athena</b></span><i>→</i>
+                    <span><small>ALERT</small><b>Amazon SNS</b></span>
+                  </div>
+                  <p data-i18n="architectureM1Body">每日 DAU／GGR、每週留存與雙訊號風險檢查；告警自動觸發 M3 first-look，flagged players 另交人工審查。</p>
+                  <div class="module-branch"><b>OPT-IN REAL-TIME DEMO</b><span>Kinesis → Lambda → DynamoDB TTL → SNS</span></div>
+                </article>
+
+                <article class="module-architecture m2-architecture">
+                  <header><b>M2</b><div><small>EXPERIMENT OPS</small><h4 data-i18n="architectureM2Title">實驗生命週期與安全停止</h4></div></header>
+                  <div class="module-service-flow">
+                    <span><small>ENTRY</small><b>API Gateway</b></span><i>→</i>
+                    <span><small>STATE</small><b>DynamoDB</b></span><i>→</i>
+                    <span><small>ORCHESTRATE</small><b>Step Functions</b></span><i>→</i>
+                    <span><small>READOUT</small><b>Bedrock</b></span>
+                  </div>
+                  <p data-i18n="architectureM2Body">Lambda 執行 assignment、SRM、guardrail、analysis 與 readout；Gold features 與 registry state 一起決定實驗是否繼續。</p>
+                  <div class="module-branch"><b>CONTROL</b><span data-i18n="architectureM2Branch">SRM hard fail · hourly guardrail · allocation kill switch</span></div>
+                </article>
+
+                <article class="module-architecture m3-architecture">
+                  <header><b>M3</b><div><small>INVESTIGATE</small><h4 data-i18n="architectureM3Title">受治理問答與事件初判</h4></div></header>
+                  <div class="module-service-flow">
+                    <span><small>ENTRY</small><b>API GW / SNS</b></span><i>→</i>
+                    <span><small>CLASSIFY</small><b>Bedrock</b></span><i>→</i>
+                    <span><small>FACTS</small><b>Athena SQL</b></span><i>→</i>
+                    <span><small>DELIVER</small><b>S3 · SNS/SQS</b></span>
+                  </div>
+                  <p data-i18n="architectureM3Body">Guardrails 與 allow-listed templates 限制問題範圍；所有數字由 SQL 產生，無法回答的工作寫入 DynamoDB ticket。</p>
+                  <div class="module-branch"><b>HUMAN OUTPUT</b><span data-i18n="architectureM3Branch">Grounded answer · first-look report · durable ticket</span></div>
+                </article>
+
+                <article class="module-architecture m4-architecture">
+                  <header><b>M4</b><div><small>PARTNER SUPPORT</small><h4 data-i18n="architectureM4Title">身份隔離的 RAG 輔助支援</h4></div></header>
+                  <div class="module-service-flow">
+                    <span><small>IDENTITY</small><b>IAM / API GW</b></span><i>→</i>
+                    <span><small>POLICY</small><b>Bedrock Guardrails</b></span><i>→</i>
+                    <span><small>ANSWER</small><b>Nova Lite</b></span><i>⇢</i>
+                    <span><small>ESCALATE</small><b>DynamoDB</b></span>
+                  </div>
+                  <p data-i18n="architectureM4Body">IAM 身份先選定 provider 或 operator 文檔；相關性與 code validator 通過才回覆，否則澄清或建立 OPEN ticket。</p>
+                  <div class="module-branch"><b>SEPARATE KNOWLEDGE PATH</b><span data-i18n="architectureM4Branch">不讀取 Gold tables · SNS/SQS 僅作帳號內稽核</span></div>
+                </article>
+              </div>
+            </section>
 
             <div class="shared-rail">
               <p data-i18n="sharedRailTitle">SHARED CONTROL PLANE</p>
@@ -413,9 +479,9 @@
             <p class="section-number">04 / 07</p>
             <div>
               <p class="kicker" data-i18n="demoKicker">FOUR CHAPTERS · UNDER TWO MINUTES</p>
-              <h2 data-i18n="demoTitle">先理解工作流，再看它實際輸出什麼。</h2>
+              <h2 data-i18n="demoTitle">兩分鐘精華：工作流運行與產出展示</h2>
               <p data-i18n="demoIntro">
-                這個互動導覽同時是最終兩分鐘影片的章節設計：每段呈現痛點、執行結果、人的決策與運行方式。
+                分章節拆解四組核心模組，即時呈現問題觸發條件與系統自動處置過程。
               </p>
             </div>
           </div>
@@ -492,10 +558,12 @@
 
         <div class="decision-grid">
           <article class="decision-card reveal">
-            <span class="decision-number">01</span>
-            <p class="decision-category" data-i18n="decision1Category">WORKLOAD ECONOMICS</p>
-            <h3 data-i18n="decision1Title">依照現有使用頻率，該如何選擇運算模式？</h3>
-            <div>
+            <div class="decision-prompt">
+              <span class="decision-number">01</span>
+              <p class="decision-category" data-i18n="decision1Category">WORKLOAD ECONOMICS</p>
+              <h3 data-i18n="decision1Title">依照現有使用頻率，該如何選擇運算模式？</h3>
+            </div>
+            <div class="decision-now">
               <small data-i18n="currentLightweightLabel">目前的省錢／輕量做法</small>
               <p data-i18n="decision1Situation">狀況：現在資料量很小，且使用者只是偶爾查一次。</p>
               <p data-i18n="decision1Action">做法：採用「用多少算多少」或「沒人用就自動降為 0 費用」的元件（例如 Lambda、Athena）。像 Kinesis 這種持續按小時收費的即時串流元件，現在只做短暫展示，不長期開著燒錢。</p>
@@ -508,10 +576,12 @@
           </article>
 
           <article class="decision-card reveal">
-            <span class="decision-number">02</span>
-            <p class="decision-category" data-i18n="decision2Category">DATA ACCESS PATTERN</p>
-            <h3 data-i18n="decision2Title">目前需求需要即時服務，還是批次處理就足夠？</h3>
-            <div>
+            <div class="decision-prompt">
+              <span class="decision-number">02</span>
+              <p class="decision-category" data-i18n="decision2Category">DATA ACCESS PATTERN</p>
+              <h3 data-i18n="decision2Title">目前需求需要即時服務，還是批次處理就足夠？</h3>
+            </div>
+            <div class="decision-now">
               <small data-i18n="currentLightweightLabel">目前的省錢／輕量做法</small>
               <p data-i18n="decision2Situation">狀況：目前資料／特徵只是拿來做批次分析（例如每天跑一次分析），而且合作夥伴的文檔庫很小，直接整包塞進 AI 提示詞處理就好。</p>
               <p data-i18n="decision2Action">做法：現階段不需要額外架設即時服務系統與向量檢索系統。</p>
@@ -524,12 +594,14 @@
           </article>
 
           <article class="decision-card reveal">
-            <span class="decision-number">03</span>
-            <p class="decision-category" data-i18n="decision3Category">MANAGED WORKFLOW VS CONTROL</p>
-            <h3 data-i18n="decision3Title">該直接用現成的 AI 套裝工具，還是自己開發並掌握控制權？</h3>
-            <div>
+            <div class="decision-prompt">
+              <span class="decision-number">03</span>
+              <p class="decision-category" data-i18n="decision3Category">MANAGED WORKFLOW VS CONTROL</p>
+              <h3 data-i18n="decision3Title">該直接用現成的 AI 套裝工具，還是自己開發並掌握控制權？</h3>
+            </div>
+            <div class="decision-now">
               <small data-i18n="currentControlLabel">目前的控制優先做法</small>
-              <p data-i18n="decision3Situation">狀況：現在是 PoC 階段，需要比較精細的安全性控制。</p>
+              <p data-i18n="decision3Situation">狀況：PoC 階段需精細控管安全性。</p>
               <p data-i18n="decision3Action">做法：採用窄範圍的自訂流程，親自寫程式碼展示 SQL 白名單過濾、數據權限歸屬、多租戶隔離以及敏感數據遮蔽。</p>
             </div>
             <div class="flip-trigger">
@@ -579,7 +651,7 @@
             <article class="learning-card reveal">
               <div class="learning-marker"><span>02</span><b>DATA</b></div>
               <div class="learning-content">
-                <h3 data-i18n="learning2Title">同一場異常，第一天會響，第三天可能不再響。</h3>
+                <h3 data-i18n="learning2Title">同一個異常，第一天會響，第三天可能不再響。</h3>
                 <div class="assumption">
                   <small data-i18n="assumedLabel">當初天真的假設</small>
                   <p data-i18n="learning2Assumed">只要 DAU 持續低迷，EWMA detector 就會持續認為它異常。</p>
@@ -647,13 +719,17 @@
         </div>
 
         <div class="evidence-grid reveal">
-          <article>
+          <article class="evidence-card evidence-tests-card">
+            <div class="evidence-card-top"><span>VERIFICATION</span><b>01</b></div>
             <strong>144 / 144</strong>
             <span data-i18n="evidenceTests">測試通過率（100%）</span>
+            <small data-i18n="evidenceTestsNote">離線單元測試、資安邊界與 CDK assertions</small>
           </article>
-          <article>
+          <article class="evidence-card evidence-cost-card">
+            <div class="evidence-card-top"><span>AWS COST RECORD</span><b>02</b></div>
             <strong>$0.1156</strong>
             <span data-i18n="evidenceCost">雲端實測成本 Snapshot</span>
+            <small data-i18n="evidenceCostNote">2026-07-29 已部署基線的 Cost Explorer 紀錄</small>
           </article>
         </div>
 

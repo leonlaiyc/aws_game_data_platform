@@ -1,13 +1,14 @@
 # Project Closeout and Intentional Boundaries
 
-Status: **portfolio-complete / latest increment locally verified and deployment
-pending** (2026-07-30).
+Status: **external-facing v1 / latest increment locally verified and deployment
+pending** (2026-07-31).
 
-The repository now demonstrates the four operating pains it was created for
-without turning into an AWS service catalogue. "Portfolio-complete" means the
-code, tests, infrastructure templates, cost controls, demos, and honest
-boundaries are publishable. It does not mean production-ready, and it does not
-authorise a new AWS deployment.
+The repository now connects cloud data and AI capabilities to the four
+recurring operating pains it was created for without turning into an AWS
+service catalogue. "External-facing v1" means the code, tests, infrastructure
+templates, cost controls, bilingual walkthrough, demos, and honest boundaries
+are publishable. It does not mean production-ready, and it does not authorise a
+new AWS deployment.
 
 ## What is implemented
 
