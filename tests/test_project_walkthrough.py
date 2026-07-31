@@ -56,6 +56,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert "http://" not in html
     assert "http://" not in javascript
     assert "Leon Lai" in html
+    assert 'href="favicon.ico"' in html
+    assert 'href="favicon-32.png"' in html
+    assert 'href="favicon-192.png"' in html
+    assert 'href="apple-touch-icon.png"' in html
     assert {
         "problemsTitle",
         "architectureTitle",
