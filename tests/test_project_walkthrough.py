@@ -132,13 +132,13 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "重複性客戶問題消耗客服與開發資源",
         "資料生成、治理與發布路徑",
         "四個模組如何消費資料並交付結果",
-        "兩分鐘精華：工作流運行與產出展示",
+        "兩分鐘實機操作：四組工作流實際運行",
         "同一個異常",
         "一套雲端系統架構",
         "解決四個實際營運痛點",
         "以 Serverless 為主的設計",
-        "正式字幕版 · 02:00",
-        "2026-08-01 重新驗證 AWS 路徑",
+        "實機操作字幕版 · 02:00",
+        "2026-08-02 實際操作 AWS 路徑",
     ):
         assert required_copy in html
         assert required_copy in javascript

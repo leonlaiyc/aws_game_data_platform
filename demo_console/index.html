@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aurora Games — AWS Operations Demo</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <aside class="rail">
+      <div class="brand"><span class="brand-mark">L</span><span>Aurora<br>Games</span></div>
+      <nav aria-label="Demo chapters">
+        <button class="nav active" data-screen="m1"><b>01</b><span>異常偵測<small>Anomaly</small></span></button>
+        <button class="nav" data-screen="m3"><b>02</b><span>第一眼分析<small>First look</small></span></button>
+        <button class="nav" data-screen="m2"><b>03</b><span>實驗治理<small>Experiments</small></span></button>
+        <button class="nav" data-screen="m4"><b>04</b><span>夥伴客服<small>Support</small></span></button>
+      </nav>
+      <div class="rail-foot">PoC · Subtitle demo</div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div><div class="eyebrow" id="eyebrow">MODULE 1 · OPERATIONS</div><h1 id="page-title">異常偵測中心</h1></div>
+        <div class="live-badge"><span></span> LIVE AWS <small>ap-northeast-1</small></div>
+      </header>
+
+      <section class="screen active" id="m1">
+        <div class="hero-row">
+          <div><h2>Site B 營運健康掃描</h2><p>針對 2026-06-10 的核心指標執行 Lambda 偵測，並以 Athena 歷史資料建立動態基準。</p></div>
+          <button class="primary" id="run-anomaly"><span class="play">▶</span> 執行異常掃描</button>
+        </div>
+        <div class="status-strip"><span class="status-dot"></span><span id="m1-status">準備就緒，尚未送出 AWS 請求</span><code>site_b · 2026-06-10</code></div>
+        <div class="metric-grid">
+          <article class="metric"><label>今日 DAU</label><strong id="dau-actual">—</strong><small>actual</small></article>
+          <article class="metric"><label>EWMA 基準</label><strong id="dau-baseline">—</strong><small>7-day baseline</small></article>
+          <article class="metric alert"><label>偏離幅度</label><strong id="dau-change">—</strong><small id="sigma-value">threshold 3σ</small></article>
+        </div>
+        <article class="evidence-panel hidden" id="m1-evidence">
+          <div class="evidence-icon">!</div><div><label>DAU ANOMALY DETECTED</label><h3>實際值顯著低於動態基準</h3><p id="m1-summary"></p></div>
+          <div class="proof"><span>AWS EVIDENCE</span><code id="m1-key"></code><small id="m1-time"></small></div>
+        </article>
+      </section>
+
+      <section class="screen" id="m3">
+        <div class="hero-row"><div><h2>第一眼分析報告</h2><p>異常事件透過 SNS 觸發分析流程，彙整站點、遊戲與資金指標，輸出可追溯的初步判讀。</p></div><button class="secondary" id="load-report">讀取最新 AWS 報告</button></div>
+        <div class="question-card"><span>異常觸發</span><strong>為什麼 Site B 的 DAU 在 2026-06-10 下跌？</strong><code>anomaly-alert → first-look-report</code></div>
+        <div class="report-layout">
+          <article class="report"><div class="report-head"><span class="bot-avatar">AI</span><div><label>FIRST-LOOK ANALYSIS</label><small id="report-generated">等待讀取 S3 證據</small></div></div><div id="report-body" class="report-body empty">按下「讀取最新 AWS 報告」顯示實際分析產出。</div></article>
+          <aside class="impact-list"><h3>指標對比</h3><div id="comparison"><p class="muted">尚未載入</p></div><footer><span>來源</span><code id="report-key">—</code></footer></aside>
+        </div>
+      </section>
+
+      <section class="screen" id="m2">
+        <div class="hero-row"><div><h2>實驗營運控制台</h2><p>集中查看跨站實驗、樣本比例失衡與 Guardrail 狀態；停止原因與 allocation kill switch 同步呈現。</p></div><button class="secondary" id="load-experiments">重新整理 Registry</button></div>
+        <div class="summary-grid"><article><label>全部實驗</label><strong id="exp-total">—</strong></article><article><label>執行中</label><strong id="exp-running">—</strong></article><article class="warn"><label>需要處理</label><strong id="exp-action">—</strong></article><article><label>草稿</label><strong id="exp-draft">—</strong></article></div>
+        <div class="toolbar"><button class="filter active" data-filter="all">全部</button><button class="filter" data-filter="action">需要處理</button><span id="exp-updated">尚未連線</span></div>
+        <div class="experiment-table"><div class="tr th"><span>實驗</span><span>站點 / 遊戲</span><span>狀態</span><span>健康度</span><span>Allocation</span><span>SRM / 樣本</span></div><div id="experiment-rows"></div></div>
+      </section>
+
+      <section class="screen" id="m4">
+        <div class="hero-row"><div><h2>遊戲供應商支援助理</h2><p>以 IAM 身分隔離知識範圍；資訊不足時先追問環境，避免用錯 Sandbox 與 Production 設定。</p></div><div class="identity">SIGNED AS <strong>game-provider-partner</strong></div></div>
+        <div class="chat-shell">
+          <div class="chat-head"><div><span class="bot-avatar">AI</span><strong>Aurora Partner Support</strong></div><span class="online"><i></i> AWS connected</span></div>
+          <div class="messages" id="messages"><div class="message assistant"><p>您好，我可以協助遊戲串接、啟動權杖、錢包呼叫與交易重試問題。</p><small>Automated support · Knowledge scoped</small></div></div>
+          <form class="composer" id="chat-form"><input id="chat-input" autocomplete="off" value="What is the launch token endpoint?" aria-label="Question"><button type="submit" aria-label="Send">➜</button></form>
+        </div>
+        <div class="chat-proof" id="chat-proof">請求將透過 IAM 簽章送至 API Gateway，瀏覽器不含 AWS 憑證。</div>
+      </section>
+    </section>
+  </main>
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

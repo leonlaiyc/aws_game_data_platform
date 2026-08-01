@@ -1,27 +1,39 @@
-# Two-minute demo video
+# Two-minute operation demo video
 
-The public video is a subtitle-first, operation-only walkthrough. Architecture
-and service-selection rationale remain in the surrounding portfolio page.
+The public video is a subtitle-first walkthrough of the actual product
+interfaces. Its screenshots are captured while the localhost console invokes
+or reads the deployed AWS stacks; they are not mock response cards.
 
 ## Timeline
 
-| Time | Chapter | Verified evidence shown |
+| Time | Chapter | Verified operation shown |
 |---|---|---|
-| 00:00–00:05 | Opening | Four governed operating workflows |
-| 00:05–00:30 | M1 Detect | DAU 91 vs EWMA 204.4541; SNS/S3 evidence; 6/6 review candidates |
-| 00:30–00:55 | M3 Investigate | GGR 891.83 USD direct match; first-look DAU −55.73% |
-| 00:55–01:30 | M2 Experiment Ops | analyzed result with caveats; guardrail reason; live 99/1 SRM stop and control-only fallback |
-| 01:30–01:55 | M4 Support | clarification, durable escalation and code-owned leakage fallback |
-| 01:55–02:00 | Closing | Repository, architecture, cost and validation evidence |
+| 00:00–00:05 | Opening | Four live AWS operating workflows |
+| 00:05–00:28 | M1 Detect | Click scan; DAU 91 vs EWMA 204.5; SNS/S3 evidence |
+| 00:28–00:50 | M3 Investigate | Open the S3 first-look report created from the anomaly |
+| 00:50–01:22 | M2 Experiment Ops | Refresh Registry; filter six experiments that need action |
+| 01:22–01:49 | M4 Support | Type a partner question; show IAM-scoped clarification response |
+| 01:49–02:00 | Closing | Serverless governance and verification summary |
 
-The source cues live in `scripts/render_demo_video.py`. One command generates
-the MP4, poster, WebVTT and SRT together:
+## Capture and render
+
+Start the console with the infrastructure virtual environment:
+
+```powershell
+.\infra\.venv\Scripts\python.exe .\demo_console\server.py
+```
+
+Use a 1280 × 720 browser viewport and operate the four chapters. Store the
+named evidence states under `demo_console/recording`. The browser talks only to
+localhost; SigV4 signing remains in the Python process.
+
+One command generates the MP4, poster, WebVTT and SRT together:
 
 ```powershell
 python -m pip install -r requirements-video.txt
-python scripts/render_demo_video.py
+python scripts/render_operation_demo.py
 ```
 
-The resulting MP4 is silent by design. The burned-in presentation copy carries
-the full story, while the WebVTT track provides accessible captions and a later
-voice-over can be added without reworking the visual sequence.
+The resulting MP4 is silent by design. Chinese subtitles are burned into the
+lower caption rail and duplicated in WebVTT/SRT for accessibility. The real UI
+remains visible above the caption rail throughout the operation chapters.
