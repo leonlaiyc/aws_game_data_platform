@@ -347,6 +347,9 @@ def test_live_experiment_waits_without_compute_and_monitor_can_stop_it(stacks):
     assert "WaitUntilPlannedEnd" in rendered
     assert "TimestampPath" in rendered
     assert "$.planned_end_at" in rendered
+    assert "CompletionTransitionApplied?" in rendered
+    assert "$.state_mark.transitioned" in rendered
+    assert "StoppedEarlyAfterMonitoring" in rendered
 
     policies = stacks["orchestration"].find_resources("AWS::IAM::Policy")
     actions = []

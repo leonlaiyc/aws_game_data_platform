@@ -7,6 +7,8 @@
 
 [**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/)
 
+[**Watch the two-minute subtitled demo →**](https://leonlaiyc.github.io/aws_game_data_platform/#demo)
+
 This project connects cloud data and AI capabilities to four recurring
 operating pain points in B2B game analytics, then validates the resulting AWS
 architecture through a governed, testable, and cost-conscious PoC. It uses

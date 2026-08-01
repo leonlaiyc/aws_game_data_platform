@@ -60,6 +60,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert 'href="favicon-32.png"' in html
     assert 'href="favicon-192.png"' in html
     assert 'href="apple-touch-icon.png"' in html
+    assert 'src="video/demo-overview.zh-TW.mp4"' in html
+    assert 'src="video/demo-overview.zh-TW.vtt"' in html
+    assert 'href="video/demo-overview.zh-TW.srt"' in html
+    assert 'poster="video/demo-poster.png"' in html
     assert {
         "problemsTitle",
         "architectureTitle",
@@ -133,6 +137,8 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "一套雲端系統架構",
         "解決四個實際營運痛點",
         "以 Serverless 為主的設計",
+        "正式字幕版 · 02:00",
+        "2026-08-01 重新驗證 AWS 路徑",
     ):
         assert required_copy in html
         assert required_copy in javascript
@@ -178,3 +184,10 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert header[:8] == b"\x89PNG\r\n\x1a\n"
     width, height = struct.unpack(">II", header[16:24])
     assert width >= 1200 and 1.8 < width / height < 2.0
+
+    video = SITE / "video" / "demo-overview.zh-TW.mp4"
+    assert 500_000 < video.stat().st_size < 50_000_000
+    assert b"ftyp" in video.read_bytes()[:64]
+    assert (SITE / "video" / "demo-overview.zh-TW.vtt").read_text(
+        encoding="utf-8"
+    ).startswith("WEBVTT\n")

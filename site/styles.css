@@ -1018,6 +1018,62 @@ blockquote {
   overflow: hidden;
 }
 
+.demo-video {
+  margin: 0 0 28px;
+  overflow: hidden;
+  background: var(--night-deep);
+  border: 1px solid var(--line-light);
+  border-radius: 4px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.demo-video video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #061d20;
+}
+
+.demo-video figcaption {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px;
+  border-top: 1px solid var(--line-light);
+}
+
+.demo-video figcaption span {
+  display: grid;
+  gap: 5px;
+}
+
+.demo-video figcaption b {
+  color: #fff;
+  font-size: 1.08rem;
+}
+
+.demo-video figcaption small {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.86rem;
+}
+
+.demo-video figcaption a {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  color: var(--amber);
+  border: 1px solid rgba(231, 173, 60, 0.48);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.demo-video figcaption a:hover,
+.demo-video figcaption a:focus-visible {
+  color: var(--night-deep);
+  background: var(--amber);
+}
+
 .demo-chapters {
   display: grid;
   align-content: start;
@@ -1936,6 +1992,16 @@ footer a {
 
   .section-pad {
     padding-block: 78px;
+  }
+
+  .demo-video figcaption {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .demo-video figcaption a {
+    justify-self: start;
   }
 
   .site-header {

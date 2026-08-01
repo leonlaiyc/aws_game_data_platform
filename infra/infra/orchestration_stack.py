@@ -177,11 +177,19 @@ class OrchestrationStack(Stack):
             self, "ReadoutTask", lambda_function=readout_fn, payload_response_only=True, result_path="$.readout"
         )
 
-        completed_path = (
-            mark_completed_task.next(analysis_task)
-            .next(readout_task)
+        analyzed_path = (
+            analysis_task.next(readout_task)
             .next(sfn.Succeed(self, "Analyzed"))
         )
+        completion_choice = (
+            sfn.Choice(self, "CompletionTransitionApplied?")
+            .when(
+                sfn.Condition.boolean_equals("$.state_mark.transitioned", True),
+                analyzed_path,
+            )
+            .otherwise(sfn.Succeed(self, "StoppedEarlyAfterMonitoring"))
+        )
+        completed_path = mark_completed_task.next(completion_choice)
 
         replay_path = monitoring_map.next(completed_path)
         live_path = sfn.Wait(

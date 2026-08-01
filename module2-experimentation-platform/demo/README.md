@@ -1,8 +1,8 @@
 # Module 2 Demo
 
-Runs 3 concurrent experiments end to end and prints each one's final state, analysis, and
-Bedrock-generated readout - showing the registry, SRM check, guardrail auto-stop, and readout all
-trigger for real.
+Runs two historical experiments concurrently and feeds one deterministic broken
+assignment into the deployed SRM check. Together they show the registry,
+guardrail stop, SRM hard fail and grounded readout paths against AWS.
 
 ```bash
 cd module2-experimentation-platform/demo
@@ -18,10 +18,13 @@ Takes a few minutes: it injects demo data, rebuilds the lake (`silver_events` +
 |---|---|---|---|
 | Clean winner | site_a / game_01 (payout tweak) | Treatment group gets an extra, real bet event/day for the monitoring window - a genuine, positive, house-edge-consistent revenue boost | Completes normally; analysis shows a real positive lift; grounded Bedrock readout |
 | Guardrail auto-stop | site_c / game_02 (art/UX change) | Treatment group gets an extra big-loss bet event/day (small bet, large win) | Guardrail (`ggr_usd_7d >= 0`) breaches within the first monitoring day; auto-stops to `stopped_early` + SNS alert |
-| SRM violation | site_b | **Nothing injected.** The script creates/deletes cheap draft experiments (no Athena calls) until the real, unmodified hash-based assignment happens to produce a chi-square-significant imbalance for that day's small eligible population | Hard-fails during `srm_check`, before monitoring/analysis/readout ever run |
+| SRM violation | site_b | **Nothing injected.** A deliberately stale assignment path ignores the experiment seed and applies a stable 33/67 rule to the same deterministic eligible population | Hard-fails during `srm_check`, before monitoring/analysis/readout ever run |
 
-The SRM scenario is deliberately *not* faked by breaking the assignment logic - it demonstrates the
-check catching a genuinely bad randomization outcome, which is what it exists to do in production.
+The SRM scenario models a real integration failure: declared 50/50 weights and
+the product's assignment implementation drift apart. The broken path is stable
+across runs, while the platform's own assignment function is printed alongside
+it and passes on the same population. This demonstrates the deployed check
+rejecting a broken upstream contract without cherry-picking experiments.
 
 ## Why data has to be injected for scenarios 1 and 2
 
@@ -45,8 +48,8 @@ and `data-foundation/event_simulator`'s output stays untouched.
 ```
 Result: Clean winner
   state: analyzed
-  control: n=78 mean=3.795  treatment: n=57 mean=25.2025
-  lift: 564.1%  p_value: 0.000123  significant: True
+  control: n=67 mean=5.6049  treatment: n=68 mean=29.7944
+  lift: 431.58%  p_value: 0.000108  significant: True
   guardrail_status: sessions_7d ok
   grounding_check_passed: True
 
@@ -56,15 +59,15 @@ Result: Clean winner
   finding. It is essential to verify the data integrity and experimental setup before drawing
   firm conclusions.
   ### Key Stats
-  - Control group: n=78, mean=3.795
-  - Treatment group: n=57, mean=25.2025
-  - Lift: 564.1%
-  - Statistical significance: p-value=0.000123 (significant at alpha=0.05)
+  - Control group: n=67, mean=5.6049
+  - Treatment group: n=68, mean=29.7944
+  - Lift: 431.58%
+  - Statistical significance: p-value=0.000108 (significant at alpha=0.05)
   ### Guardrail Status
-  - sessions_7d: treatment value 1.5789 vs min threshold 0.0 -> ok
+  - sessions_7d: treatment value 1.6765 vs min threshold 0.0 -> ok
   ### Caveats
-  - [SMALL_SAMPLE] (warning) control_n=78, treatment_n=57, floor=100
-  - [SUSPICIOUSLY_LARGE_EFFECT] (warning) lift_pct=564.0963409842127, threshold_pct=100.0
+  - [SMALL_SAMPLE] (warning) control_n=67, treatment_n=68, floor=100
+  - [SUSPICIOUSLY_LARGE_EFFECT] (warning) lift_pct=431.5755301135179, threshold_pct=100.0
   ### Next-round Recommendation
   Conduct a follow-up experiment with larger sample sizes to validate these findings and
   ensure data accuracy.
@@ -73,17 +76,14 @@ Result: Clean winner
                    conclusion_non_trivial: true, conclusion_min_words_expected: 32}
 
 Result: Guardrail auto-stop
-  state: analyzed
-  stop_reason: guardrail_breach: ggr_usd_7d=-98.2912 vs min threshold 0.0
-  control: n=72 mean=-0.3853  treatment: n=84 mean=-98.2912
-  grounding_check_passed: True
-  (same two Caveats fired here too: SMALL_SAMPLE, SUSPICIOUSLY_LARGE_EFFECT - both addressed
-  in the Conclusion without restating any figure)
+  state: stopped_early
+  stop_reason: guardrail_breach: ggr_usd_7d=-101.6125 vs min threshold 0.0
+  (analysis and readout are skipped after the stop transition)
 
 Result: SRM violation
-  state: stopped_early
-  stop_reason: srm_violation: p_value=0.000415 chi2=12.4615 (threshold 0.01)
-  (never reached monitoring/analysis/readout - correct: SRM hard-fail skips them)
+  observed: control=104, treatment=42 (declared 73/73)
+  p_value=0.0  passed=False
+  (the deployed SRM check rejects the broken upstream before analysis)
 ```
 
 Notice the "Conclusion"/"Next-round Recommendation" text above contains **zero numbers**, yet it

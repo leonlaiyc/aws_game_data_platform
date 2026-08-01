@@ -1,4 +1,4 @@
-"""Runs 3 concurrent demo experiments end to end:
+"""Runs three demo scenarios end to end; the first two execute concurrently:
 
 1. clean_winner       - site_a/game_01: treatment gets a real, injected bet
                         volume boost -> should finish with a significant,
@@ -41,7 +41,7 @@ AS_OF_DATE = "2026-05-10"
 DURATION_DAYS = 10
 CHECK_DATES = [f"2026-05-{d:02d}" for d in range(11, 11 + DURATION_DAYS)]
 
-SRM_AS_OF_DATE = "2026-05-05"
+SRM_AS_OF_DATE = AS_OF_DATE
 SRM_P_VALUE_THRESHOLD = 0.01
 
 
@@ -68,21 +68,22 @@ def compute_split_p_value(experiment_id: str, seed: int, player_ids: list, varia
     return chi2_p_value_df1(chi2), counts
 
 
-def buggy_assign_variant(experiment_id: str, seed: int, player_id: str, variants: list) -> str:
+def buggy_assign_variant(_experiment_id: str, _seed: int, player_id: str, variants: list) -> str:
     """A deliberately broken randomizer, modelling a real and common class of
     assignment bug: **the split logic and the declared weights are maintained
     in two different places and have drifted apart.**
 
-    The experiment config says 50/50. This assignment code says "treatment if
-    the hash is divisible by 3", which is a perfectly uniform, perfectly
-    deterministic ~33/67 split. Nothing here is random or flaky - it is simply
-    wrong, and wrong in a way that looks entirely reasonable in code review.
+    The experiment config says 50/50. This stale assignment code ignores both
+    the experiment and its seed, then says "treatment if the player hash is
+    divisible by 3". That produces a stable ~33/67 split across every run.
+    Nothing here is random or flaky - it is simply wrong, and wrong in a way
+    that looks entirely reasonable in code review.
 
     That is what SRM is for: nobody notices the config and the code disagree,
     but the arrival counts do.
     """
     import hashlib
-    digest = hashlib.md5(f"{experiment_id}:{seed}:{player_id}".encode()).hexdigest()
+    digest = hashlib.md5(player_id.encode()).hexdigest()
     return variants[1]["name"] if int(digest, 16) % 3 == 0 else variants[0]["name"]
 
 
@@ -90,6 +91,10 @@ def setup_srm_experiment(api_url: str, database: str, workgroup: str) -> tuple:
     section("Scenario 3 setup: a genuinely broken randomizer (site_b)")
     player_ids = lib.eligible_players(database, workgroup, "site_b", SRM_AS_OF_DATE)
     print(f"Eligible population for site_b on {SRM_AS_OF_DATE}: {len(player_ids)} players")
+    if len(player_ids) < 100:
+        raise RuntimeError(
+            "SRM demo requires at least 100 eligible players; rebuild the deterministic lake first"
+        )
 
     variants = [{"name": "control", "weight": 0.5}, {"name": "treatment", "weight": 0.5}]
     resp = lib.api_request(api_url, "POST", "/experiments", {
@@ -184,7 +189,7 @@ def start_experiment(api_url: str, experiment_id: str, as_of_date: str, duration
 
 
 def wait_for_completion(state_machine_arn: str, experiment_ids: list, timeout_seconds: int = 600):
-    section("Waiting for all 3 Step Functions executions to finish")
+    section("Waiting for both Step Functions executions to finish")
     sfn = lib.session.client("stepfunctions")
     deadline = time.time() + timeout_seconds
     pending = set(experiment_ids)
@@ -310,6 +315,12 @@ def main():
         failures.append(
             f"guardrail experiment has no guardrail_breach stop_reason: {breach.get('stop_reason')!r}"
         )
+    if breach.get("state") != "stopped_early":
+        failures.append(
+            f"guardrail experiment expected stopped_early, got {breach.get('state')!r}"
+        )
+    if breach.get("analysis_result") or breach.get("readout"):
+        failures.append("guardrail experiment continued into analysis/readout after stopping")
 
     run_srm_check(srm_id, srm_counts, srm_total, srm_variants)
 
