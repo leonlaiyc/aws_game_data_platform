@@ -1,15 +1,15 @@
-# Aurora Games Game Provider Integration Guide
+# LEON Game Data Platform Game Provider Integration Guide
 
 Document ID: AG-GPI-101 | Version 1.0 | Audience: game providers
 
 ## §1 Integration direction
 
-This interface is for a game provider connecting game content to Aurora Games. It is not the
+This interface is for a game provider connecting game content to LEON Game Data Platform. It is not the
 client-operator API used by 2C partners for settlement files and outbound webhooks.
 
 ## §2 Game launch
 
-Aurora Games creates a short-lived launch token and calls the provider's launch endpoint with
+LEON Game Data Platform creates a short-lived launch token and calls the provider's launch endpoint with
 `player_id`, `game_id`, `currency`, `language`, and `return_url`. The provider must validate the
 token before creating a game session. A launch token is single-use and expires after 60 seconds.
 
@@ -41,6 +41,6 @@ maintenance contact, and proposed release date at least 10 business days before 
 
 ## §5 Operational notices
 
-Providers must notify Aurora Games before planned maintenance and identify the affected game IDs,
+Providers must notify LEON Game Data Platform before planned maintenance and identify the affected game IDs,
 start and end time in UTC, and expected player impact. Emergency incidents should include a stable
 incident reference so status updates can be correlated.

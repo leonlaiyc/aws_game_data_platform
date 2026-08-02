@@ -103,7 +103,7 @@ def test_bare_in_domain_term_is_underspecified_not_out_of_scope():
 
 class TestLeakageGuard:
     @pytest.mark.parametrize("text", [
-        "Covered in the Aurora Games Partner Integration Guide (Document ID: AG-INT-001).",
+        "Covered in the LEON Game Data Platform Partner Integration Guide (Document ID: AG-INT-001).",
         "See section §3.2 for signature verification.",
         "This is described in integration_guide.md.",
     ])

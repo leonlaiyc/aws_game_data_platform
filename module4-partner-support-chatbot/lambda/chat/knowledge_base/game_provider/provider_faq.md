@@ -1,4 +1,4 @@
-# Aurora Games Game Provider Integration FAQ
+# LEON Game Data Platform Game Provider Integration FAQ
 
 Document ID: AG-GPF-102 | Version 1.0 | Audience: game providers
 

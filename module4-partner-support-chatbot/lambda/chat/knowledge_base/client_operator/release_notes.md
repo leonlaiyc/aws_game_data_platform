@@ -1,4 +1,4 @@
-# Aurora Games Platform Release Notes
+# LEON Data Platform Release Notes
 
 Document ID: AG-REL-003 | Version 2026.07 | Audience: integration partners
 
@@ -6,8 +6,8 @@ Document ID: AG-REL-003 | Version 2026.07 | Audience: integration partners
 
 ### §1.1 Added
 
-- Settlement files now include a `game_provider_id` column, allowing partners operating multiple
-  providers to split reconciliation without a separate lookup.
+- Daily delivery files now include a `source_system_id` column, allowing partners operating multiple
+  source systems to split reconciliation without a separate lookup.
 - Webhook payloads now carry `event_id` on every event type. Previously some event types omitted
   it, which made de-duplication unreliable.
 
@@ -25,7 +25,7 @@ Document ID: AG-REL-003 | Version 2026.07 | Audience: integration partners
 
 ### §2.1 Added
 
-- Sandbox test-data tool in the partner portal, allowing partners to load their own test players.
+- Sandbox test-data tool in the partner portal, allowing partners to load their own test users.
 
 ### §2.2 Fixed
 
