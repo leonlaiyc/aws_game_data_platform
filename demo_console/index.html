@@ -3,69 +3,77 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aurora Games — AWS Operations Demo</title>
+  <title>LEON — AWS Operations Demo</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="modules.css">
 </head>
 <body>
   <main class="shell">
     <aside class="rail">
-      <div class="brand"><span class="brand-mark">L</span><span>Aurora<br>Games</span></div>
+      <div class="brand"><span class="brand-mark">L</span><span>LEON<br><small>AWS PORTFOLIO</small></span></div>
       <nav aria-label="Demo chapters">
-        <button class="nav active" data-screen="m1"><b>01</b><span>異常偵測<small>Anomaly</small></span></button>
+        <button class="nav active" data-screen="m1"><b>01</b><span>異常監控<small>Anomaly</small></span></button>
         <button class="nav" data-screen="m3"><b>02</b><span>第一眼分析<small>First look</small></span></button>
         <button class="nav" data-screen="m2"><b>03</b><span>實驗治理<small>Experiments</small></span></button>
-        <button class="nav" data-screen="m4"><b>04</b><span>夥伴客服<small>Support</small></span></button>
+        <button class="nav" data-screen="m4"><b>04</b><span>文件助理<small>Knowledge</small></span></button>
       </nav>
-      <div class="rail-foot">PoC · Subtitle demo</div>
+      <div class="rail-foot">PoC · Synthetic replay</div>
     </aside>
 
     <section class="workspace">
       <header class="topbar">
-        <div><div class="eyebrow" id="eyebrow">MODULE 1 · OPERATIONS</div><h1 id="page-title">異常偵測中心</h1></div>
-        <div class="live-badge"><span></span> LIVE AWS <small>ap-northeast-1</small></div>
+        <div><div class="eyebrow" id="eyebrow">MODULE 1 · OPERATIONS</div><h1 id="page-title">異常監控中心</h1></div>
+        <div class="live-badge"><span></span> AWS ARCHITECTURE <small>ap-northeast-1</small></div>
       </header>
 
       <section class="screen active" id="m1">
-        <div class="hero-row">
-          <div><h2>Site B 營運健康掃描</h2><p>針對 2026-06-10 的核心指標執行 Lambda 偵測，並以 Athena 歷史資料建立動態基準。</p></div>
-          <button class="primary" id="run-anomaly"><span class="play">▶</span> 執行異常掃描</button>
+        <div class="mode-tabs" role="tablist" aria-label="異常監控檢視">
+          <button class="mode-tab active" data-mode="architecture">架構流程</button><button class="mode-tab" data-mode="interface">操作介面</button>
         </div>
-        <div class="status-strip"><span class="status-dot"></span><span id="m1-status">準備就緒，尚未送出 AWS 請求</span><code>site_b · 2026-06-10</code></div>
-        <div class="metric-grid">
-          <article class="metric"><label>今日 DAU</label><strong id="dau-actual">—</strong><small>actual</small></article>
-          <article class="metric"><label>EWMA 基準</label><strong id="dau-baseline">—</strong><small>7-day baseline</small></article>
-          <article class="metric alert"><label>偏離幅度</label><strong id="dau-change">—</strong><small id="sigma-value">threshold 3σ</small></article>
+        <div class="module-mode active" data-panel="architecture">
+          <div class="flow-heading"><div><h2>每小時異常偵測流程</h2><p>從資料彙整、排程觸發到告警證據與第一眼分析，完整呈現資料放置與服務責任。</p></div><span class="snapshot-tag">PoC · Historical replay</span></div>
+          <div class="architecture-flow m1-flow" aria-label="M1 AWS architecture flow">
+            <article><small>INPUT</small><strong>Synthetic Events</strong><span>歷史事件重播</span></article><i>→</i>
+            <article><small>STORAGE</small><strong>S3 Bronze / Silver</strong><span>標準化資料層</span></article><i>→</i>
+            <article><small>TRANSFORM</small><strong>Athena CTAS</strong><span>每小時彙整</span></article><i>→</i>
+            <article class="accent"><small>METRIC STORE</small><strong>S3 Gold Hourly KPI</strong><code>gold_hourly_kpi</code></article><i>→</i>
+            <article><small>SCHEDULE</small><strong>EventBridge</strong><span>每小時觸發</span></article><i>→</i>
+            <article class="accent"><small>DETECTION</small><strong>Lambda Detector</strong><span>Athena 同時段基準</span></article>
+          </div>
+          <div class="flow-outputs"><span>偵測結果</span><article><strong>S3 Alert Evidence</strong><small>可追溯證據</small></article><article><strong>SNS Notification</strong><small>告警發布</small></article><article><strong>M3 First-look</strong><small>初步分析</small></article></div>
+          <p class="architecture-note"><strong>Production design：</strong>EventBridge 每小時觸發；<strong>PoC 展示：</strong>以 synthetic historical data 重播驗證，完成後不持續開啟排程。</p>
         </div>
-        <article class="evidence-panel hidden" id="m1-evidence">
-          <div class="evidence-icon">!</div><div><label>DAU ANOMALY DETECTED</label><h3>實際值顯著低於動態基準</h3><p id="m1-summary"></p></div>
-          <div class="proof"><span>AWS EVIDENCE</span><code id="m1-key"></code><small id="m1-time"></small></div>
-        </article>
+        <div class="module-mode" data-panel="interface">
+          <div class="flow-heading compact"><div><h2>每小時營運監控</h2><p>實際值與歷史同時段基準皆由生成資料的 hourly snapshot 彙整。</p></div><span class="snapshot-tag">PoC snapshot · Synthetic hourly data</span></div>
+          <div class="monitor-summary"><article><label>監控狀態</label><strong><i></i>運作正常</strong></article><article><label>偵測頻率</label><strong>每小時</strong></article><article><label>監控指標</label><strong>3</strong></article><article class="warn"><label>目前異常</label><strong>1</strong></article></div>
+          <div class="metric-selectors" role="tablist" aria-label="監控指標">
+            <button class="metric-choice active" data-metric="activeUsers"><span>每小時活躍使用者</span><strong>2</strong><small>13:00 snapshot</small></button>
+            <button class="metric-choice" data-metric="sessions"><span>每小時工作階段</span><strong>2</strong><small>13:00 snapshot</small></button>
+            <button class="metric-choice" data-metric="interactions"><span>完成互動數</span><strong>8</strong><small>13:00 snapshot</small></button>
+          </div>
+          <div class="monitor-layout">
+            <article class="chart-card"><div class="chart-head"><div><strong id="chart-title">每小時活躍使用者</strong><small id="chart-subtitle">Site B · 2026-06-10 · 同時段歷史基準</small></div><div class="chart-legend"><span class="actual">實際值</span><span class="baseline">歷史基準</span><span class="range">正常範圍</span><span class="anomaly">異常</span></div></div><canvas id="hourly-chart" width="920" height="255" aria-label="每小時實際值、歷史基準、正常範圍與異常點折線圖"></canvas></article>
+            <aside class="alert-detail"><label>13:05 · ANOMALY DETECTED</label><h3>Site B 活躍使用者低於正常範圍</h3><dl><div><dt>實際 / 基準</dt><dd>2 / 9.3</dd></div><div><dt>偏離程度</dt><dd class="negative">−78.5%</dd></div><div><dt>SNS</dt><dd>已發布</dd></div><div><dt>First-look</dt><dd>Ready</dd></div></dl><code>gold/anomaly_alerts/site_b_2026-06-10T13.json</code></aside>
+          </div>
+        </div>
       </section>
 
       <section class="screen" id="m3">
-        <div class="hero-row"><div><h2>第一眼分析報告</h2><p>異常事件透過 SNS 觸發分析流程，彙整站點、遊戲與資金指標，輸出可追溯的初步判讀。</p></div><button class="secondary" id="load-report">讀取最新 AWS 報告</button></div>
-        <div class="question-card"><span>異常觸發</span><strong>為什麼 Site B 的 DAU 在 2026-06-10 下跌？</strong><code>anomaly-alert → first-look-report</code></div>
-        <div class="report-layout">
-          <article class="report"><div class="report-head"><span class="bot-avatar">AI</span><div><label>FIRST-LOOK ANALYSIS</label><small id="report-generated">等待讀取 S3 證據</small></div></div><div id="report-body" class="report-body empty">按下「讀取最新 AWS 報告」顯示實際分析產出。</div></article>
-          <aside class="impact-list"><h3>指標對比</h3><div id="comparison"><p class="muted">尚未載入</p></div><footer><span>來源</span><code id="report-key">—</code></footer></aside>
-        </div>
+        <div class="mode-tabs" role="tablist" aria-label="第一眼分析檢視"><button class="mode-tab active" data-mode="architecture">架構流程</button><button class="mode-tab" data-mode="interface">操作介面</button></div>
+        <div class="module-mode active" data-panel="architecture"><div class="flow-heading"><div><h2>第一眼分析流程</h2><p>告警事件經分類與資料查詢後，產出可追溯的初步判讀。</p></div></div><div class="architecture-flow simple-flow"><article><strong>SNS / API</strong><span>事件入口</span></article><i>→</i><article><strong>Lambda</strong><span>流程協調</span></article><i>→</i><article class="accent"><strong>Amazon Bedrock</strong><span>事件分類</span></article><i>→</i><article><strong>Athena</strong><span>指標查詢</span></article><i>→</i><article><strong>S3 / SNS</strong><span>報告與通知</span></article></div><p class="architecture-note">分析結果保留資料來源與證據路徑；內容是第一眼訊號，不替代負責人的根因判定。</p></div>
+        <div class="module-mode" data-panel="interface"><div class="hero-row"><div><h2>第一眼分析報告</h2><p>彙整站點使用與互動指標，輸出可追溯的初步判讀。</p></div><button class="secondary" id="load-report">讀取最新 AWS 報告</button></div><div class="question-card"><span>異常觸發</span><strong>為什麼 Site B 的活躍使用量在 12:00 下跌？</strong><code>anomaly-alert → first-look-report</code></div><div class="report-layout"><article class="report"><div class="report-head"><span class="bot-avatar">AI</span><div><label>FIRST-LOOK ANALYSIS</label><small id="report-generated">等待讀取 S3 證據</small></div></div><div id="report-body" class="report-body empty">按下「讀取最新 AWS 報告」顯示實際分析產出。</div></article><aside class="impact-list"><h3>指標對比</h3><div id="comparison"><p class="muted">尚未載入</p></div><footer><span>來源</span><code id="report-key">—</code></footer></aside></div></div>
       </section>
 
       <section class="screen" id="m2">
-        <div class="hero-row"><div><h2>實驗營運控制台</h2><p>集中查看跨站實驗、樣本比例失衡與 Guardrail 狀態；停止原因與 allocation kill switch 同步呈現。</p></div><button class="secondary" id="load-experiments">重新整理 Registry</button></div>
-        <div class="summary-grid"><article><label>全部實驗</label><strong id="exp-total">—</strong></article><article><label>執行中</label><strong id="exp-running">—</strong></article><article class="warn"><label>需要處理</label><strong id="exp-action">—</strong></article><article><label>草稿</label><strong id="exp-draft">—</strong></article></div>
-        <div class="toolbar"><button class="filter active" data-filter="all">全部</button><button class="filter" data-filter="action">需要處理</button><span id="exp-updated">尚未連線</span></div>
-        <div class="experiment-table"><div class="tr th"><span>實驗</span><span>站點 / 遊戲</span><span>狀態</span><span>健康度</span><span>Allocation</span><span>SRM / 樣本</span></div><div id="experiment-rows"></div></div>
+        <div class="mode-tabs" role="tablist" aria-label="實驗治理檢視"><button class="mode-tab active" data-mode="architecture">架構流程</button><button class="mode-tab" data-mode="interface">操作介面</button></div>
+        <div class="module-mode active" data-panel="architecture"><div class="flow-heading"><div><h2>受治理的實驗流程</h2><p>從請求入口、狀態保存到自動化檢查與控制台結果。</p></div></div><div class="architecture-flow simple-flow"><article><strong>API Gateway</strong><span>受控入口</span></article><i>→</i><article><strong>DynamoDB</strong><span>Registry</span></article><i>→</i><article><strong>Step Functions</strong><span>流程協調</span></article><i>→</i><article class="accent"><strong>Guardrail / SRM</strong><span>健康檢查</span></article><i>→</i><article><strong>Dashboard</strong><span>營運視圖</span></article></div><p class="architecture-note">停止原因、樣本比例檢查與 allocation control 共同保留，讓決策具備可追溯依據。</p></div>
+        <div class="module-mode" data-panel="interface"><div class="hero-row"><div><h2>實驗營運控制台</h2><p>集中查看跨站實驗、樣本比例與 Guardrail 狀態。</p></div><button class="secondary" id="load-experiments">重新整理 Registry</button></div><div class="summary-grid"><article><label>全部實驗</label><strong id="exp-total">—</strong></article><article><label>執行中</label><strong id="exp-running">—</strong></article><article class="warn"><label>需要處理</label><strong id="exp-action">—</strong></article><article><label>草稿</label><strong id="exp-draft">—</strong></article></div><div class="toolbar"><button class="filter active" data-filter="all">全部</button><button class="filter" data-filter="action">需要處理</button><span id="exp-updated">尚未連線</span></div><div class="experiment-table"><div class="tr th"><span>實驗</span><span>站點 / 產品</span><span>狀態</span><span>健康度</span><span>Allocation</span><span>SRM / 樣本</span></div><div id="experiment-rows"></div></div></div>
       </section>
 
       <section class="screen" id="m4">
-        <div class="hero-row"><div><h2>遊戲供應商支援助理</h2><p>以 IAM 身分隔離知識範圍；資訊不足時先追問環境，避免用錯 Sandbox 與 Production 設定。</p></div><div class="identity">SIGNED AS <strong>game-provider-partner</strong></div></div>
-        <div class="chat-shell">
-          <div class="chat-head"><div><span class="bot-avatar">AI</span><strong>Aurora Partner Support</strong></div><span class="online"><i></i> AWS connected</span></div>
-          <div class="messages" id="messages"><div class="message assistant"><p>您好，我可以協助遊戲串接、啟動權杖、錢包呼叫與交易重試問題。</p><small>Automated support · Knowledge scoped</small></div></div>
-          <form class="composer" id="chat-form"><input id="chat-input" autocomplete="off" value="What is the launch token endpoint?" aria-label="Question"><button type="submit" aria-label="Send">➜</button></form>
-        </div>
-        <div class="chat-proof" id="chat-proof">請求將透過 IAM 簽章送至 API Gateway，瀏覽器不含 AWS 憑證。</div>
+        <div class="mode-tabs" role="tablist" aria-label="文件助理檢視"><button class="mode-tab active" data-mode="architecture">架構流程</button><button class="mode-tab" data-mode="interface">操作介面</button></div>
+        <div class="module-mode active" data-panel="architecture"><div class="flow-heading"><div><h2>受治理的知識問答流程</h2><p>身分、入口與知識範圍共同限制回答邊界；資訊不足時先澄清。</p></div></div><div class="architecture-flow simple-flow"><article><strong>IAM</strong><span>身分與權限</span></article><i>→</i><article><strong>API Gateway</strong><span>安全入口</span></article><i>→</i><article class="accent"><strong>Guardrails</strong><span>問題分類</span></article><i>→</i><article><strong>Knowledge Context</strong><span>文件範圍</span></article><i>→</i><article><strong>Bedrock / Ticket</strong><span>回答或轉交</span></article></div><p class="architecture-note">瀏覽器不保存 AWS 憑證；後端依 IAM 身分套用可存取的文件範圍。</p></div>
+        <div class="module-mode" data-panel="interface"><div class="hero-row"><div><h2>技術文件助理</h2><p>以 IAM 身分隔離知識範圍；資訊不足時先追問環境。</p></div><div class="identity">SIGNED AS <strong>integration-partner</strong></div></div><div class="chat-shell"><div class="chat-head"><div><span class="bot-avatar">AI</span><strong>LEON Integration Knowledge</strong></div><span class="online"><i></i> AWS connected</span></div><div class="messages" id="messages"><div class="message assistant"><p>您好，我可以協助 API 驗證、Webhook 簽章、環境設定與重試機制等技術文件問題。</p><small>Automated guidance · Knowledge scoped</small></div></div><form class="composer" id="chat-form"><input id="chat-input" autocomplete="off" value="How do I verify webhook signatures?" aria-label="Question"><button type="submit" aria-label="Send">➜</button></form></div><div class="chat-proof" id="chat-proof">請求將透過 IAM 簽章送至 API Gateway，瀏覽器不含 AWS 憑證。</div></div>
       </section>
     </section>
   </main>
