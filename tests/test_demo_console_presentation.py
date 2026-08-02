@@ -11,6 +11,9 @@ def test_modules_open_with_architecture_and_operation_views():
     assert html.count('data-mode="interface"') == 4
     assert html.count('data-panel="architecture"') == 4
     assert "gold_hourly_kpi" in html
+    assert html.count('class="system-map') == 4
+    assert "THE FOUNDATION" in html
+    assert "One event, three outputs" in html
 
 
 def test_m1_is_hourly_monitoring_not_a_manual_scan_tool():
