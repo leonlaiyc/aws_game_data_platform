@@ -169,7 +169,7 @@ from authenticated identity rather than a request body.
 
 ### Verification status
 
-- **145 offline tests** plus Python compilation and CDK assertion coverage.
+- **146 offline tests** plus Python compilation and CDK assertion coverage.
 - **Eight default stacks** synthesize without Kinesis, NAT Gateway, RDS,
   OpenSearch, or provisioned compute.
 - The earlier baseline was deployed and exercised against AWS on 2026-07-29.

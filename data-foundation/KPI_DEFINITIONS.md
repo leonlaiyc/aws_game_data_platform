@@ -5,7 +5,7 @@ registry) solves at the player-feature layer exists at the business-metric layer
 team computes "DAU" or "retention" with a slightly different query, two dashboards showing
 different numbers for the same day is not a data problem, it's a definitions problem. This file is
 the one place a standard metric's calculation logic is defined. **Gold-layer tables
-(`gold_daily_kpi`, `gold_cohort_retention`) and anything built on top of them — dashboards, the
+(`gold_daily_kpi`, `gold_hourly_kpi`, `gold_cohort_retention`) and anything built on top of them — dashboards, the
 Module 3 semantic layer's SQL templates, ad hoc analysis — must compute these metrics exactly as
 defined here, not re-derive them.**
 
@@ -20,8 +20,8 @@ Same governance philosophy, different grain and audience:
 
 | | This file (`KPI_DEFINITIONS.md`) | `FEATURES.md` |
 |---|---|---|
-| Grain | `date x client_site_id` (business reporting) | `snapshot_date x player_id` (analysis/ML) |
-| Table | `gold_daily_kpi`, `gold_cohort_retention` | `gold_player_features` |
+| Grain | daily site, hourly site/product/actor, and retention cohort | `snapshot_date x player_id` (analysis/ML) |
+| Table | `gold_daily_kpi`, `gold_hourly_kpi`, `gold_cohort_retention` | `gold_player_features` |
 | Consumers | Dashboards, execs, Module 3's semantic layer | Module 1 (arbitrage), Module 2 (experiment analysis) |
 
 Both are built from the same `silver_events` — a metric defined here and a feature defined there
@@ -94,6 +94,22 @@ later (D7).
 - Retention is defined relative to `client_site_id`, not `game_id` — a player who registers via
   one game and returns to play a different one on the same site still counts as retained.
 
+## Hourly operational KPIs
+
+**Definition:** metrics use the same event filters and FX-normalized Silver columns as their daily
+counterparts, grouped by `event_hour x client_site_id x game_id x player_id` and partitioned by
+`dt`.
+
+**Computed in:** `gold_hourly_kpi` (`data-foundation/lake/ddl/05_gold_hourly_kpi.sql`).
+
+**Why the actor dimension remains:** a live experiment guardrail must join only actors with a
+recorded treatment exposure. Aggregating away `player_id` before that join would mix treatment,
+control, and non-exposed traffic and make the hourly safety check untrustworthy.
+
+**Caveats:** the current PoC refreshes this table during the batch lake build. A production path
+would incrementally publish completed hourly partitions and advance the publication marker only
+after late-arrival handling and quality checks finish.
+
 ---
 
 ## Adding or changing a metric
@@ -106,4 +122,5 @@ later (D7).
 
 ### Changelog
 
+- **v1.1** (2026-08-02): added exposure-joinable hourly operational KPIs.
 - **v1** (2026-07-27): initial definitions — GGR, DAU, ARPU, D1/D7 retention.

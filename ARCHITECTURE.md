@@ -395,7 +395,9 @@ detectors cover the realistic failure modes; the trigger for adopting one is mul
 into Gold, where you can no longer reason about every writer.
 
 **On what the schedules actually process.** Scheduled runs read an explicit
-`manifests/published/...` build-success marker, not today's date and not `MAX(dt)`. Presence of a
+`manifests/published/...` build-success marker, not today's date and not `MAX(dt)`. Both
+`gold_daily_kpi` and `gold_hourly_kpi` receive table-specific markers after the complete lake build.
+Presence of a
 row proves only that writing started; it does not prove the partition closed. Both lake builders
 invalidate the old marker before replacing data and publish a new marker only after their
 verification queries succeed.
