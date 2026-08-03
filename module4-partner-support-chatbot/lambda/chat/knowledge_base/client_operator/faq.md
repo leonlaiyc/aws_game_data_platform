@@ -1,4 +1,4 @@
-# Aurora Games Partner Integration FAQ
+# LEON Data Platform Integration FAQ
 
 Document ID: AG-FAQ-002 | Version 2.8 | Audience: integration partners
 
@@ -53,7 +53,7 @@ midnight and settled after are attributed to the day they settled.
 
 Sandbox resets every Sunday at 02:00 UTC. This is expected and is not a fault.
 
-### §4.2 Can I load my own test players into sandbox
+### §4.2 Can I load my own test users into sandbox
 
-Yes, through the partner portal's test-data tool. Loaded players are also cleared by the weekly
+Yes, through the partner portal's test-data tool. Loaded users are also cleared by the weekly
 reset.

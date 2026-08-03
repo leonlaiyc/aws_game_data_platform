@@ -3,7 +3,7 @@
 1. Uploads the local simulator output (data-foundation/event_simulator/output)
    to S3 as gzip-compressed Bronze JSONL.
 2. Runs the DDL in data-foundation/lake/ddl/ in order (Bronze external table,
-   Silver Parquet CTAS, two Gold Parquet CTAS).
+   Silver Parquet CTAS, and purpose-built Gold Parquet CTAS tables).
 3. Runs the example queries in data-foundation/lake/queries/ and prints the
    results, as an end-to-end sanity check.
 
@@ -30,6 +30,10 @@ SIMULATOR_OUTPUT = LAKE_DIR.parent / "event_simulator" / "output"
 DDL_DIR = LAKE_DIR / "ddl"
 QUERIES_DIR = LAKE_DIR / "queries"
 DAILY_KPI_PUBLICATION_MANIFEST = "manifests/published/gold_daily_kpi.json"
+HOURLY_KPI_PUBLICATION_MANIFEST = "manifests/published/gold_hourly_kpi.json"
+HOURLY_MONITORING_PUBLICATION_MANIFEST = (
+    "manifests/published/gold_hourly_monitoring_features.json"
+)
 GOVERNANCE_SETUP = (
     LAKE_DIR.parent / "governance" / "setup_client_isolation.py"
 )
@@ -113,7 +117,13 @@ def print_query_results(query_id: str, max_rows: int = 20):
         print("  " + " | ".join(values))
 
 
-def publish_completion_manifest(bucket: str, min_date: str, max_date: str):
+def publish_completion_manifest(
+    bucket: str,
+    key: str,
+    table: str,
+    min_date: str,
+    max_date: str,
+):
     """Publish only after every transform and verification query succeeds.
 
     Consumers use this marker instead of guessing completeness from MAX(dt).
@@ -121,7 +131,7 @@ def publish_completion_manifest(bucket: str, min_date: str, max_date: str):
     finished writing it.
     """
     body = {
-        "table": "gold_daily_kpi",
+        "table": table,
         "published_from": min_date,
         "published_through": max_date,
         "published_at": datetime.now(timezone.utc).isoformat(),
@@ -129,11 +139,11 @@ def publish_completion_manifest(bucket: str, min_date: str, max_date: str):
     }
     s3.put_object(
         Bucket=bucket,
-        Key=DAILY_KPI_PUBLICATION_MANIFEST,
+        Key=key,
         Body=json.dumps(body, sort_keys=True).encode("utf-8"),
         ContentType="application/json",
     )
-    print(f"Published completion marker through {max_date}.")
+    print(f"Published {table} completion marker through {max_date}.")
 
 
 def apply_client_isolation():
@@ -169,8 +179,12 @@ def main():
     # failed rebuild must be visibly incomplete, never paired with a stale
     # marker that tells scheduled consumers it is safe to query.
     s3.delete_object(Bucket=bucket, Key=DAILY_KPI_PUBLICATION_MANIFEST)
+    s3.delete_object(Bucket=bucket, Key=HOURLY_KPI_PUBLICATION_MANIFEST)
+    s3.delete_object(Bucket=bucket, Key=HOURLY_MONITORING_PUBLICATION_MANIFEST)
     clear_prefix(bucket, "silver/events/")
     clear_prefix(bucket, "gold/daily_kpi/")
+    clear_prefix(bucket, "gold/hourly_kpi/")
+    clear_prefix(bucket, "gold/hourly_monitoring_features/")
     clear_prefix(bucket, "gold/cohort_retention/")
     clear_prefix(bucket, "athena-results/tables/")  # staging debris from any previously failed CTAS
 
@@ -189,7 +203,11 @@ def main():
             label = code_lines[0][:60] if code_lines else statement[:60]
             print(f"  {ddl_file.name}: {label} ...")
             run_query(statement, database, workgroup)
-    print("DDL complete: bronze_events, silver_events, gold_daily_kpi, gold_cohort_retention.")
+    print(
+        "DDL complete: bronze_events, silver_events, gold_daily_kpi, "
+        "gold_cohort_retention, gold_hourly_kpi, "
+        "gold_hourly_monitoring_features."
+    )
 
     print("\nRunning example queries ...")
     for query_file in sorted(QUERIES_DIR.glob("*.sql")):
@@ -200,7 +218,27 @@ def main():
 
     print("\nReapplying Lake Formation client isolation ...")
     apply_client_isolation()
-    publish_completion_manifest(bucket, min_date, max_date)
+    publish_completion_manifest(
+        bucket,
+        DAILY_KPI_PUBLICATION_MANIFEST,
+        "gold_daily_kpi",
+        min_date,
+        max_date,
+    )
+    publish_completion_manifest(
+        bucket,
+        HOURLY_KPI_PUBLICATION_MANIFEST,
+        "gold_hourly_kpi",
+        min_date,
+        max_date,
+    )
+    publish_completion_manifest(
+        bucket,
+        HOURLY_MONITORING_PUBLICATION_MANIFEST,
+        "gold_hourly_monitoring_features",
+        min_date,
+        max_date,
+    )
 
 
 if __name__ == "__main__":

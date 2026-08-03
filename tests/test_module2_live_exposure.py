@@ -145,12 +145,19 @@ def test_live_guardrail_query_uses_exposures_not_eligibility(monkeypatch):
         "2026-07-29",
         [{"metric": "sessions_7d", "direction": "min", "threshold": 3}],
         "gold_experiment_exposures",
+        execution_mode="live",
+        client_site_id="site_a",
+        game_id="game_01",
     )
 
     assert len(breaches) == 1
     assert "FROM gold_experiment_exposures" in captured[0]
     assert "variant = 'treatment'" in captured[0]
     assert "gold_experiment_assignments" not in captured[0]
+    assert "FROM gold_hourly_kpi" in captured[0]
+    assert "SUM(hk.sessions)" in captured[0]
+    assert "hk.client_site_id = 'site_a'" in captured[0]
+    assert "hk.game_id = 'game_01'" in captured[0]
 
 
 def test_central_view_surfaces_parallel_health_and_kill_switch():

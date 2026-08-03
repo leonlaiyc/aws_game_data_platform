@@ -1,4 +1,4 @@
-# Aurora Games Maintenance Calendar
+# LEON Data Platform Maintenance Calendar
 
 Document ID: AG-MNT-004 | Version 2026.07 | Audience: integration partners
 

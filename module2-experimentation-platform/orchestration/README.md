@@ -8,7 +8,7 @@ operation modes after assignment and its preflight balance check:
 assignment -> balance check --+                                      +-> analysis -> readout
                                +-- live: Wait until planned end -------+
 
-EventBridge hourly -> actual exposure SRM + guardrails
+EventBridge hourly -> actual exposure SRM + `gold_hourly_kpi` guardrails
                    -> breach: allocation_enabled=false -> stop execution -> SNS
 ```
 
@@ -29,7 +29,7 @@ EventBridge hourly -> actual exposure SRM + guardrails
    every currently-running experiment against today's real date - that's the actual always-on
    production path. In live mode it queries immutable product exposure events,
    waits for at least 100 exposures before applying the `p < 0.01` SRM rule,
-   and joins guardrails to the exposed treatment cohort rather than the
+   and joins `gold_hourly_kpi` guardrails to the exposed treatment cohort rather than the
    eligibility assignment. On a breach it atomically sets
    `allocation_enabled=false`, records structured monitoring status, stops the
    waiting execution, and publishes SNS.

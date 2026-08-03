@@ -95,27 +95,57 @@ def _check_exposure_srm(experiment: dict) -> dict:
     }
 
 
+LIVE_METRIC_COLUMNS = {
+    "sessions_7d": "sessions",
+    "ggr_usd_7d": "ggr_usd",
+}
+
+
 def _check_guardrails(
     experiment_id: str,
     check_date: str,
     guardrail_metrics: list,
     cohort_table: str,
+    execution_mode: str = "replay",
+    client_site_id: str | None = None,
+    game_id: str | None = None,
 ) -> list:
     breaches = []
     for guardrail in guardrail_metrics:
         metric = guardrail["metric"]
         direction = guardrail["direction"]
         threshold = float(guardrail["threshold"])
-        sql = f"""
-        SELECT AVG(pf.{metric}) AS value
-        FROM gold_player_features pf
-        JOIN (
-            SELECT DISTINCT player_id
-            FROM {cohort_table}
-            WHERE experiment_id = '{experiment_id}' AND variant = 'treatment'
-        ) cohort ON cohort.player_id = pf.player_id
-        WHERE pf.snapshot_date = '{check_date}'
-        """
+        if execution_mode == "live":
+            live_column = LIVE_METRIC_COLUMNS.get(metric, metric)
+            filters = [
+                f"hk.dt = '{check_date}'",
+                f"cohort.experiment_id = '{experiment_id}'",
+                "cohort.variant = 'treatment'",
+            ]
+            if client_site_id:
+                filters.append(f"hk.client_site_id = '{client_site_id}'")
+            if game_id:
+                filters.append(f"hk.game_id = '{game_id}'")
+            sql = f"""
+            SELECT SUM(hk.{live_column}) AS value
+            FROM gold_hourly_kpi hk
+            JOIN (
+                SELECT DISTINCT player_id, experiment_id, variant
+                FROM {cohort_table}
+            ) cohort ON cohort.player_id = hk.player_id
+            WHERE {' AND '.join(filters)}
+            """
+        else:
+            sql = f"""
+            SELECT AVG(pf.{metric}) AS value
+            FROM gold_player_features pf
+            JOIN (
+                SELECT DISTINCT player_id
+                FROM {cohort_table}
+                WHERE experiment_id = '{experiment_id}' AND variant = 'treatment'
+            ) cohort ON cohort.player_id = pf.player_id
+            WHERE pf.snapshot_date = '{check_date}'
+            """
         rows = fetch_all_rows(run_athena_query(sql))
         value = (
             float(rows[0]["value"])
@@ -277,6 +307,9 @@ def _check_experiment(
         check_date,
         guardrail_metrics,
         cohort_table,
+        execution_mode=execution_mode,
+        client_site_id=experiment.get("client_site_id"),
+        game_id=experiment.get("game_id"),
     )
     status = {
         "checked_at": now_iso(),

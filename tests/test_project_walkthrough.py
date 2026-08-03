@@ -122,14 +122,14 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "尚未串接 Email、Slack 或 CRM 通知",
         "每 24 小時",
         "Dashboard 每 15 秒",
-        "RAG-style",
+        "受治理的整合支援",
         "系統設計取捨與成本最佳化",
         "目前的省錢／輕量做法",
         "工程驗證與架構文件",
         "測試通過率（100%）",
         "本專案的核心價值在於",
         "雲端 AI 技術鏈接實務痛點",
-        "重複性客戶問題消耗客服與開發資源",
+        "重複的整合問題消耗支援與工程資源",
         "資料生成、治理與發布路徑",
         "四個模組如何消費資料並交付結果",
         "兩分鐘實機操作：四組工作流實際運行",
@@ -139,9 +139,18 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "以 Serverless 為主的設計",
         "實機操作字幕版 · 02:00",
         "2026-08-02 實際操作 AWS 路徑",
+        "gold_hourly_kpi",
     ):
         assert required_copy in html
         assert required_copy in javascript
+
+    for architecture_stage in (
+        "THE FOUNDATION",
+        "THE GOVERNANCE",
+        "THE INTELLIGENCE",
+        "THE DELIVERY",
+    ):
+        assert architecture_stage in html
 
     for required_english_copy in (
         "One cloud system architecture",
@@ -149,6 +158,18 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "Built primarily on serverless services",
     ):
         assert required_english_copy in javascript
+
+    for prohibited_public_term in (
+        "投注",
+        "遊戲",
+        "GGR",
+        "ggr_",
+        "arbitrage",
+        "flagged players",
+        "game-provider-partner",
+    ):
+        assert prohibited_public_term not in html
+        assert prohibited_public_term not in javascript
 
     assert html.count('<article class="evidence-card ') == 2
 

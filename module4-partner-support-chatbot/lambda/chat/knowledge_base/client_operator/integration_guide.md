@@ -1,4 +1,4 @@
-# Aurora Games Partner Integration Guide
+# LEON Data Platform Integration Guide
 
 Document ID: AG-INT-001 | Version 4.2 | Audience: integration partners
 
@@ -29,12 +29,12 @@ return `403 environment_mismatch`.
 
 ### §2.1 Sandbox
 
-Sandbox is a full-featured test environment seeded with synthetic players and games. Balances are
-not real, settlement is simulated, and data is reset every Sunday at 02:00 UTC.
+Sandbox is a full-featured test environment seeded with synthetic users and workspaces. External
+effects are simulated, and data is reset every Sunday at 02:00 UTC.
 
 ### §2.2 Production
 
-Production carries real player balances and real settlement. Access requires completing
+Production carries live customer traffic. Access requires completing
 certification (see §5) before your partner account is enabled.
 
 ### §2.3 Environment selection
@@ -52,7 +52,7 @@ HTTPS, must respond within 5 seconds, and must return a 2xx status to acknowledg
 
 ### §3.2 Signature verification
 
-Every webhook request carries an `X-Aurora-Signature` header containing an HMAC-SHA256 of the raw
+Every webhook request carries an `X-LEON-Signature` header containing an HMAC-SHA256 of the raw
 request body, computed with your **webhook signing secret**. The signing secret is distinct from
 your `client_secret`. Always verify the signature against the raw body before parsing — verifying
 against re-serialized JSON will fail.
@@ -71,7 +71,7 @@ A settlement file is published per client site each day at 04:00 UTC covering th
 
 ### §4.2 Reconciliation
 
-Reconcile the settlement file against your own transaction records using `round_id` as the join
+Reconcile the daily delivery file against your own records using `record_id` as the join
 key. Discrepancies should be raised within 5 business days.
 
 ## §5 Certification

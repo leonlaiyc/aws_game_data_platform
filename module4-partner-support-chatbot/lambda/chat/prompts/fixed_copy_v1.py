@@ -19,7 +19,7 @@ Two deliberate wording rules encoded here:
 """
 
 GREETING = (
-    "Thanks for contacting Aurora Games partner integration support."
+    "Thanks for contacting LEON Data Platform integration guidance."
 )
 
 # Selected by code from a deterministic signal (whether the partner is
@@ -28,7 +28,7 @@ ACKNOWLEDGMENT_ERROR_REPORT = "Sorry you're running into this - let's get it sor
 ACKNOWLEDGMENT_INFO_REQUEST = "Happy to help with that."
 
 CLOSING_NORMAL = (
-    "This answer is based on Aurora Games' official integration documentation. "
+    "This answer is based on LEON Data Platform's official integration documentation. "
     "If anything is still unclear, just ask."
 )
 
@@ -41,13 +41,13 @@ CLOSING_ESCALATION = (
 CLOSING_CLARIFICATION = "Once I know that, I can give you an exact answer."
 
 CLOSING_OUT_OF_SCOPE = (
-    "I'm here specifically for Aurora Games integration topics - authentication, webhooks, "
+    "I'm here specifically for LEON Data Platform integration topics - authentication, webhooks, "
     "settlement, environments and releases. Ask me anything in that area."
 )
 
 # BLOCKED CONTENT: fixed refusal, deliberately uninformative about the cause.
 BLOCKED_RESPONSE = (
-    "I'm not able to help with that request. If you have a question about your Aurora Games "
+    "I'm not able to help with that request. If you have a question about your LEON Data Platform "
     "integration, I'm glad to help with that instead."
 )
 

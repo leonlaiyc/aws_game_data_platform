@@ -11,6 +11,36 @@ SITE_METRICS = [
     "deposits_usd",
     "withdrawals_usd",
 ]
+HOURLY_METRICS = ["active_users", "sessions", "processed_events"]
+
+
+def hourly_baseline_comparison(site: str, event_hour: str) -> dict:
+    """Read detector-ready evidence; no baseline is recomputed here."""
+    rows = fetch_all_rows(run_athena_query(f"""
+        SELECT *
+        FROM gold_hourly_monitoring_features
+        WHERE client_site_id = '{site}'
+          AND event_hour = TIMESTAMP '{event_hour}'
+        LIMIT 1
+    """))
+    if not rows:
+        return {}
+    row = rows[0]
+    comparison = {}
+    for metric in HOURLY_METRICS:
+        actual = float(row[metric])
+        baseline = float(row[f"{metric}_baseline"])
+        comparison[metric] = {
+            "actual": round(actual, 4),
+            "baseline": round(baseline, 4),
+            "lower_bound": round(float(row[f"{metric}_lower_bound"]), 4),
+            "upper_bound": round(float(row[f"{metric}_upper_bound"]), 4),
+            "pct_change": (
+                round((actual - baseline) / baseline * 100, 2)
+                if baseline else None
+            ),
+        }
+    return comparison
 
 
 def site_baseline_comparison(site: str, as_of_date: str) -> dict:

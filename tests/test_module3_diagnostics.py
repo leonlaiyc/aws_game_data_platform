@@ -159,3 +159,73 @@ def test_retention_alert_becomes_first_look_without_model_call(monkeypatch):
     assert result["reports"][0]["report_type"] == "RETENTION_FIRST_LOOK"
     assert "Sample-Weighted Comparison" in result["reports"][0]["report_text"]
     assert len(fake_sns.messages) == 1
+
+
+def test_hourly_alert_reads_precomputed_evidence_before_headline(monkeypatch):
+    comparison = {
+        "active_users": {
+            "actual": 2,
+            "baseline": 9.3,
+            "lower_bound": 5,
+            "upper_bound": 14,
+            "pct_change": -78.49,
+        },
+        "sessions": {
+            "actual": 2,
+            "baseline": 8.1,
+            "lower_bound": 4,
+            "upper_bound": 12,
+            "pct_change": -75.31,
+        },
+        "processed_events": {
+            "actual": 19,
+            "baseline": 81.6,
+            "lower_bound": 40,
+            "upper_bound": 123,
+            "pct_change": -76.72,
+        },
+    }
+    calls = []
+    monkeypatch.setattr(
+        first_look,
+        "_hourly_baseline_comparison",
+        lambda site, event_hour: calls.append((site, event_hour)) or comparison,
+    )
+    monkeypatch.setattr(
+        first_look,
+        "_headline",
+        lambda site, event_hour, evidence: (
+            calls.append(("headline", evidence))
+            or "Site usage fell materially below its same-hour baseline."
+        ),
+    )
+    fake_s3 = FakeS3()
+    fake_sns = FakeSns()
+    monkeypatch.setattr(first_look, "s3", fake_s3)
+    monkeypatch.setattr(first_look, "sns", fake_sns)
+    event = {
+        "Records": [{
+            "Sns": {
+                "Message": json.dumps({"alerts": [{"metric": "active_users"}]}),
+                "MessageAttributes": {
+                    "alert_type": {"Value": "hourly_data_anomaly"},
+                    "client_site_id": {"Value": "site_b"},
+                    "as_of_date": {"Value": "2026-06-10"},
+                    "event_hour": {"Value": "2026-06-10 13:00:00.000"},
+                },
+            }
+        }]
+    }
+
+    result = first_look.handler(event, None)
+
+    report = result["reports"][0]
+    assert calls[0] == ("site_b", "2026-06-10 13:00:00.000")
+    assert calls[1] == ("headline", comparison)
+    assert report["report_type"] == "HOURLY_FIRST_LOOK"
+    assert "Same-Hour Comparison" in report["report_text"]
+    assert (
+        "gold/first_look_reports/site_b_2026-06-10T13_hourly.json"
+        in fake_s3.objects
+    )
+    assert len(fake_sns.messages) == 1

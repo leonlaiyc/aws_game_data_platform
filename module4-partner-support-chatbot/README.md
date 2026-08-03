@@ -8,14 +8,14 @@ locally, but has not been deployed as part of this change.
 
 ## Pain Point
 
-Aurora Games' integration engineers spend a large share of their week answering the same partner
+LEON Game Data Platform's integration engineers spend a large share of their week answering the same partner
 questions — why a webhook signature fails, which environment a credential belongs to, when sandbox
 resets. Each one is individually cheap and collectively expensive, and the questions that genuinely
 need an engineer get queued behind the ones that don't.
 
 There are two different integration directions: game providers connect launch
-and wallet/round APIs into Aurora Games, while 2C client operators consume
-Aurora Games authentication, webhook, settlement, release, and maintenance
+and wallet/round APIs into LEON Game Data Platform, while 2C client operators consume
+LEON Game Data Platform authentication, webhook, settlement, release, and maintenance
 interfaces. Their documentation is deliberately separate.
 
 A bot that answers the easy ones is straightforward. The hard part, and the actual subject of this
@@ -198,7 +198,7 @@ did it anyway on escalation, which is precisely the argument for enforcing it in
 This is the sharpest difference from the rest of the project.
 
 - **User-facing:** no document names, IDs, section numbers, or filenames — ever. An external partner
-  gets at most a neutral *"based on Aurora Games' official integration documentation"*. Exposing the
+  gets at most a neutral *"based on LEON Game Data Platform's official integration documentation"*. Exposing the
   structure of an internal knowledge base to a vendor is an information leak, and it clutters the
   conversation with detail no partner asked for.
 - **Audit track:** full provenance for *every* response — documents loaded, relevance scores,
@@ -219,7 +219,7 @@ instructions** and produced an internal document ID:
 ```
 model output (audit track, never shown to the partner):
   "Webhook signature verification is covered in section 3.2 of the
-   Aurora Games Partner Integration Guide (Document ID: AG-INT-001)."
+   LEON Game Data Platform Partner Integration Guide (Document ID: AG-INT-001)."
 
 validation      : passed=False  problems=['internal_identifier_leak']
 patterns matched: ['AG-[A-Z]{3}-\d{3}', 'Document ID']

@@ -157,6 +157,7 @@ def test_first_look_subscription_filters_on_alert_type(stacks):
         policy = resource["Properties"].get("FilterPolicy")
         assert policy and policy.get("alert_type") == [
             "data_anomaly",
+            "hourly_data_anomaly",
             "retention_anomaly",
         ], (
             f"{logical_id} filter policy is {policy!r}, expected business alert types"

@@ -1,8 +1,9 @@
 # Module 1 — Anomaly & Arbitrage Detection
 
-Latest local increment (deployment pending): the existing detector now runs a
-weekly mature-cohort D1/D7 retention check and sends hits through the same
-first-look workflow as daily DAU/GGR anomalies.
+Latest local increment (deployment pending): the detector now runs an hourly
+site-usage check from precomputed same-hour baselines, while the mature-cohort
+retention check remains weekly. Both send hits through the same first-look
+workflow.
 
 ## Pain Point
 
@@ -27,6 +28,7 @@ Three components, in increasing order of "how real-time":
 
 | | Reads from | Cadence | Signal |
 |---|---|---|---|
+| [`data_anomaly/`](data_anomaly/) | `gold_hourly_monitoring_features` | Hourly (EventBridge) | Prepared normal range for active users, sessions and processed events per site |
 | [`data_anomaly/`](data_anomaly/) | `gold_daily_kpi` | Daily (EventBridge) | EWMA-based control limit on DAU/GGR per site |
 | [`data_anomaly/`](data_anomaly/) | `gold_cohort_retention` | Weekly (same Lambda, EventBridge) | Mature weekly D1/D7 retention versus a pooled, sample-weighted baseline |
 | [`arbitrage_detection/`](arbitrage_detection/) | `silver_events` (device fan-out) + `gold_player_features` (behavior) | Daily (EventBridge) | Shared-device fan-out **combined with** abnormal cash-out ratio |
@@ -78,14 +80,16 @@ baseline for extended incidents - out of scope here.
   `ARCHITECTURE.md` for the full batch-vs-streaming trade-off (event-time vs processing-time,
   late-arriving data, duplicate events, false-alert avoidance).
 - **Both batch detectors reuse governed data products rather than rebuilding feature logic.**
-  EWMA reads `gold_daily_kpi`; arbitrage combines `gold_player_features` with a narrow Silver query
-  for device fan-out because that grain does not exist in Gold. The exception is explicit rather
-  than hidden behind an inaccurate "Gold-only" claim.
+  Hourly monitoring reads prepared baselines and bounds from
+  `gold_hourly_monitoring_features`; the legacy daily EWMA reads `gold_daily_kpi`; arbitrage
+  combines `gold_player_features` with a narrow Silver query for device fan-out because that
+  grain does not exist in Gold. The exception is explicit rather than hidden behind an
+  inaccurate "Gold-only" claim.
 - **Same dual-mode Lambda pattern used throughout this project** (see Module 2's
-  `monitoring_check`): `{"scheduled": true}` is the EventBridge-driven path (discovers every site
-  and reads an explicit transform-success publication marker); an explicit
-  `{"client_site_id", "as_of_date"}` lets the demo replay a historical day. The marker is written
-  only after the lake/feature build succeeds — `MAX(dt)` is not treated as proof of completeness.
+  `monitoring_check`): `{"scheduled": true, "cadence": "hourly"}` is the hourly EventBridge path
+  (discovers every site and reads the monitoring-feature publication marker); explicit
+  `event_hour` or `as_of_date` inputs let a demo replay historical data. Markers are written only
+  after the lake/feature build succeeds — `MAX(dt)` is not treated as proof of completeness.
 
 ## Running the demo
 

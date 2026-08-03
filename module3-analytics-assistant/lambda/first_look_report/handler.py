@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 import boto3
 from diagnostics import (
     game_breakdown as _game_breakdown,
+    hourly_baseline_comparison as _hourly_baseline_comparison,
     render_report as _render_report,
     site_baseline_comparison as _site_baseline_comparison,
 )
@@ -120,6 +121,36 @@ def _render_retention_report(payload: dict) -> tuple[str, str]:
     return report, headline
 
 
+def _render_hourly_report(
+    site: str,
+    event_hour: str,
+    comparison: dict,
+    headline: str,
+) -> str:
+    labels = {
+        "active_users": "active users",
+        "sessions": "sessions",
+        "processed_events": "processed events",
+    }
+    lines = "\n".join(
+        f"- {labels[metric]}: {values['actual']} vs same-hour baseline "
+        f"{values['baseline']} ({values['pct_change']}%)"
+        for metric, values in comparison.items()
+    )
+    return (
+        f"### Hourly First-Look: {site} at {event_hour}\n\n"
+        f"### Headline\n{headline}\n\n"
+        f"### Same-Hour Comparison\n{lines}\n\n"
+        f"### Interpretation Boundary\n"
+        f"This is an investigation signal, not a confirmed root cause. "
+        f"Check ingestion and service health before attributing the movement "
+        f"to user behaviour.\n\n"
+        f"### Suggested Next Steps\n"
+        f"- Check data ingestion completeness for the affected hour.\n"
+        f"- Check service health and recent releases for {site}."
+    )
+
+
 def _store_and_publish(
     site: str,
     as_of_date: str,
@@ -128,8 +159,12 @@ def _store_and_publish(
     report_type: str,
     evidence: dict,
 ) -> dict:
-    suffix = "retention" if report_type == "RETENTION_FIRST_LOOK" else "daily"
-    key = f"gold/first_look_reports/{site}_{as_of_date}_{suffix}.json"
+    suffix = {
+        "RETENTION_FIRST_LOOK": "retention",
+        "HOURLY_FIRST_LOOK": "hourly",
+    }.get(report_type, "daily")
+    key_time = as_of_date.replace(" ", "T").replace(":00:00.000", "")
+    key = f"gold/first_look_reports/{site}_{key_time}_{suffix}.json"
     s3.put_object(
         Bucket=BUCKET,
         Key=key,
@@ -191,7 +226,11 @@ def handler(event, context):
         site = (attrs.get("client_site_id") or {}).get("Value")
         as_of_date = (attrs.get("as_of_date") or {}).get("Value")
         if (
-            alert_type not in {"data_anomaly", "retention_anomaly"}
+            alert_type not in {
+                "data_anomaly",
+                "hourly_data_anomaly",
+                "retention_anomaly",
+            }
             or not site
             or not as_of_date
         ):
@@ -230,6 +269,29 @@ def handler(event, context):
                     {"retention_evidence": payload},
                 )
             )
+            continue
+
+        if alert_type == "hourly_data_anomaly":
+            event_hour = (attrs.get("event_hour") or {}).get("Value")
+            if not event_hour:
+                print(json.dumps({
+                    "skipped": True,
+                    "reason": "hourly alert missing event_hour",
+                }))
+                continue
+            comparison = _hourly_baseline_comparison(site, event_hour)
+            headline = _headline(site, event_hour, comparison)
+            report_text = _render_hourly_report(
+                site, event_hour, comparison, headline
+            )
+            reports.append(_store_and_publish(
+                site,
+                event_hour,
+                report_text,
+                headline,
+                "HOURLY_FIRST_LOOK",
+                {"event_hour": event_hour, "comparison": comparison},
+            ))
             continue
 
         comparison = _site_baseline_comparison(site, as_of_date)

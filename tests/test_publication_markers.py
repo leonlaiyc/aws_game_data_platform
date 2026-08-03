@@ -105,3 +105,49 @@ def test_lake_build_reapplies_governance_before_publication():
         main_source.index("apply_client_isolation()")
         < main_source.index("publish_completion_manifest(")
     )
+
+
+def test_hourly_gold_table_is_built_cleared_and_published():
+    ddl = (
+        REPO_ROOT
+        / "data-foundation"
+        / "lake"
+        / "ddl"
+        / "05_gold_hourly_kpi.sql"
+    ).read_text(encoding="utf-8")
+    builder = (
+        REPO_ROOT / "data-foundation" / "lake" / "build_lake.py"
+    ).read_text(encoding="utf-8")
+
+    assert "CREATE TABLE gold_hourly_kpi" in ddl
+    assert "date_trunc('hour', event_ts) AS event_hour" in ddl
+    assert "partitioned_by = ARRAY['dt']" in ddl
+    assert 'clear_prefix(bucket, "gold/hourly_kpi/")' in builder
+    assert '"manifests/published/gold_hourly_kpi.json"' in builder
+
+
+def test_hourly_monitoring_baseline_is_precomputed_and_published():
+    ddl = (
+        REPO_ROOT
+        / "data-foundation"
+        / "lake"
+        / "ddl"
+        / "06_gold_hourly_monitoring_features.sql"
+    ).read_text(encoding="utf-8")
+    hourly_ddl = (
+        REPO_ROOT
+        / "data-foundation"
+        / "lake"
+        / "ddl"
+        / "05_gold_hourly_kpi.sql"
+    ).read_text(encoding="utf-8")
+    builder = (
+        REPO_ROOT / "data-foundation" / "lake" / "build_lake.py"
+    ).read_text(encoding="utf-8")
+
+    assert "COUNT(*) AS processed_events" in hourly_ddl
+    assert "CREATE TABLE gold_hourly_monitoring_features" in ddl
+    assert "ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING" in ddl
+    assert "active_users_lower_bound" in ddl
+    assert 'clear_prefix(bucket, "gold/hourly_monitoring_features/")' in builder
+    assert '"manifests/published/gold_hourly_monitoring_features.json"' in builder

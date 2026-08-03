@@ -50,12 +50,18 @@ event_simulator/  --(local JSONL)-->  S3 bronze/  --(Athena CTAS)-->  S3 silver/
 3. **Silver** (`s3://<bucket>/silver/events/`): same grain as Bronze, but Parquet/Snappy, with
    `event_ts` parsed to a real timestamp and FX converted to USD **once** (`bet_amount_usd`,
    `win_amount_usd`, `amount_usd`) so every downstream query reuses it instead of re-deriving it.
-4. **Gold**: small, purpose-built aggregate tables (not partitioned — a few hundred rows each,
-   so partitioning would only add overhead). Column-by-column definitions live in
-   `KPI_DEFINITIONS.md`, not repeated here:
+4. **Gold**: purpose-built aggregate tables. The small daily and cohort summaries are not
+   partitioned; the larger hourly actor-level table is partitioned by `dt` so scheduled checks
+   can prune old data. Column-by-column definitions live in `KPI_DEFINITIONS.md`, not repeated here:
    - `gold_daily_kpi` — dt x client_site_id grain: DAU, sessions, new players, GGR, deposits,
      withdrawals, ARPU (all USD). Also the table `governance/`'s client-isolation demo filters.
    - `gold_cohort_retention` — registration_date x client_site_id grain: D1/D7 retention.
+   - `gold_hourly_kpi` — event_hour x client_site_id x game_id x player_id grain: hourly sessions
+     and normalized value metrics used by exposure-aware live experiment guardrails.
+   - `gold_hourly_monitoring_features` — event_hour x client_site_id grain: hourly active users,
+     sessions and processed events with a trailing same-hour baseline and normal range already
+     computed for Module 1. The detector reads one prepared row instead of rebuilding history at
+     alert time.
 
 ## Running it
 

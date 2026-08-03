@@ -68,7 +68,7 @@
             <em data-i18n="heroTitle2">解決四個實際營運痛點。</em>
           </h1>
           <p class="hero-lede" data-i18n="heroLede">
-            以 Serverless 為主的設計，建構於資料共用、權限邊界與成本控制之上，解決異常偵測、實驗運營、臨時分析與合作夥伴支援問題。
+            以 Serverless 為主的設計，建構於資料共用、權限邊界與成本控制之上，解決異常偵測、實驗運營、臨時分析與合作夥伴整合支援問題。
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#architecture">
@@ -99,7 +99,7 @@
               <span data-i18n="statWorkflows">operating workflows</span>
             </div>
             <div>
-              <strong>145</strong>
+              <strong>146</strong>
               <span data-i18n="statTests">offline tests</span>
             </div>
             <div>
@@ -133,11 +133,11 @@
           <article class="problem-card reveal">
             <div class="problem-topline">
               <span class="module-token">M1</span>
-              <span data-i18n="m1Short">異常／風險訊號</span>
+              <span data-i18n="m1Short">異常／品質訊號</span>
             </div>
             <h3 data-i18n="p1Title">沒有主動監控，只能被動發現。</h3>
             <p data-i18n="p1Body">
-              數據缺乏主動監控；一旦留存或營收下滑，通常要等到人為發現才開始處理。已知套利風險也缺少一致、可回溯的證據格式，調查品質容易依賴個人經驗。
+              數據缺乏主動監控；一旦活躍度或轉換表現下滑，通常要等到人為發現才開始處理。已知資料品質訊號也缺少一致、可回溯的證據格式，調查品質容易依賴個人經驗。
             </p>
           </article>
 
@@ -148,7 +148,7 @@
             </div>
             <h3 data-i18n="p2Title">並行實驗的狀態存在每個人的腦中。</h3>
             <p data-i18n="p2Body">
-              不同遊戲的 A/B testing 同時進行時，沒有中央化方式查看並行實驗狀態，得一個一個問人，或等到站會才知道。
+              不同產品體驗的 A/B testing 同時進行時，沒有中央化方式查看並行實驗狀態，得一個一個問人，或等到站會才知道。
             </p>
             <p class="secondary-pains" data-i18n="p2SecondaryIntro">
               這個核心問題同時還伴隨兩個次要、但會持續增加營運成本的問題：
@@ -166,7 +166,7 @@
             </div>
             <h3 data-i18n="p3Title">Dashboard 回答不了突然出現的「為什麼」。</h3>
             <p data-i18n="p3Body">
-              Dashboard 可以回答固定問題，但當老闆、業務或客戶突然詢問「今天營收為什麼掉了？」時，現有 dashboard 往往無法直接回答。
+              Dashboard 可以回答固定問題，但當老闆、業務或客戶突然詢問「今天核心指標為什麼掉了？」時，現有 dashboard 往往無法直接回答。
             </p>
             <p data-i18n="p3Impact">
               這類提問通常伴隨急迫性，又會在不可預期的時間出現，進一步加重分析人員的工作負擔；當客戶數量增加，問題頻率也會隨之上升。
@@ -176,11 +176,11 @@
           <article class="problem-card reveal">
             <div class="problem-topline">
               <span class="module-token">M4</span>
-              <span data-i18n="m4Short">合作夥伴支援</span>
+              <span data-i18n="m4Short">整合支援</span>
             </div>
-            <h3 data-i18n="p4Title">重複性客戶問題消耗客服與開發資源。</h3>
+            <h3 data-i18n="p4Title">重複的整合問題消耗支援與工程資源。</h3>
             <p data-i18n="p4Body">
-              不同時區的合作夥伴經常反覆詢問類似的產品對接與整合問題：一方面客服需要重複回答；另一方面，若客服無法處理，問題就會升級到工程師層面，進一步增加開發負擔。
+              不同時區的合作夥伴經常詢問相似的 API 驗證、Webhook、環境設定、服務更新與維護資訊；常見問題需要反覆回覆，複雜案件則占用工程團隊時間。
             </p>
           </article>
         </div>
@@ -200,142 +200,129 @@
           </div>
 
           <div class="architecture-canvas reveal" aria-label="System architecture overview">
-            <section class="foundation-map" aria-labelledby="foundation-map-title">
-              <header class="architecture-layer-heading">
-                <span>01</span>
-                <div>
-                  <small data-i18n="foundationMapKicker">END-TO-END DATA FOUNDATION</small>
-                  <h3 id="foundation-map-title" data-i18n="foundationMapTitle">資料生成、治理與發布路徑</h3>
+            <div class="architecture-stage-rail" aria-hidden="true">
+              <span>THE FOUNDATION</span>
+              <span>THE GOVERNANCE</span>
+              <span>THE INTELLIGENCE</span>
+              <span>THE DELIVERY</span>
+            </div>
+
+            <div class="system-blueprint">
+              <section class="blueprint-lane data-lane" aria-labelledby="foundation-map-title">
+                <header class="blueprint-heading">
+                  <span>01</span>
+                  <div>
+                    <small data-i18n="foundationMapKicker">END-TO-END DATA FOUNDATION</small>
+                    <h3 id="foundation-map-title" data-i18n="foundationMapTitle">資料生成、治理與發布路徑</h3>
+                  </div>
+                </header>
+
+                <div class="pipeline-track">
+                  <article class="blueprint-node input-node">
+                    <small data-i18n="sourceLabel">INPUT</small>
+                    <strong>Client events</strong>
+                    <span data-i18n="sourceStageBody">模擬 client SDK 事件與可重播情境</span>
+                  </article>
+                  <i class="blueprint-arrow" aria-hidden="true">→</i>
+                  <div class="preparation-zone">
+                    <small>DATA PREPARATION</small>
+                    <div>
+                      <article class="blueprint-node"><b>Amazon S3</b><span>Bronze · Raw JSON</span></article>
+                      <i aria-hidden="true">→</i>
+                      <article class="blueprint-node"><b>Athena CTAS</b><span data-i18n="transformStageBody">Schema cast · 清理 · 可重跑轉換</span></article>
+                      <i aria-hidden="true">→</i>
+                      <article class="blueprint-node"><b>Amazon S3</b><span>Silver · Typed Parquet</span></article>
+                    </div>
+                  </div>
+                  <i class="blueprint-arrow" aria-hidden="true">→</i>
+                  <div class="gold-zone">
+                    <small>PUBLISHED GOLD DATA PRODUCTS</small>
+                    <div>
+                      <span><b>gold_daily_kpi</b><i>Daily operations</i></span>
+                      <span class="hourly-product"><b>gold_hourly_kpi</b><i>Hourly guardrails</i></span>
+                      <span><b>cohort_retention</b><i>Mature cohorts</i></span>
+                      <span><b>entity_features</b><i>Analysis / ML</i></span>
+                    </div>
+                    <p data-i18n="publicationBadge">Publication marker 驗證完整版本</p>
+                  </div>
                 </div>
-              </header>
+              </section>
 
-              <div class="foundation-flow">
-                <article class="service-node source-service">
-                  <small data-i18n="sourceLabel">INPUT</small>
-                  <strong>event_simulator</strong>
-                  <span data-i18n="sourceStageBody">模擬 client SDK 事件與可重播情境</span>
-                  <b>Synthetic Python CLI</b>
-                </article>
-                <i class="flow-arrow" aria-hidden="true">→</i>
-                <article class="service-node bronze-service">
-                  <small>INGEST · RAW</small>
-                  <strong>Amazon S3 · Bronze</strong>
-                  <span data-i18n="bronzeStageBody">Raw JSON · 日期／租戶分區</span>
-                  <b data-i18n="directBatchBadge">Direct batch write · 零閒置運算</b>
-                </article>
-                <i class="flow-arrow" aria-hidden="true">→</i>
-                <article class="service-node transform-service">
-                  <small>TRANSFORM</small>
-                  <strong>Amazon Athena · CTAS</strong>
-                  <span data-i18n="transformStageBody">Schema cast · 清理 · 可重跑轉換</span>
-                  <b>AWS Glue Data Catalog</b>
-                </article>
-                <i class="flow-arrow" aria-hidden="true">→</i>
-                <article class="service-node silver-service">
-                  <small>CURATED</small>
-                  <strong>Amazon S3 · Silver</strong>
-                  <span data-i18n="silverStageBody">Typed Parquet events</span>
-                  <b data-i18n="silverBadge">分析與已知風險特徵來源</b>
-                </article>
-                <i class="flow-arrow" aria-hidden="true">→</i>
-                <article class="service-node gold-service">
-                  <small>PUBLISHED</small>
-                  <strong>Amazon S3 · Gold</strong>
-                  <span data-i18n="goldStageBody">KPI · 留存 · 玩家特徵 · 實驗資料</span>
-                  <b data-i18n="publicationBadge">Publication marker 驗證完整版本</b>
-                </article>
-              </div>
-
-              <div class="governance-band">
-                <article>
-                  <small>CATALOG</small>
-                  <strong>AWS Glue Data Catalog</strong>
-                  <span data-i18n="catalogControl">固定 Bronze → Silver → Gold 結構與欄位定義</span>
-                </article>
-                <article>
-                  <small>TENANT BOUNDARY</small>
-                  <strong>AWS Lake Formation</strong>
-                  <span data-i18n="tenantControl">依 client_site_id 套用 row-level data cell filter</span>
-                </article>
-                <article>
-                  <small>QUERY CONTROL</small>
-                  <strong>Amazon Athena Workgroup</strong>
-                  <span data-i18n="queryControl">查詢結果隔離與 1 GB 單次掃描上限</span>
-                </article>
-                <article>
-                  <small>DEFINITION OF RECORD</small>
-                  <strong>KPI_DEFINITIONS · FEATURES</strong>
-                  <span data-i18n="definitionControl">同一套指標與特徵定義供 M1、M2、M3 使用</span>
-                </article>
-              </div>
-            </section>
-
-            <section class="module-map" aria-labelledby="module-map-title">
-              <header class="architecture-layer-heading">
-                <span>02</span>
+              <aside class="security-guardian" aria-label="Shared security and governance controls">
+                <strong>ROLE-BASED GUARDIAN</strong>
                 <div>
-                  <small data-i18n="moduleMapKicker">AUTOMATION & DECISION PATHS</small>
-                  <h3 id="module-map-title" data-i18n="moduleMapTitle">四個模組如何消費資料並交付結果</h3>
+                  <span><b>AWS Glue</b><i data-i18n="catalogControl">固定 Bronze → Silver → Gold 結構與欄位定義</i></span>
+                  <span><b>Lake Formation</b><i data-i18n="tenantControl">依 client_site_id 套用 row-level data cell filter</i></span>
+                  <span><b>Athena Workgroup</b><i data-i18n="queryControl">查詢結果隔離與 1 GB 單次掃描上限</i></span>
+                  <span><b>Metric registry</b><i data-i18n="definitionControl">同一套指標與特徵定義供 M1、M2、M3 使用</i></span>
                 </div>
-              </header>
+              </aside>
 
-              <div class="architecture-module-grid">
-                <article class="module-architecture m1-architecture">
-                  <header><b>M1</b><div><small>DETECT</small><h4 data-i18n="architectureM1Title">異常與已知風險偵測</h4></div></header>
-                  <div class="module-service-flow">
-                    <span><small>TRIGGER</small><b>EventBridge</b></span><i>→</i>
-                    <span><small>COMPUTE</small><b>AWS Lambda</b></span><i>→</i>
-                    <span><small>QUERY</small><b>Amazon Athena</b></span><i>→</i>
-                    <span><small>ALERT</small><b>Amazon SNS</b></span>
+              <section class="blueprint-lane intelligence-lane" aria-labelledby="module-map-title">
+                <header class="blueprint-heading">
+                  <span>02</span>
+                  <div>
+                    <small data-i18n="moduleMapKicker">AUTOMATION & DECISION PATHS</small>
+                    <h3 id="module-map-title" data-i18n="moduleMapTitle">四個模組如何消費資料並交付結果</h3>
                   </div>
-                  <p data-i18n="architectureM1Body">每日 DAU／GGR、每週留存與雙訊號風險檢查；告警自動觸發 M3 first-look，flagged players 另交人工審查。</p>
-                  <div class="module-branch"><b>OPT-IN REAL-TIME DEMO</b><span>Kinesis → Lambda → DynamoDB TTL → SNS</span></div>
-                </article>
+                </header>
 
-                <article class="module-architecture m2-architecture">
-                  <header><b>M2</b><div><small>EXPERIMENT OPS</small><h4 data-i18n="architectureM2Title">實驗生命週期與安全停止</h4></div></header>
-                  <div class="module-service-flow">
-                    <span><small>ENTRY</small><b>API Gateway</b></span><i>→</i>
-                    <span><small>STATE</small><b>DynamoDB</b></span><i>→</i>
-                    <span><small>ORCHESTRATE</small><b>Step Functions</b></span><i>→</i>
-                    <span><small>READOUT</small><b>Bedrock</b></span>
-                  </div>
-                  <p data-i18n="architectureM2Body">Lambda 執行 assignment、SRM、guardrail、analysis 與 readout；Gold features 與 registry state 一起決定實驗是否繼續。</p>
-                  <div class="module-branch"><b>CONTROL</b><span data-i18n="architectureM2Branch">SRM hard fail · hourly guardrail · allocation kill switch</span></div>
-                </article>
+                <div class="gold-distribution" aria-hidden="true"><span>GOLD DATA</span><i>↓</i><i>↓</i><i>↓</i></div>
+                <div class="consumer-grid">
+                  <article class="consumer-node">
+                    <header><b>M1</b><div><small>DETECT</small><h4 data-i18n="architectureM1Title">使用異常與品質訊號偵測</h4></div></header>
+                    <p class="service-chain">EventBridge → Lambda → Athena → SNS</p>
+                    <p data-i18n="architectureM1Body">每日活躍度、每週留存與雙訊號品質檢查；告警自動觸發 M3 first-look，需要判讀的紀錄另交人工審查。</p>
+                    <span class="consumer-output">ALERT + EVIDENCE</span>
+                  </article>
+                  <article class="consumer-node featured-consumer">
+                    <header><b>M2</b><div><small>EXPERIMENT OPS</small><h4 data-i18n="architectureM2Title">實驗生命週期與安全停止</h4></div></header>
+                    <p class="service-chain">API Gateway → DynamoDB → Step Functions</p>
+                    <p data-i18n="architectureM2Body">Lambda 執行 assignment、SRM、guardrail、analysis 與 readout；Gold features 與 registry state 一起決定實驗是否繼續。</p>
+                    <span class="consumer-output" data-i18n="architectureM2Branch">SRM hard fail · hourly guardrail · allocation kill switch</span>
+                  </article>
+                  <article class="consumer-node">
+                    <header><b>M3</b><div><small>INVESTIGATE</small><h4 data-i18n="architectureM3Title">受治理問答與事件初判</h4></div></header>
+                    <p class="service-chain">API / SNS → Bedrock → Athena SQL</p>
+                    <p data-i18n="architectureM3Body">Guardrails 與 allow-listed templates 限制問題範圍；所有數字由 SQL 產生，無法回答的工作寫入 DynamoDB ticket。</p>
+                    <span class="consumer-output" data-i18n="architectureM3Branch">Grounded answer · first-look report · durable ticket</span>
+                  </article>
+                </div>
+              </section>
 
-                <article class="module-architecture m3-architecture">
-                  <header><b>M3</b><div><small>INVESTIGATE</small><h4 data-i18n="architectureM3Title">受治理問答與事件初判</h4></div></header>
-                  <div class="module-service-flow">
-                    <span><small>ENTRY</small><b>API GW / SNS</b></span><i>→</i>
-                    <span><small>CLASSIFY</small><b>Bedrock</b></span><i>→</i>
-                    <span><small>FACTS</small><b>Athena SQL</b></span><i>→</i>
-                    <span><small>DELIVER</small><b>S3 · SNS/SQS</b></span>
-                  </div>
-                  <p data-i18n="architectureM3Body">Guardrails 與 allow-listed templates 限制問題範圍；所有數字由 SQL 產生，無法回答的工作寫入 DynamoDB ticket。</p>
-                  <div class="module-branch"><b>HUMAN OUTPUT</b><span data-i18n="architectureM3Branch">Grounded answer · first-look report · durable ticket</span></div>
+              <section class="knowledge-lane" aria-label="Separate integration support path">
+                <div class="knowledge-source"><small>CURATED DOCUMENTS</small><b>Versioned integration guidance</b></div>
+                <i aria-hidden="true">→</i>
+                <article class="knowledge-agent">
+                  <header><b>M4</b><div><small>INTEGRATION SUPPORT</small><h4 data-i18n="architectureM4Title">身份隔離的整合支援</h4></div></header>
+                  <p>IAM → Relevance → Bedrock Guardrails → Code validator</p>
+                    <span data-i18n="architectureM4Body">IAM 身份先限定可用的支援知識；問題通過範圍與安全檢查後才產生回答，資訊不足時要求澄清，不支援的問題則拒絕回答或建立 OPEN ticket。</span>
                 </article>
+                <i aria-hidden="true">→</i>
+                <div class="knowledge-output"><small>DELIVERY</small><b>Answer / Clarify / OPEN ticket</b><span data-i18n="architectureM4Branch">不讀取 Gold tables · SNS/SQS 僅作帳號內稽核</span></div>
+              </section>
 
-                <article class="module-architecture m4-architecture">
-                  <header><b>M4</b><div><small>PARTNER SUPPORT</small><h4 data-i18n="architectureM4Title">身份隔離的 RAG 輔助支援</h4></div></header>
-                  <div class="module-service-flow">
-                    <span><small>IDENTITY</small><b>IAM / API GW</b></span><i>→</i>
-                    <span><small>POLICY</small><b>Bedrock Guardrails</b></span><i>→</i>
-                    <span><small>ANSWER</small><b>Nova Lite</b></span><i>⇢</i>
-                    <span><small>ESCALATE</small><b>DynamoDB</b></span>
-                  </div>
-                  <p data-i18n="architectureM4Body">IAM 身份先選定 provider 或 operator 文檔；相關性與 code validator 通過才回覆，否則澄清或建立 OPEN ticket。</p>
-                  <div class="module-branch"><b>SEPARATE KNOWLEDGE PATH</b><span data-i18n="architectureM4Branch">不讀取 Gold tables · SNS/SQS 僅作帳號內稽核</span></div>
-                </article>
-              </div>
-            </section>
+              <section class="people-lane" aria-label="Users and delivery interfaces">
+                <div class="people-group">
+                  <small>USERS</small>
+                  <span><b>OPS</b><i>Operations</i></span>
+                  <span><b>AN</b><i>Analytics</i></span>
+                  <span><b>PD</b><i>Product</i></span>
+                  <span><b>IP</b><i>Integration</i></span>
+                </div>
+                <i aria-hidden="true">⇄</i>
+                <div class="interface-group"><small>GOVERNED INTERFACES</small><b>Dashboard · API · Reports · Integration support</b></div>
+                <i aria-hidden="true">→</i>
+                <div class="decision-group"><small>HUMAN-OWNED OUTCOMES</small><b>Investigate · Decide · Escalate · Validate</b></div>
+              </section>
 
-            <div class="shared-rail">
-              <p data-i18n="sharedRailTitle">SHARED CONTROL PLANE</p>
-              <div>
-                <span><b>01</b><i data-i18n="sharedIdentity">Identity determines scope</i></span>
-                <span><b>02</b><i data-i18n="sharedFacts">Code owns facts and routing</i></span>
-                <span><b>03</b><i data-i18n="sharedCost">Default deployment is cost-bounded</i></span>
+              <div class="shared-rail">
+                <p data-i18n="sharedRailTitle">SHARED CONTROL PLANE</p>
+                <div>
+                  <span><b>01</b><i data-i18n="sharedIdentity">Identity determines scope</i></span>
+                  <span><b>02</b><i data-i18n="sharedFacts">Code owns facts and routing</i></span>
+                  <span><b>03</b><i data-i18n="sharedCost">Default deployment is cost-bounded</i></span>
+                </div>
               </div>
             </div>
           </div>
@@ -368,25 +355,25 @@
               <span class="workflow-index">01</span>
               <div>
                 <small>M1 · DETECTION</small>
-                <h3 data-i18n="wf1Title">KPI 異常與已知風險訊號</h3>
+                <h3 data-i18n="wf1Title">KPI 異常與已知品質訊號</h3>
               </div>
             </header>
             <div class="workflow-grid">
               <div>
                 <small data-i18n="beforeLabel">原本怎麼做</small>
-                <p data-i18n="wf1Before">依賴人主動查看報表，發現下滑後才開始追查；已知套利訊號的調查證據也不一致。</p>
+                <p data-i18n="wf1Before">依賴人主動查看報表，發現下滑後才開始追查；已知資料品質訊號的調查證據也不一致。</p>
               </div>
               <div>
                 <small data-i18n="systemLabel">系統接手</small>
-                <p data-i18n="wf1System">每日檢查 DAU／GGR 與已知雙訊號風險模式；每週檢查成熟的 D1／D7 cohort 留存，並附上 baseline、threshold 與證據。</p>
+                <p data-i18n="wf1System">每日檢查活躍度與互動量的異常模式；每週檢查成熟的 D1／D7 cohort 留存，並附上 baseline、threshold 與證據。</p>
               </div>
               <div>
                 <small data-i18n="humanLabel">人保留決策</small>
-                <p data-i18n="wf1Human">判斷根因、採取營運處置；風險玩家只進入人工審查，不由模型自動定罪。</p>
+                <p data-i18n="wf1Human">判斷根因、採取營運處置；需要判讀的紀錄進入人工審查，不由系統自動下結論。</p>
               </div>
               <div class="operating-detail">
                 <small data-i18n="wf1OpsLabel">掃描與告警窗口</small>
-                <p data-i18n="wf1Ops">DAU／GGR 每 24 小時只檢查最新完整發布日，使用前 20 天建立 baseline；成功完成後以 published_at 記錄消費進度。7/31 告警 7/30 後，8/1 正常只檢查 7/31；舊日期重發為新版本時才重新評估。</p>
+                <p data-i18n="wf1Ops">每日 KPI 每 24 小時只檢查最新完整發布日，使用前 20 天建立 baseline；成功完成後以 published_at 記錄消費進度。每小時 Guardrail 讀取 gold_hourly_kpi；舊資料重發為新版本時才重新評估。</p>
               </div>
             </div>
           </article>
@@ -414,7 +401,7 @@
               </div>
               <div class="operating-detail">
                 <small data-i18n="wf3ScopeLabel">答案品質控制</small>
-                <p data-i18n="wf3Scope">答案只從受治理 KPI 與 allow-listed templates 產生；無法回答就建立 ticket，不生成任意 SQL，也不碰未治理的 country／player 維度。</p>
+                <p data-i18n="wf3Scope">答案只從受治理 KPI 與 allow-listed templates 產生；無法回答就建立 ticket，不生成任意 SQL，也不碰未治理的地區／個別使用者維度。</p>
               </div>
             </div>
           </article>
@@ -451,22 +438,22 @@
             <header>
               <span class="workflow-index">04</span>
               <div>
-                <small>M4 · PARTNER SUPPORT</small>
-                <h3 data-i18n="wf4Title">RAG-style 合作夥伴支援</h3>
+                <small>M4 · INTEGRATION SUPPORT</small>
+                <h3 data-i18n="wf4Title">受治理的整合支援</h3>
               </div>
             </header>
             <div class="workflow-grid">
               <div>
                 <small data-i18n="beforeLabel">原本怎麼做</small>
-                <p data-i18n="wf4Before">客服重複回答整合問題；無法處理時再把缺乏脈絡的問題轉給工程師。</p>
+                <p data-i18n="wf4Before">合作夥伴反覆詢問相似的整合與服務資訊；複雜問題常在缺少結構化脈絡時直接占用工程資源。</p>
               </div>
               <div>
                 <small data-i18n="systemLabel">系統接手</small>
-                <p data-i18n="wf4System">系統先依 IAM 權限選定可讀取的文檔庫，經相關性門檻過濾後將合格文檔交給 AWS Bedrock 產生解答；若文檔資料不足，則請使用者澄清說明或自動開單轉人工處理。</p>
+                <p data-i18n="wf4System">系統先以 IAM 確認合作夥伴身份，再檢查問題是否屬於可支援範圍。合格問題由受限制的知識內容與 AWS Bedrock 產生回答；資訊不足時要求澄清，範圍外問題則明確拒絕。</p>
               </div>
               <div>
                 <small data-i18n="humanLabel">人保留決策</small>
-                <p data-i18n="wf4Human">當文檔無法回答、AI 回覆未通過安全驗證，或案件需要產品／工程判斷時，系統會建立 OPEN ticket 供人工接手。目前 PoC 只將工單存進 DynamoDB，尚未串接 Email、Slack 或 CRM 通知。</p>
+                <p data-i18n="wf4Human">只有需要產品／工程判斷、或安全驗證未通過的案件才建立 OPEN ticket 供人工接手。目前 PoC 將工單存進 DynamoDB，尚未串接 Email、Slack 或 CRM 通知。</p>
               </div>
               <div class="operating-detail">
                 <small data-i18n="wf4RagLabel">RAG 路徑與上線準備</small>
@@ -534,7 +521,7 @@
               </button>
               <button type="button" role="tab" aria-selected="false" data-demo="m4" aria-controls="demo-panel">
                 <span>01:22</span>
-                <b data-i18n="demoM4">M4 · Support</b>
+                <b data-i18n="demoM4">M4 · 整合支援</b>
                 <small data-i18n="demoM4Time">27 sec</small>
               </button>
             </div>
@@ -568,7 +555,7 @@
             <span class="loop-step human-led"><b>05</b><i data-i18n="loopValidate">Validate</i></span>
           </div>
           <p class="loop-note reveal" data-i18n="loopNote">
-            這條閉環只適用 KPI／留存異常；已知風險訊號走獨立的 flagged players → human review；M2 只在適合以受控實驗驗證時介入。
+            這條閉環只適用 KPI／留存異常；已知品質訊號走獨立的 flagged records → human review；M2 只在適合以受控實驗驗證時介入。
           </p>
         </div>
       </section>
@@ -750,7 +737,7 @@
         <div class="evidence-grid reveal">
           <article class="evidence-card evidence-tests-card">
             <div class="evidence-card-top"><span>VERIFICATION</span><b>01</b></div>
-            <strong>145 / 145</strong>
+            <strong>146 / 146</strong>
             <span data-i18n="evidenceTests">測試通過率（100%）</span>
             <small data-i18n="evidenceTestsNote">離線單元測試、資安邊界與 CDK assertions</small>
           </article>

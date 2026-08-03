@@ -136,7 +136,7 @@ def partner_chat(question: str, session_id: str | None = None) -> tuple[int, dic
     session_id = session_id or f"video-{uuid.uuid4().hex[:12]}"
     started = time.perf_counter()
     status, result = signed_post(
-        role_session("aurora-games-game-provider-partner"),
+        role_session("aurora-games-client-operator-partner"),
         f"{outputs['ChatApiUrl']}chat",
         {"question": question, "session_id": session_id},
         timeout=60,
@@ -144,7 +144,7 @@ def partner_chat(question: str, session_id: str | None = None) -> tuple[int, dic
     result["session_id"] = session_id
     result["request"] = {
         "service": "API Gateway + Lambda + Amazon Bedrock",
-        "identity": "game-provider-partner",
+        "identity": "integration-partner",
         "region": REGION,
         "duration_ms": round((time.perf_counter() - started) * 1000),
         "completed_at": datetime.now(timezone.utc).isoformat(),
