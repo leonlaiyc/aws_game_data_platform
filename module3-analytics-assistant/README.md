@@ -4,9 +4,10 @@ Status: **operationally verified PoC** as of 2026-07-29. Dynamic publication
 dates, governed per-game queries, durable analytics fallback tickets, and the
 alert-to-first-look-to-audit-delivery path passed against AWS.
 
-Latest local increment (deployment pending): governed on-demand diagnosis for
-“why did this drop?”, retention-alert first looks, and low-cost structured
-outcome fields in the existing audit logs.
+Latest local increment (deployment pending): business-facing diagnosis compares
+today through the latest complete hour with the previous 30 days at the same
+cutoff, aggregates every site allowed by the caller identity when no site is
+named, reads Module 1's incident status, and refuses unvalidated forecasts.
 
 ## Pain Point
 
@@ -44,14 +45,17 @@ First match wins, evaluated in this order:
    requested site isn't in it → `scope_blocked`. Distinct from `out_of_scope` because the question
    itself may be perfectly legitimate, it's just not this caller's data.
 3. **Not a game-analytics question at all** → `out_of_scope`
-4. **Metric identifiable but site/date range missing or ambiguous** → `needs_clarification`
+4. **Metric identifiable but date range missing or ambiguous** → `needs_clarification`; a recent
+   diagnosis with no site aggregates all sites permitted by the authenticated identity
 5. **Clearly analytics-shaped, but not one of the governed templates** →
    `no_template_match`; an `OPEN` DynamoDB work item is persisted before its
    ticket ID is returned
-6. **Recent “why/problem” question with site and date** → `diagnose` — reuse
-   the code-owned 7-day comparison and per-game breakdown; do not pay for a
-   second model call to narrate the same evidence.
-7. **Otherwise** → `answerable` — run the template, render the answer in code, attach a source
+6. **Recent “why/problem” question** → `diagnose` — read code-owned cumulative
+   values, the prepared 30-day same-cutoff baseline, and the current incident
+   status; the user-facing response contains no technical remediation advice
+7. **Future recovery/prediction question** → `forecast_not_supported` — state
+   that no validated forecasting model exists and do not invent a prediction
+8. **Otherwise** → `answerable` — run the template, render the answer in code, attach a source
    footer citing the table and `KPI_DEFINITIONS.md` anchor.
 
 Every request is logged in full (category, extracted slots, raw model reasoning) as a CloudWatch

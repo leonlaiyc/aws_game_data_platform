@@ -147,7 +147,8 @@ def test_hourly_monitoring_baseline_is_precomputed_and_published():
 
     assert "COUNT(*) AS processed_events" in hourly_ddl
     assert "CREATE TABLE gold_hourly_monitoring_features" in ddl
-    assert "ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING" in ddl
+    assert "ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING" in ddl
+    assert "fact.event_hour <= cutoff.event_hour" in ddl
     assert "active_users_lower_bound" in ddl
     assert 'clear_prefix(bucket, "gold/hourly_monitoring_features/")' in builder
     assert '"manifests/published/gold_hourly_monitoring_features.json"' in builder

@@ -49,7 +49,7 @@ def _feature():
     row = {
         "event_hour": "2026-06-10 13:00:00.000",
         "client_site_id": "site_b",
-        "baseline_points": "7",
+        "baseline_points": "30",
         "active_users": "2",
         "active_users_baseline": "9.3",
         "active_users_lower_bound": "5",
@@ -84,6 +84,7 @@ def test_hourly_check_uses_precomputed_bounds_and_publishes(monkeypatch):
     attrs = fake_sns.messages[0]["MessageAttributes"]
     assert attrs["alert_type"]["StringValue"] == "hourly_data_anomaly"
     assert attrs["event_hour"]["StringValue"] == "2026-06-10 13:00:00.000"
+    assert attrs["incident_id"]["StringValue"] == "site_b#2026-06-10T13"
     assert any(key.startswith("gold/anomaly_alerts/site_b_2026-06-10T13") for key in fake_s3.objects)
 
 
@@ -103,3 +104,14 @@ def test_hourly_schedule_consumes_each_publication_once(monkeypatch):
 
     assert first == {"checked": [{"client_site_id": "site_b"}], "cadence": "hourly"}
     assert second["skipped"] == "publication already processed"
+
+
+def test_hourly_monitoring_requires_thirty_complete_comparison_dates(monkeypatch):
+    feature = _feature()
+    feature["baseline_points"] = "29"
+    monkeypatch.setattr(hourly, "_fetch_hourly_feature", lambda *_: feature)
+
+    result = hourly._check_hourly_site("site_b", feature["event_hour"])
+
+    assert result["skipped"] == "insufficient same-hour history"
+    assert result["baseline_points"] == 29

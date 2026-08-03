@@ -36,8 +36,11 @@ from athena_utils import fetch_all_rows, run_athena_query
 
 s3 = boto3.client("s3")
 sns = boto3.client("sns")
+dynamodb = boto3.resource("dynamodb")
 BUCKET = os.environ["LAKE_BUCKET_NAME"]
 ALERTS_TOPIC_ARN = os.environ["ALERTS_TOPIC_ARN"]
+INCIDENTS_TABLE_NAME = os.environ.get("INCIDENTS_TABLE_NAME", "")
+incidents = dynamodb.Table(INCIDENTS_TABLE_NAME) if INCIDENTS_TABLE_NAME else None
 
 ALPHA = 0.3  # EWMA smoothing factor
 K_SIGMA = 3.0  # flag when |actual - ewma| > K_SIGMA * trailing stdev
@@ -52,7 +55,7 @@ HOURLY_PUBLICATION_MANIFEST_KEY = (
 )
 HOURLY_CONSUMPTION_MARKER_KEY = "manifests/consumed/hourly_data_anomaly.json"
 HOURLY_METRICS = ("active_users", "sessions", "processed_events")
-MIN_HOURLY_BASELINE_POINTS = 7
+MIN_HOURLY_BASELINE_POINTS = 30
 
 RETENTION_METRICS = {
     "d1_retention_rate": "d1_retained",
@@ -238,6 +241,27 @@ def _publish_hourly_alert(result: dict) -> None:
         Body=encoded,
         ContentType="application/json",
     )
+    incident_id = f"{result['client_site_id']}#{compact_hour}"
+    if incidents is not None:
+        incidents.update_item(
+            Key={"incident_id": incident_id},
+            UpdateExpression=(
+                "SET client_site_id = :site, event_hour = :event_hour, "
+                "#status = if_not_exists(#status, :detected), "
+                "detected_at = if_not_exists(detected_at, :detected_at), "
+                "updated_at = if_not_exists(updated_at, :detected_at), "
+                "evidence_s3_key = :evidence, alerts = :alerts"
+            ),
+            ExpressionAttributeNames={"#status": "status"},
+            ExpressionAttributeValues={
+                ":site": result["client_site_id"],
+                ":event_hour": result["event_hour"],
+                ":detected": "DETECTED",
+                ":detected_at": body["detected_at"],
+                ":evidence": key,
+                ":alerts": result["alerts"],
+            },
+        )
     sns.publish(
         TopicArn=ALERTS_TOPIC_ARN,
         Subject=f"Hourly anomaly: {result['client_site_id']} at {compact_hour}",
@@ -259,6 +283,10 @@ def _publish_hourly_alert(result: dict) -> None:
             "event_hour": {
                 "DataType": "String",
                 "StringValue": result["event_hour"],
+            },
+            "incident_id": {
+                "DataType": "String",
+                "StringValue": incident_id,
             },
         },
     )

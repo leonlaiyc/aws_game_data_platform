@@ -2,8 +2,11 @@ from pathlib import Path
 
 from aws_cdk import (
     Duration,
+    RemovalPolicy,
     Stack,
     CfnOutput,
+    aws_apigateway as apigateway,
+    aws_dynamodb as dynamodb,
     aws_events as events,
     aws_events_targets as targets,
     aws_iam as iam,
@@ -30,6 +33,17 @@ class AnomalyStack(Stack):
         super().__init__(scope, construct_id, **kwargs)
 
         self.alerts_topic = sns.Topic(self, "AlertsTopic", topic_name="aurora-games-anomaly-alerts")
+        self.incidents_table = dynamodb.Table(
+            self,
+            "AnomalyIncidents",
+            table_name="aurora-games-anomaly-incidents",
+            partition_key=dynamodb.Attribute(
+                name="incident_id", type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            point_in_time_recovery=False,
+            removal_policy=RemovalPolicy.DESTROY,
+        )
 
         self.anomaly_fn = self._make_detector(
             "AnomalyDetector",
@@ -38,6 +52,42 @@ class AnomalyStack(Stack):
             schedule_description="Hourly operational anomaly check across all client sites",
             schedule_hours=1,
             scheduled_event={"scheduled": True, "cadence": "hourly"},
+        )
+        self.anomaly_fn.add_environment(
+            "INCIDENTS_TABLE_NAME", self.incidents_table.table_name
+        )
+        self.incidents_table.grant_write_data(self.anomaly_fn)
+
+        incident_fn = _lambda.Function(
+            self,
+            "IncidentStatusApi",
+            runtime=_lambda.Runtime.PYTHON_3_12,
+            handler="handler.handler",
+            code=_lambda.Code.from_asset(str(MODULE1_DIR / "incident_api")),
+            environment={
+                "INCIDENTS_TABLE_NAME": self.incidents_table.table_name,
+                "OPERATOR_PRINCIPAL_PATTERN": "aurora-games-operator",
+            },
+            timeout=Duration.seconds(10),
+        )
+        self.incidents_table.grant_read_write_data(incident_fn)
+        incident_api = apigateway.RestApi(
+            self,
+            "IncidentApi",
+            rest_api_name="aurora-games-anomaly-incidents",
+            deploy_options=apigateway.StageOptions(stage_name="v1"),
+        )
+        incidents_resource = incident_api.root.add_resource("incidents")
+        incidents_resource.add_method(
+            "GET",
+            apigateway.LambdaIntegration(incident_fn),
+            authorization_type=apigateway.AuthorizationType.IAM,
+        )
+        status_resource = incidents_resource.add_resource("{incident_id}").add_resource("status")
+        status_resource.add_method(
+            "POST",
+            apigateway.LambdaIntegration(incident_fn),
+            authorization_type=apigateway.AuthorizationType.IAM,
         )
         # Retention is intentionally weekly: daily cohorts are too small and
         # D7 outcomes are incomplete until seven days later. Reuse the same
@@ -70,6 +120,8 @@ class AnomalyStack(Stack):
         )
 
         CfnOutput(self, "AlertsTopicArn", value=self.alerts_topic.topic_arn)
+        CfnOutput(self, "IncidentsTableName", value=self.incidents_table.table_name)
+        CfnOutput(self, "IncidentApiUrl", value=incident_api.url)
 
     def _make_detector(
         self,

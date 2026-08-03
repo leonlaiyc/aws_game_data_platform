@@ -118,6 +118,7 @@ class AnalyticsAssistantStack(Stack):
                 "DATA_MAX_DATE": DATA_MAX_DATE,
                 "LAKE_BUCKET_NAME": lake_bucket.bucket_name,
                 "ANALYTICS_TICKETS_TABLE_NAME": analytics_tickets_table.table_name,
+                "ANOMALY_INCIDENTS_TABLE_NAME": "aurora-games-anomaly-incidents",
                 "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
             },
             timeout=Duration.seconds(30),
@@ -138,6 +139,14 @@ class AnalyticsAssistantStack(Stack):
         )
         self._grant_lake_read(self.ask_answer_fn, lake_bucket)
         analytics_tickets_table.grant_write_data(self.ask_answer_fn)
+        self.ask_answer_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["dynamodb:GetItem", "dynamodb:Scan"],
+                resources=[
+                    f"arn:aws:dynamodb:{self.region}:{self.account}:table/aurora-games-anomaly-incidents"
+                ],
+            )
+        )
         self.ask_answer_fn.add_to_role_policy(
             iam.PolicyStatement(actions=["bedrock:InvokeModel"],
                                  resources=[f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0"])

@@ -49,6 +49,19 @@ def test_diagnose_slots_require_scoped_site_and_complete_date():
     )
     assert parsed["category"] == "diagnose"
 
+    aggregate = ask._validate_slots(
+        {
+            "category": "diagnose",
+            "client_site_id": None,
+            "end_date": "2026-06-10",
+        },
+        {
+            "published_from": "2026-05-01",
+            "published_through": "2026-06-29",
+        },
+    )
+    assert aggregate["category"] == "diagnose"
+
     rejected = ask._validate_slots(
         {
             "category": "diagnose",
@@ -92,6 +105,81 @@ def test_on_demand_diagnosis_reuses_code_owned_render(monkeypatch):
     assert "First-Look Report" in result["report_text"]
     assert result["comparison"] == comparison
     assert result["game_breakdown"] == breakdown
+
+
+def test_business_usage_question_aggregates_all_authorised_sites(monkeypatch):
+    monkeypatch.setattr(
+        ask.diagnostics,
+        "authorised_scope_cumulative_comparison",
+        lambda sites: {
+            "event_hour": "2026-06-10 13:00:00.000",
+            "baseline_points": 30,
+            "comparison": {
+                "active_users": {
+                    "actual": 2180,
+                    "baseline_avg_30d": 3650,
+                    "pct_change": -40.27,
+                }
+            },
+        },
+    )
+
+    class FakeIncidents:
+        def scan(self, **kwargs):
+            return {
+                "Items": [{
+                    "client_site_id": "site_b",
+                    "event_hour": "2026-06-10 11:00:00.000",
+                    "detected_at": "2026-06-10T11:05:00Z",
+                    "status": "INVESTIGATING",
+                }]
+            }
+
+    monkeypatch.setattr(ask, "anomaly_incidents", FakeIncidents())
+
+    result = ask._business_usage_diagnosis(["site_a", "site_b"])
+
+    assert result["scope"]["sites"] == ["site_a", "site_b"]
+    assert "2,180" in result["answer"]
+    assert "過去 30 天" in result["answer"]
+    assert "3,650" in result["answer"]
+    assert "技術人員正在排查中" in result["answer"]
+    assert "建議" not in result["answer"]
+
+
+def test_future_recovery_question_is_a_deterministic_boundary():
+    assert ask._is_forecast_question("明天人數就會回來嗎？") is True
+    assert ask._is_usage_drop_question("今天人數為何突然掉這麼多？") is True
+
+
+def test_authorised_scope_query_uses_precomputed_thirty_day_features(monkeypatch):
+    captured = []
+    monkeypatch.setattr(
+        ask.diagnostics,
+        "run_athena_query",
+        lambda sql: captured.append(sql) or "query-id",
+    )
+    monkeypatch.setattr(
+        ask.diagnostics,
+        "fetch_all_rows",
+        lambda _: [{
+            "event_hour": "2026-06-10 13:00:00.000",
+            "active_users": "2180",
+            "active_users_baseline": "3650",
+            "sessions": "3420",
+            "sessions_baseline": "5310",
+            "processed_events": "18920",
+            "processed_events_baseline": "26780",
+            "baseline_points": "30",
+        }],
+    )
+
+    result = ask.diagnostics.authorised_scope_cumulative_comparison(
+        ["site_a", "site_b"]
+    )
+
+    assert "client_site_id IN ('site_a', 'site_b')" in captured[0]
+    assert result["comparison"]["active_users"]["baseline_avg_30d"] == 3650
 
 
 class FakeS3:

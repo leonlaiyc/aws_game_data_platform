@@ -14,6 +14,56 @@ SITE_METRICS = [
 HOURLY_METRICS = ["active_users", "sessions", "processed_events"]
 
 
+def authorised_scope_cumulative_comparison(sites: list[str]) -> dict:
+    """Aggregate the latest common hourly cutoff across authorised sites.
+
+    Values and 30-day same-cutoff baselines are already prepared per site in
+    Gold. Summing those site-local figures preserves tenant scope and avoids
+    recomputing historical windows in the request path.
+    """
+    quoted_sites = ", ".join(f"'{site}'" for site in sites)
+    rows = fetch_all_rows(run_athena_query(f"""
+        WITH latest AS (
+            SELECT MAX(event_hour) AS event_hour
+            FROM gold_hourly_monitoring_features
+            WHERE client_site_id IN ({quoted_sites})
+        )
+        SELECT
+            CAST(feature.event_hour AS VARCHAR) AS event_hour,
+            SUM(active_users) AS active_users,
+            SUM(active_users_baseline) AS active_users_baseline,
+            SUM(sessions) AS sessions,
+            SUM(sessions_baseline) AS sessions_baseline,
+            SUM(processed_events) AS processed_events,
+            SUM(processed_events_baseline) AS processed_events_baseline,
+            MIN(baseline_points) AS baseline_points
+        FROM gold_hourly_monitoring_features feature
+        JOIN latest ON feature.event_hour = latest.event_hour
+        WHERE client_site_id IN ({quoted_sites})
+        GROUP BY feature.event_hour
+    """))
+    if not rows:
+        return {}
+    row = rows[0]
+    comparison = {}
+    for metric in HOURLY_METRICS:
+        actual = float(row[metric])
+        baseline = float(row[f"{metric}_baseline"])
+        comparison[metric] = {
+            "actual": round(actual, 4),
+            "baseline_avg_30d": round(baseline, 4),
+            "pct_change": (
+                round((actual - baseline) / baseline * 100, 2)
+                if baseline else None
+            ),
+        }
+    return {
+        "event_hour": row["event_hour"],
+        "baseline_points": int(row["baseline_points"]),
+        "comparison": comparison,
+    }
+
+
 def hourly_baseline_comparison(site: str, event_hour: str) -> dict:
     """Read detector-ready evidence; no baseline is recomputed here."""
     rows = fetch_all_rows(run_athena_query(f"""
