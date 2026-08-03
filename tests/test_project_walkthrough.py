@@ -18,6 +18,7 @@ class _SiteParser(HTMLParser):
         self.ids: list[str] = []
         self.references: list[str] = []
         self.translation_keys: set[str] = set()
+        self.untranslated_aria_labels: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
@@ -25,6 +26,10 @@ class _SiteParser(HTMLParser):
             self.ids.append(element_id)
         if translation_key := attributes.get("data-i18n"):
             self.translation_keys.add(translation_key)
+        if translation_key := attributes.get("data-i18n-aria-label"):
+            self.translation_keys.add(translation_key)
+        if attributes.get("aria-label") and not attributes.get("data-i18n-aria-label"):
+            self.untranslated_aria_labels.append(attributes["aria-label"] or "")
         for name in ("href", "src"):
             if reference := attributes.get(name):
                 self.references.append(reference)
@@ -34,11 +39,16 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     html = (SITE / "index.html").read_text(encoding="utf-8")
     javascript = (SITE / "app.js").read_text(encoding="utf-8")
     stylesheet = (SITE / "styles.css").read_text(encoding="utf-8")
+    readme = (ROOT / "README.md").read_text(encoding="utf-8")
+    production = (ROOT / "docs" / "demo-video-production.md").read_text(
+        encoding="utf-8"
+    )
 
     parser = _SiteParser()
     parser.feed(html)
 
     assert len(parser.ids) == len(set(parser.ids)), "HTML ids must be unique"
+    assert not parser.untranslated_aria_labels
     expected_sections = [
         "overview",
         "problems",
@@ -70,6 +80,18 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert 'poster="video/demo-poster.png"' in html
     assert 'class="demo-layout reveal"' not in html
     assert 'class="incident-loop reveal"' not in html
+    assert "146" not in html
+    assert "2026-08-02" not in html
+    assert "demoChapters" not in javascript
+    assert "demo-overview.zh-TW.mp4" not in html
+    assert not (ROOT / "scripts" / "render_demo_video.py").exists()
+    assert "169 automated tests" in readme
+    assert "169 automated tests" in production
+    assert "Verification date: 2026-08-03" in production
+    for document in (readme, production):
+        assert "demo-overview.zh-TW.mp4" not in document
+        assert "168 tests" not in document
+        assert "146 offline tests" not in document
     assert {
         "problemsTitle",
         "architectureTitle",
@@ -144,7 +166,7 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "解決四個實際營運痛點",
         "以 Serverless 為主的設計",
         "實機操作 · 02:00",
-        "2026-08-02 實際操作 AWS 路徑",
+        "2026-08-03 實際操作 AWS 路徑",
         "gold_hourly_kpi",
     ):
         assert required_copy in html

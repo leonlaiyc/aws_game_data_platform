@@ -34,7 +34,7 @@
     <div class="scroll-progress" aria-hidden="true"><span></span></div>
 
     <header class="site-header">
-      <a class="brand" href="#overview" aria-label="Leon Lai portfolio home">
+      <a class="brand" href="#overview" aria-label="Leon Lai 作品集首頁" data-i18n-aria-label="ariaBrandHome">
         <span class="brand-mark" aria-hidden="true">LL</span>
         <span class="brand-copy">
           <strong>Leon Lai</strong>
@@ -42,7 +42,7 @@
         </span>
       </a>
 
-      <nav aria-label="Primary navigation">
+      <nav aria-label="主要導覽" data-i18n-aria-label="ariaPrimaryNavigation">
         <a href="#problems" data-i18n="navProblems">營運問題</a>
         <a href="#architecture" data-i18n="navArchitecture">系統架構</a>
         <a href="#workflows" data-i18n="navWorkflows">四個工作流</a>
@@ -50,7 +50,7 @@
         <a href="#evidence" data-i18n="navEvidence">驗證證據</a>
       </nav>
 
-      <div class="language-switcher" role="group" aria-label="Language">
+      <div class="language-switcher" role="group" aria-label="語言" data-i18n-aria-label="ariaLanguage">
         <button type="button" data-lang="zh" aria-pressed="true">中</button>
         <button type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
@@ -85,7 +85,7 @@
           </p>
         </div>
 
-        <aside class="hero-proof reveal" aria-label="Project snapshot">
+        <aside class="hero-proof reveal" aria-label="專案摘要" data-i18n-aria-label="ariaProjectSnapshot">
           <div class="proof-label">
             <span data-i18n="snapshot">PROJECT SNAPSHOT</span>
             <span class="status-pill">
@@ -99,7 +99,7 @@
               <span data-i18n="statWorkflows">operating workflows</span>
             </div>
             <div>
-              <strong>146</strong>
+              <strong>169</strong>
               <span data-i18n="statTests">offline tests</span>
             </div>
             <div>
@@ -199,7 +199,7 @@
             </div>
           </div>
 
-          <div class="architecture-canvas reveal" aria-label="System architecture overview">
+          <div class="architecture-canvas reveal" aria-label="系統架構總覽" data-i18n-aria-label="ariaArchitectureOverview">
             <div class="architecture-stage-rail" aria-hidden="true">
               <span>THE FOUNDATION</span>
               <span>THE GOVERNANCE</span>
@@ -248,7 +248,7 @@
                 </div>
               </section>
 
-              <aside class="security-guardian" aria-label="Shared security and governance controls">
+              <aside class="security-guardian" aria-label="共用安全與治理控制" data-i18n-aria-label="ariaSharedControls">
                 <strong>ROLE-BASED GUARDIAN</strong>
                 <div>
                   <span><b>AWS Glue</b><i data-i18n="catalogControl">固定 Bronze → Silver → Gold 結構與欄位定義</i></span>
@@ -290,7 +290,7 @@
                 </div>
               </section>
 
-              <section class="knowledge-lane" aria-label="Separate integration support path">
+              <section class="knowledge-lane" aria-label="獨立整合支援路徑" data-i18n-aria-label="ariaIntegrationPath">
                 <div class="knowledge-source"><small>CURATED DOCUMENTS</small><b>Versioned integration guidance</b></div>
                 <i aria-hidden="true">→</i>
                 <article class="knowledge-agent">
@@ -302,7 +302,7 @@
                 <div class="knowledge-output"><small>DELIVERY</small><b>Answer / Clarify / OPEN ticket</b><span data-i18n="architectureM4Branch">不讀取 Gold tables · SNS/SQS 僅作帳號內稽核</span></div>
               </section>
 
-              <section class="people-lane" aria-label="Users and delivery interfaces">
+              <section class="people-lane" aria-label="使用者與交付介面" data-i18n-aria-label="ariaUsersDelivery">
                 <div class="people-group">
                   <small>USERS</small>
                   <span><b>OPS</b><i>Operations</i></span>
@@ -482,7 +482,8 @@
               controls
               preload="metadata"
               poster="video/demo-poster.png"
-              aria-label="Two-minute AWS game data platform demo"
+              aria-label="兩分鐘 AWS 資料平台 Demo"
+              data-i18n-aria-label="ariaDemoVideo"
             >
               <source src="video/demo-overview.mp4" type="video/mp4">
               <track
@@ -502,7 +503,7 @@
             <figcaption>
               <span>
                 <b data-i18n="demoVideoTitle">實機操作 · 02:00</b>
-                <small data-i18n="demoVideoNote">2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕</small>
+                <small data-i18n="demoVideoNote">2026-08-03 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕</small>
               </span>
               <span class="demo-caption-downloads">
                 <a href="video/demo-overview.zh-TW.srt" download data-i18n="demoVideoDownloadZh">下載中文字幕</a>
@@ -690,7 +691,7 @@
         <div class="evidence-grid reveal">
           <article class="evidence-card evidence-tests-card">
             <div class="evidence-card-top"><span>VERIFICATION</span><b>01</b></div>
-            <strong>146 / 146</strong>
+            <strong>169 / 169</strong>
             <span data-i18n="evidenceTests">測試通過率（100%）</span>
             <small data-i18n="evidenceTestsNote">離線單元測試、資安邊界與 CDK assertions</small>
           </article>

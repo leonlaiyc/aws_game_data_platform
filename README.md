@@ -7,7 +7,7 @@
 
 [**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/)
 
-[**Watch the two-minute subtitled operation demo →**](https://leonlaiyc.github.io/aws_game_data_platform/#demo)
+[**Watch the two-minute captioned operation demo →**](https://leonlaiyc.github.io/aws_game_data_platform/#demo)
 
 This project connects cloud data and AI capabilities to four recurring
 operating pain points in B2B game analytics, then validates the resulting AWS
@@ -169,7 +169,7 @@ from authenticated identity rather than a request body.
 
 ### Verification status
 
-- **146 offline tests** plus Python compilation and CDK assertion coverage.
+- **169 automated tests** plus Python compilation and CDK assertion coverage.
 - **Eight default stacks** synthesize without Kinesis, NAT Gateway, RDS,
   OpenSearch, or provisioned compute.
 - The earlier baseline was deployed and exercised against AWS on 2026-07-29.

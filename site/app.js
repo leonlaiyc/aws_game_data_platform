@@ -2,6 +2,15 @@ const translations = {
   zh: {
     pageTitle: "Leon Lai · AWS Solutions Architect 作品集",
     pageDescription: "以雲端資料與 AI 技術鏈接四大實務痛點，呈現一套成本可控、可治理、可驗證的 AWS 架構。",
+    ariaBrandHome: "Leon Lai 作品集首頁",
+    ariaPrimaryNavigation: "主要導覽",
+    ariaLanguage: "語言",
+    ariaProjectSnapshot: "專案摘要",
+    ariaArchitectureOverview: "系統架構總覽",
+    ariaSharedControls: "共用安全與治理控制",
+    ariaIntegrationPath: "獨立整合支援路徑",
+    ariaUsersDelivery: "使用者與交付介面",
+    ariaDemoVideo: "兩分鐘 AWS 資料平台 Demo",
     skip: "跳到主要內容",
     navProblems: "營運問題",
     navArchitecture: "系統架構",
@@ -48,12 +57,7 @@ const translations = {
     foundationMapKicker: "END-TO-END DATA FOUNDATION",
     foundationMapTitle: "資料生成、治理與發布路徑",
     sourceStageBody: "模擬 client SDK 事件與可重播情境",
-    bronzeStageBody: "Raw JSON · 日期／租戶分區",
-    directBatchBadge: "Direct batch write · 零閒置運算",
     transformStageBody: "Schema cast · 清理 · 可重跑轉換",
-    silverStageBody: "Typed Parquet events",
-    silverBadge: "分析與已知品質特徵來源",
-    goldStageBody: "每日／每小時 KPI · 留存 · 實體特徵 · 實驗資料",
     publicationBadge: "Publication marker 驗證完整版本",
     catalogControl: "固定 Bronze → Silver → Gold 結構與欄位定義",
     tenantControl: "依 client_site_id 套用 row-level data cell filter",
@@ -113,26 +117,9 @@ const translations = {
     demoTitle: "兩分鐘實機操作：四組工作流實際運行",
     demoIntro: "實際開啟四組模組介面，操作問題觸發條件並呈現 AWS 自動處置結果。",
     demoVideoTitle: "實機操作 · 02:00",
-    demoVideoNote: "2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕",
+    demoVideoNote: "2026-08-03 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕",
     demoVideoDownloadZh: "下載中文字幕",
     demoVideoDownloadEn: "下載英文字幕",
-    demoM1: "M1 · Detect",
-    demoM1Time: "23 秒",
-    demoM3: "M3 · Investigate",
-    demoM3Time: "22 秒",
-    demoM2: "M2 · Experiment Ops",
-    demoM2Time: "32 秒",
-    demoM4: "M4 · 整合支援",
-    demoM4Time: "27 秒",
-    demoPainLabel: "PAIN",
-    demoResultLabel: "RESULT",
-    demoHumanLabel: "HUMAN DECISION",
-    loopDetect: "Detect",
-    loopFirstLook: "First look",
-    loopInvestigate: "Investigate",
-    loopAct: "Act",
-    loopValidate: "Validate",
-    loopNote: "這條閉環只適用 KPI／留存異常；已知品質訊號走獨立的 flagged records → human review；M2 只在適合以受控實驗驗證時介入。",
     decisionsKicker: "SYSTEM DESIGN TRADE-OFFS & COST OPTIMIZATION",
     decisionsTitle: "系統設計取捨與成本最佳化。",
     decisionsIntro: "從使用頻率、延遲需求與服務完整度三個問題，決定現階段最合適的 AWS 能力；量測條件改變時再升級。",
@@ -191,7 +178,7 @@ const translations = {
     isolationLink: "Tenant isolation proof",
     lessonsLink: "Designs changed by testing",
     scopeTitle: "Honest scope",
-    scopeBody: "這是使用 synthetic data 的 verified PoC。成片中的四組 AWS 操作路徑已於 2026-08-02 實際操作驗證；本專案仍不宣稱 production workload 經驗。",
+    scopeBody: "這是使用 synthetic data 的 verified PoC。成片中的四組 AWS 操作路徑已於 2026-08-03 實際操作驗證；本專案仍不宣稱 production workload 經驗。",
     closingKicker: "THE TAKEAWAY",
     closingTitle: "如何在實際需求與限制中，評估並設計最合適的 AWS 服務組合。",
     closingBody: "本專案的核心價值在於：將營運痛點轉化為系統化治理、確保關鍵決策的人工主導權，並在擴充架構前，嚴格評估成本與團隊落地門檻。",
@@ -203,6 +190,15 @@ const translations = {
   en: {
     pageTitle: "Leon Lai · AWS Solutions Architect Portfolio",
     pageDescription: "A governed, cost-conscious AWS architecture connecting cloud data and AI capabilities to four recurring operating pain points.",
+    ariaBrandHome: "Leon Lai portfolio home",
+    ariaPrimaryNavigation: "Primary navigation",
+    ariaLanguage: "Language",
+    ariaProjectSnapshot: "Project snapshot",
+    ariaArchitectureOverview: "System architecture overview",
+    ariaSharedControls: "Shared security and governance controls",
+    ariaIntegrationPath: "Separate integration support path",
+    ariaUsersDelivery: "Users and delivery interfaces",
+    ariaDemoVideo: "Two-minute AWS data platform demo",
     skip: "Skip to main content",
     navProblems: "Problems",
     navArchitecture: "Architecture",
@@ -249,12 +245,7 @@ const translations = {
     foundationMapKicker: "END-TO-END DATA FOUNDATION",
     foundationMapTitle: "Data generation, governance and publication path",
     sourceStageBody: "Simulated client SDK events and replayable scenarios",
-    bronzeStageBody: "Raw JSON · date and tenant partitions",
-    directBatchBadge: "Direct batch write · zero idle compute",
     transformStageBody: "Schema cast · cleaning · rerunnable transforms",
-    silverStageBody: "Typed Parquet events",
-    silverBadge: "Source for analytics and known quality features",
-    goldStageBody: "daily/hourly KPI · retention · entity features · experiment data",
     publicationBadge: "Publication marker proves a complete version",
     catalogControl: "Fixes the Bronze → Silver → Gold structure and field definitions",
     tenantControl: "Applies row-level data cell filters by client_site_id",
@@ -314,26 +305,9 @@ const translations = {
     demoTitle: "Two-minute hands-on demo: four workflows in action.",
     demoIntro: "Open and operate all four module interfaces, trigger each scenario, and show the resulting AWS response.",
     demoVideoTitle: "Hands-on demo · 02:00",
-    demoVideoNote: "AWS paths operated live on 2026-08-02 · 1080p · silent cut · Chinese and English captions",
+    demoVideoNote: "AWS paths operated live on 2026-08-03 · 1080p · silent cut · Chinese and English captions",
     demoVideoDownloadZh: "Download Chinese captions",
     demoVideoDownloadEn: "Download English captions",
-    demoM1: "M1 · Detect",
-    demoM1Time: "23 sec",
-    demoM3: "M3 · Investigate",
-    demoM3Time: "22 sec",
-    demoM2: "M2 · Experiment Ops",
-    demoM2Time: "32 sec",
-    demoM4: "M4 · Integration Support",
-    demoM4Time: "27 sec",
-    demoPainLabel: "PAIN",
-    demoResultLabel: "RESULT",
-    demoHumanLabel: "HUMAN DECISION",
-    loopDetect: "Detect",
-    loopFirstLook: "First look",
-    loopInvestigate: "Investigate",
-    loopAct: "Act",
-    loopValidate: "Validate",
-    loopNote: "This loop covers KPI and retention anomalies only. Known quality signals follow a separate flagged records → human review path; M2 appears only when a controlled experiment is the right validation method.",
     decisionsKicker: "SYSTEM DESIGN TRADE-OFFS & COST OPTIMIZATION",
     decisionsTitle: "System design trade-offs and cost optimization.",
     decisionsIntro: "Usage frequency, latency needs and service completeness determine the right AWS capability now; measured changes trigger the next upgrade.",
@@ -392,7 +366,7 @@ const translations = {
     isolationLink: "Tenant isolation proof",
     lessonsLink: "Designs changed by testing",
     scopeTitle: "Honest scope",
-    scopeBody: "This is a verified PoC using synthetic data. The four AWS operation paths shown in the video were operated and verified on 2026-08-02; this project still makes no production-workload claim.",
+    scopeBody: "This is a verified PoC using synthetic data. The four AWS operation paths shown in the video were operated and verified on 2026-08-03; this project still makes no production-workload claim.",
     closingKicker: "THE TAKEAWAY",
     closingTitle: "Evaluate and design the right AWS service mix within real needs and constraints.",
     closingBody: "The project's core value is turning operational pain into systematic governance, preserving human ownership of critical decisions, and rigorously evaluating cost and team adoption thresholds before expanding the architecture.",
@@ -403,182 +377,11 @@ const translations = {
   },
 };
 
-const demoChapters = {
-  zh: {
-    m1: {
-      title: "M1 / VERIFIED DEMO OUTPUT",
-      pain: "活躍度／轉換表現下滑需要等人發現；已知品質訊號缺少一致、可解釋的調查證據。",
-      result: "首日 KPI 下滑被標示；6 筆 scripted quality records 全數進入 REVIEW_REQUIRED。",
-      terminal: [
-        "$ run module1 demo --as-of 2026-06-10",
-        "site_b / dau",
-        "actual=91 · EWMA baseline=204 · deviation≈3.9σ",
-        "status=ALERT · evidence_window=preserved",
-        "",
-        "data-quality review",
-        "flagged=6/6 · decision=REVIEW_REQUIRED",
-      ].join("\n"),
-      human: "確認根因、選擇營運處置，並審查需要判讀的紀錄。",
-      detailLabel: "掃描與告警窗口",
-      detail: "每日 KPI 每 24 小時只檢查最新完整發布日；相同 published_at 不重複。成熟 D1／D7 留存另於每週一檢查最近的完整 cohort 週。",
-    },
-    m3: {
-      title: "M3 / GOVERNED ANALYTICS OUTPUT",
-      pain: "急迫的 what／why 問題會打斷分析師，得重新計算常態、拆分產品，再交叉比對相關變數。",
-      result: "Allow-listed SQL 回答數字；first-look 在 alert 後自動整理基線與共變動。",
-      terminal: [
-        '$ ask "What was DAU for site_b on 2026-06-10?"',
-        "category=answerable",
-        "answer=91 active users",
-        "direct Athena cross-check=91 · MATCH",
-        "",
-        "site_b first-look",
-        "DAU 91 vs 7d avg 205.5714 (-55.73%)",
-        "active users and sessions moved together",
-      ].join("\n"),
-      human: "結合營運脈絡判斷根因，再決定行動。",
-      detailLabel: "答案品質控制",
-      detail: "只支援受治理 KPI 與模板；答不了就建立 ticket，不生成任意 SQL。",
-    },
-    m2: {
-      title: "M2 / THREE CONCURRENT EXPERIMENTS",
-      pain: "並行實驗狀態分散，SRM 與 guardrail 依賴人工抽查。",
-      result: "三種生命週期同時可見：正常分析、guardrail 自動停止、SRM hard fail。",
-      terminal: [
-        "$ run 3 concurrent experiments",
-        "clean_winner    state=analyzed · lift=431.58%",
-        "                 caveats=SMALL_SAMPLE,LARGE_EFFECT",
-        "hourly_guardrail state=stopped_early",
-        "                 source=gold_hourly_kpi · threshold crossed",
-        "srm_violation   state=stopped_early",
-        "                 p=0.0 · analysis skipped",
-        "grounding_check_passed=true",
-      ].join("\n"),
-      human: "判斷結果是否可信、要不要重跑，以及產品是否採納。",
-      detailLabel: "狀態來源",
-      detail: "具備權限的負責人透過驗證 API／CLI 建立與啟動；DynamoDB 保存最新狀態，Step Functions 與每小時監控寫入後續轉換。現有關鍵時間欄位可查，但還沒有完整不可竄改的狀態事件歷史。",
-    },
-    m4: {
-      title: "M4 / 受治理的整合支援",
-      pain: "重複的整合問題消耗支援資源；複雜案件缺少結構化脈絡就轉給工程師。",
-      result: "系統先澄清、再回答或建立 ticket；模型洩漏被 code validator 擋下。",
-      terminal: [
-        "$ run integration-support demo",
-        "ambiguous question → NEEDS_CLARIFICATION",
-        "engineering case   → ESCALATION · ticket=created",
-        "out-of-scope       → deterministic refusal",
-        "",
-        "model output       → internal identifier detected",
-        "validation         → FAILED_SAFE",
-        "identifier reaching partner → NONE",
-      ].join("\n"),
-      human: "OPEN ticket 標示真正需要產品判斷、工程變更或安全覆核的案件；PoC 尚未串接外部通知。",
-      detailLabel: "RAG 上線準備",
-      detail: "PoC 只把少量測試檔案交給 AI；正式文件需加入版本與權限標籤，文件增長後再加入 Chunking 與向量搜尋。",
-    },
-  },
-  en: {
-    m1: {
-      title: "M1 / VERIFIED DEMO OUTPUT",
-      pain: "Engagement and conversion drops waited for human discovery; known quality-signal reviews lacked consistent, explainable evidence.",
-      result: "The first-day KPI drop was flagged; all six scripted quality records entered REVIEW_REQUIRED.",
-      terminal: [
-        "$ run module1 demo --as-of 2026-06-10",
-        "site_b / dau",
-        "actual=91 · EWMA baseline=204 · deviation≈3.9σ",
-        "status=ALERT · evidence_window=preserved",
-        "",
-        "data-quality review",
-        "flagged=6/6 · decision=REVIEW_REQUIRED",
-      ].join("\n"),
-      human: "Confirm root cause, choose an operating response and review ambiguous records.",
-      detailLabel: "SCAN & ALERT WINDOW",
-      detail: "Daily KPI checks run against the latest complete published date and do not repeat the same published_at. Mature D1/D7 retention checks the latest complete cohort week every Monday.",
-    },
-    m3: {
-      title: "M3 / GOVERNED ANALYTICS OUTPUT",
-      pain: "Urgent what/why questions interrupted analysts, forcing them to recalculate normal baselines, split results by product and cross-check related variables.",
-      result: "Allow-listed SQL owns the number; first-look assembles baseline and co-movement evidence after an alert.",
-      terminal: [
-        '$ ask "What was DAU for site_b on 2026-06-10?"',
-        "category=answerable",
-        "answer=91 active users",
-        "direct Athena cross-check=91 · MATCH",
-        "",
-        "site_b first-look",
-        "DAU 91 vs 7d avg 205.5714 (-55.73%)",
-        "active users and sessions moved together",
-      ].join("\n"),
-      human: "Combine operating context with evidence, identify root cause and decide what to do.",
-      detailLabel: "ANSWER QUALITY CONTROL",
-      detail: "Only governed KPI templates are supported. Unsupported work creates a ticket instead of arbitrary SQL.",
-    },
-    m2: {
-      title: "M2 / THREE CONCURRENT EXPERIMENTS",
-      pain: "Parallel status was scattered; SRM and guardrails depended on manual checks.",
-      result: "Three lifecycles stay visible together: normal analysis, guardrail stop and SRM hard fail.",
-      terminal: [
-        "$ run 3 concurrent experiments",
-        "clean_winner    state=analyzed · lift=431.58%",
-        "                 caveats=SMALL_SAMPLE,LARGE_EFFECT",
-        "hourly_guardrail state=stopped_early",
-        "                 source=gold_hourly_kpi · threshold crossed",
-        "srm_violation   state=stopped_early",
-        "                 p=0.0 · analysis skipped",
-        "grounding_check_passed=true",
-      ].join("\n"),
-      human: "Decide whether the result is trustworthy, whether to rerun and whether the product should adopt it.",
-      detailLabel: "STATE SOURCE",
-      detail: "An authorized owner creates and starts experiments through an authenticated API/CLI. DynamoDB stores the latest state, while Step Functions and hourly monitoring write later transitions. Key timestamps exist, but a complete immutable state-event history does not yet.",
-    },
-    m4: {
-      title: "M4 / GOVERNED INTEGRATION SUPPORT",
-      pain: "Repeated integration questions consumed support capacity; complex cases reached engineers without structured context.",
-      result: "The system clarifies, answers or creates a ticket; code blocks a model-authored internal identifier.",
-      terminal: [
-        "$ run integration-support demo",
-        "ambiguous question → NEEDS_CLARIFICATION",
-        "engineering case   → ESCALATION · ticket=created",
-        "out-of-scope       → deterministic refusal",
-        "",
-        "model output       → internal identifier detected",
-        "validation         → FAILED_SAFE",
-        "identifier reaching partner → NONE",
-      ].join("\n"),
-      human: "OPEN tickets mark cases requiring product judgement, engineering change or safety review; the PoC does not yet send an external notification.",
-      detailLabel: "RAG PRODUCTION SWAP",
-      detail: "The PoC gives the AI a small set of test files. Production documents need version and permission tags; Chunking and vector search follow as the corpus grows.",
-    },
-  },
-};
-
 let activeLanguage = "zh";
-let activeDemo = "m1";
 
 const languageButtons = [...document.querySelectorAll("[data-lang]")];
-const demoButtons = [...document.querySelectorAll("[data-demo]")];
 const announcer = document.querySelector(".language-announcer");
 const metaDescription = document.querySelector('meta[name="description"]');
-
-function renderDemo() {
-  if (demoButtons.length === 0) {
-    return;
-  }
-  const chapter = demoChapters[activeLanguage][activeDemo];
-  document.querySelector("#demo-window-title").textContent = chapter.title;
-  document.querySelector("#demo-pain").textContent = chapter.pain;
-  document.querySelector("#demo-result").textContent = chapter.result;
-  document.querySelector("#demo-terminal").textContent = chapter.terminal;
-  document.querySelector("#demo-human").textContent = chapter.human;
-  document.querySelector("#demo-detail-label").textContent = chapter.detailLabel;
-  document.querySelector("#demo-detail").textContent = chapter.detail;
-
-  demoButtons.forEach((button) => {
-    const selected = button.dataset.demo === activeDemo;
-    button.setAttribute("aria-selected", String(selected));
-    button.tabIndex = selected ? 0 : -1;
-  });
-}
 
 function applyLanguage(language, announce = true) {
   activeLanguage = language;
@@ -594,12 +397,18 @@ function applyLanguage(language, announce = true) {
     }
   });
 
+  document.querySelectorAll("[data-i18n-aria-label]").forEach((element) => {
+    const key = element.dataset.i18nAriaLabel;
+    if (Object.hasOwn(copy, key)) {
+      element.setAttribute("aria-label", copy[key]);
+    }
+  });
+
   languageButtons.forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.lang === language));
   });
 
   localStorage.setItem("leon-portfolio-language", language);
-  renderDemo();
 
   if (announce) {
     announcer.textContent = copy.languageChanged;
@@ -608,31 +417,6 @@ function applyLanguage(language, announce = true) {
 
 languageButtons.forEach((button) => {
   button.addEventListener("click", () => applyLanguage(button.dataset.lang));
-});
-
-demoButtons.forEach((button, index) => {
-  button.addEventListener("click", () => {
-    activeDemo = button.dataset.demo;
-    renderDemo();
-  });
-  button.addEventListener("keydown", (event) => {
-    if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
-      return;
-    }
-    event.preventDefault();
-    let nextIndex = index;
-    if (["ArrowDown", "ArrowRight"].includes(event.key)) {
-      nextIndex = (index + 1) % demoButtons.length;
-    } else if (["ArrowUp", "ArrowLeft"].includes(event.key)) {
-      nextIndex = (index - 1 + demoButtons.length) % demoButtons.length;
-    } else if (event.key === "Home") {
-      nextIndex = 0;
-    } else if (event.key === "End") {
-      nextIndex = demoButtons.length - 1;
-    }
-    demoButtons[nextIndex].focus();
-    demoButtons[nextIndex].click();
-  });
 });
 
 document.addEventListener("keydown", (event) => {

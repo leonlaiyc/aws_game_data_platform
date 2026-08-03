@@ -20,7 +20,7 @@ request.
 
 ## Verified source and AWS evidence
 
-- Source commit: `1ab3682`.
+- AWS evidence source commit: `1ab3682`.
 - Verification date: 2026-08-03.
 - CloudFormation: Anomaly stack `UPDATE_COMPLETE` at 07:59 UTC, Analytics
   Assistant stack at 08:07 UTC, and Partner Support stack at 08:21 UTC.
