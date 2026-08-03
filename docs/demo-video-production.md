@@ -13,10 +13,10 @@ request.
 
 | Time | Chapter | Operation shown |
 |---|---|---|
-| 00:00–00:25 | M1 anomaly monitoring | Compare the current cumulative value with the previous 30 complete same-cutoff dates, then mark the incident as investigating |
-| 00:25–00:53 | M2 experiment governance | Review concurrent experiments and show separate SRM and hourly guardrail outcomes |
-| 00:53–01:28 | M3 analytics assistant | Ask why usage fell, then ask for an unsupported next-day prediction |
-| 01:28–02:00 | M4 integration support | Paste a redacted OAuth request packet, then ask an out-of-scope exhibition question |
+| 00:00–00:25 | M1 anomaly monitoring | Detect an anomaly at 11:00, publish the on-call notification, and move the incident into investigation |
+| 00:25–01:00 | M3 analytics assistant | At 13:00, ask why usage fell; connect the answer to the 11:00 alert, then reject an unsupported forecast |
+| 01:00–01:30 | M2 experiment governance | Give managers a clear portfolio view and show automatic stopping when a preset SRM or guardrail condition fires |
+| 01:30–02:00 | M4 integration support | Paste a redacted OAuth request packet, then ask an out-of-scope exhibition question |
 
 ## Verified source and AWS evidence
 
@@ -34,7 +34,7 @@ request.
   returns `OUT_OF_SCOPE`. Both report `model_invoked=false`.
 - S3 evidence: `gold/anomaly_alerts/site_b_2026-06-15T03.json`, 346 bytes,
   ETag `94eb09ac08a3415723e4b2739404b073`.
-- Validation: 168 automated tests passed. The USD 5 budget guard passed, no
+- Validation: 169 automated tests passed. The USD 5 budget guard passed, no
   project Kinesis streams remained, and no hourly-billed demo resource was
   created.
 
@@ -59,5 +59,7 @@ python scripts/render_operation_demo.py
 ```
 
 The MP4 is silent by design. Chinese subtitles are burned into the lower
-caption rail and duplicated in WebVTT/SRT for accessibility. The operation UI
-remains visible above the caption rail throughout all four chapters.
+caption rail. Matching WebVTT/SRT files remain available for accessibility,
+but the browser caption track is not enabled by default because that would
+duplicate the burned-in subtitle. The operation UI remains visible above the
+caption rail throughout all four chapters.

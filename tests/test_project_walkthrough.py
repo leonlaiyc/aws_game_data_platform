@@ -62,6 +62,8 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert 'href="apple-touch-icon.png"' in html
     assert 'src="video/demo-overview.zh-TW.mp4"' in html
     assert 'src="video/demo-overview.zh-TW.vtt"' in html
+    caption_track = html.split("<track", 1)[1].split(">", 1)[0]
+    assert "default" not in caption_track
     assert 'href="video/demo-overview.zh-TW.srt"' in html
     assert 'poster="video/demo-poster.png"' in html
     assert {

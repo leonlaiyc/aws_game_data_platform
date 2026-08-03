@@ -49,15 +49,16 @@ class Scene:
 
 
 SCENES = (
-    Scene(0, 15, "01 · 異常監控", "今天截至 13:00 的累積活躍人數為 124；過去 30 天相同時間平均為 177。", "m1-initial.png", accent=CORAL),
-    Scene(15, 25, "01 · 異常監控", "系統已在 11:00 告警，負責人將處理狀態更新為排查中。", "m1-result.png", accent=CORAL),
-    Scene(25, 40, "02 · 實驗治理", "中央控制台同時呈現執行中、需要處理與草稿實驗。", "m2-all.png", accent=AMBER),
-    Scene(40, 53, "02 · 實驗治理", "SRM 先檢查分流；通過後才看 Guardrail，失敗時停止實驗並關閉 Allocation。", "m2-action.png", accent=CORAL),
-    Scene(53, 65, "03 · 分析助理", "營運人員直接詢問：今天人數為何突然掉這麼多？", "m3-initial.png"),
-    Scene(65, 78, "03 · 分析助理", "回答只呈現 30 天比較、下降幅度與目前排查進度，原因未確認。", "m3-result.png"),
-    Scene(78, 88, "03 · 分析助理", "追問明天是否恢復時，系統說明沒有經過驗證的預測模型，不猜測答案。", "m3-forecast.png", accent=CORAL),
-    Scene(88, 99, "04 · 整合支援", "合作夥伴直接貼上完整 Token API Request 與 400 錯誤回應。", "m4-input.png"),
-    Scene(99, 110, "04 · 整合支援", "助理依文件找出 Content-Type 錯誤，並指出缺少 grant_type。", "m4-result.png"),
+    Scene(0, 9, "01 · 異常監控", "上午 11:00，系統偵測到 site_b 活躍人數低於正常範圍。", "m1-initial.png", accent=CORAL),
+    Scene(9, 17, "01 · 異常監控", "系統建立告警證據，並透過 SNS 發布值班通知。", "m1-initial.png", accent=CORAL),
+    Scene(17, 25, "01 · 異常監控", "值班人員開始排查，事件進入處理中（排查中）。", "m1-result.png", accent=CORAL),
+    Scene(25, 35, "02 · 分析助理", "下午 1:00，業務看到人數下降，直接詢問：今天人數為何掉這麼多？", "m3-initial.png"),
+    Scene(35, 50, "02 · 分析助理", "助理比較今天 124 人與過去 30 天平均 177 人，並說明 11:00 已告警、技術人員正在排查。", "m3-result.png"),
+    Scene(50, 60, "02 · 分析助理", "再問明天是否恢復時，助理說明尚無經過驗證的預測模型，不猜測未來。", "m3-forecast.png", accent=CORAL),
+    Scene(60, 75, "03 · 實驗治理", "管理者能在同一畫面掌握每個實驗的進度、健康狀態、流量與配置。", "m2-all.png", accent=AMBER),
+    Scene(75, 90, "03 · 實驗治理", "若觸發預先設定的 SRM 或 Guardrail 停止條件，系統會自動停止實驗並關閉流量配置。", "m2-action.png", accent=CORAL),
+    Scene(90, 100, "04 · 整合支援", "合作夥伴直接貼上完整 Token API Request 與 400 錯誤回應。", "m4-input.png"),
+    Scene(100, 110, "04 · 整合支援", "助理依文件找出 Content-Type 錯誤，並指出缺少 grant_type。", "m4-result.png"),
     Scene(110, 120, "04 · 整合支援", "參展資訊不在整合知識庫中；系統不編造答案，改為引導聯絡業務窗口。", "m4-out-of-scope.png", accent=CORAL),
 )
 

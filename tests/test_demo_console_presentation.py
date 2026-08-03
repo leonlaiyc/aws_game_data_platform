@@ -84,3 +84,19 @@ def test_public_console_copy_uses_neutral_metric_names():
 
     for disallowed in ("投注", "下注", "賭", "博弈", "客服"):
         assert disallowed not in html
+
+
+def test_operation_video_follows_the_cross_module_incident_story():
+    source = (ROOT / "scripts" / "render_operation_demo.py").read_text(encoding="utf-8")
+
+    chapters = (
+        '"01 · 異常監控"',
+        '"02 · 分析助理"',
+        '"03 · 實驗治理"',
+        '"04 · 整合支援"',
+    )
+    assert [source.index(chapter) for chapter in chapters] == sorted(
+        source.index(chapter) for chapter in chapters
+    )
+    for expected in ("上午 11:00", "SNS 發布值班通知", "下午 1:00", "自動停止實驗"):
+        assert expected in source
