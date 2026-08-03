@@ -32,6 +32,7 @@ import re
 import time
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import boto3
 import diagnostics
@@ -53,6 +54,10 @@ GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
 AS_OF_DATE = os.environ["AS_OF_DATE"]           # this project's data is a fixed historical simulation, not live
 DATA_MIN_DATE = os.environ["DATA_MIN_DATE"]
 DATA_MAX_DATE = os.environ["DATA_MAX_DATE"]
+REPLAY_EVENT_HOUR = os.environ.get("REPLAY_EVENT_HOUR", "")
+BUSINESS_TIMEZONE_OFFSET_HOURS = int(
+    os.environ.get("BUSINESS_TIMEZONE_OFFSET_HOURS", "0")
+)
 LAKE_BUCKET_NAME = os.environ.get("LAKE_BUCKET_NAME", "")
 ANALYTICS_TICKETS_TABLE_NAME = os.environ.get(
     "ANALYTICS_TICKETS_TABLE_NAME", ""
@@ -381,7 +386,8 @@ def _clock_label(event_hour: str) -> str:
     match = re.search(r"[T ](\d{2}):(\d{2})", event_hour or "")
     if not match:
         return event_hour or "最新完整時段"
-    hour, minute = int(match.group(1)), match.group(2)
+    hour = (int(match.group(1)) + BUSINESS_TIMEZONE_OFFSET_HOURS) % 24
+    minute = match.group(2)
     period = "上午" if hour < 12 else "下午"
     display_hour = hour if 1 <= hour <= 12 else (12 if hour in {0, 12} else hour - 12)
     return f"{period} {display_hour}:{minute}"
@@ -389,7 +395,13 @@ def _clock_label(event_hour: str) -> str:
 
 def _business_usage_diagnosis(caller_scope: list | None) -> dict:
     sites = sorted(caller_scope or VALID_CLIENT_SITES)
-    evidence = diagnostics.authorised_scope_cumulative_comparison(sites)
+    evidence = (
+        diagnostics.authorised_scope_cumulative_comparison(
+            sites, REPLAY_EVENT_HOUR
+        )
+        if REPLAY_EVENT_HOUR
+        else diagnostics.authorised_scope_cumulative_comparison(sites)
+    )
     comparison = evidence.get("comparison", {}).get("active_users", {})
     if not comparison or evidence.get("baseline_points", 0) < 30:
         return {
@@ -473,10 +485,20 @@ def _caller_scope(event) -> list:
     raise ScopeResolutionError(f"caller identity is not mapped to any tenant scope: {arn or '<none>'}")
 
 
+def _json_default(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _response(result: dict, status: int = 200) -> dict:
     # API Gateway's LambdaIntegration defaults to proxy mode, which requires
     # this exact statusCode/body envelope rather than a raw application dict.
-    return {"statusCode": status, "headers": {"Content-Type": "application/json"}, "body": json.dumps(result)}
+    return {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(result, default=_json_default),
+    }
 
 
 def _persist_analytics_ticket(

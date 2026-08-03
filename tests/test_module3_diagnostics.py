@@ -1,6 +1,7 @@
 """Alert-driven and on-demand diagnostics share code-owned analysis."""
 import io
 import json
+from decimal import Decimal
 
 from conftest import REPO_ROOT, load_handler
 
@@ -181,6 +182,19 @@ def test_authorised_scope_query_uses_precomputed_thirty_day_features(monkeypatch
     assert "client_site_id IN ('site_a', 'site_b')" in captured[0]
     assert result["comparison"]["active_users"]["baseline_avg_30d"] == 3650
 
+    ask.diagnostics.authorised_scope_cumulative_comparison(
+        ["site_a", "site_b"], "2026-06-15 05:00:00.000"
+    )
+    assert "TIMESTAMP '2026-06-15 05:00:00.000'" in captured[1]
+    latest_cte = captured[1].split(")", 1)[0]
+    assert "FROM gold_hourly_monitoring_features" not in latest_cte
+
+
+def test_business_clock_converts_utc_to_configured_timezone(monkeypatch):
+    monkeypatch.setattr(ask, "BUSINESS_TIMEZONE_OFFSET_HOURS", 8)
+
+    assert ask._clock_label("2026-06-15 03:00:00.000") == "上午 11:00"
+
 
 class FakeS3:
     def __init__(self):
@@ -317,3 +331,9 @@ def test_hourly_alert_reads_precomputed_evidence_before_headline(monkeypatch):
         in fake_s3.objects
     )
     assert len(fake_sns.messages) == 1
+
+
+def test_api_response_serializes_incident_decimals():
+    response = ask._response({"incident": {"baseline": Decimal("36.5")}})
+
+    assert json.loads(response["body"])["incident"]["baseline"] == 36.5

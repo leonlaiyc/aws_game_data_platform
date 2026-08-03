@@ -14,7 +14,9 @@ SITE_METRICS = [
 HOURLY_METRICS = ["active_users", "sessions", "processed_events"]
 
 
-def authorised_scope_cumulative_comparison(sites: list[str]) -> dict:
+def authorised_scope_cumulative_comparison(
+    sites: list[str], event_hour: str | None = None
+) -> dict:
     """Aggregate the latest common hourly cutoff across authorised sites.
 
     Values and 30-day same-cutoff baselines are already prepared per site in
@@ -22,11 +24,16 @@ def authorised_scope_cumulative_comparison(sites: list[str]) -> dict:
     recomputing historical windows in the request path.
     """
     quoted_sites = ", ".join(f"'{site}'" for site in sites)
+    latest_sql = (
+        f"SELECT TIMESTAMP '{event_hour}' AS event_hour"
+        if event_hour
+        else f"""SELECT MAX(event_hour) AS event_hour
+            FROM gold_hourly_monitoring_features
+            WHERE client_site_id IN ({quoted_sites})"""
+    )
     rows = fetch_all_rows(run_athena_query(f"""
         WITH latest AS (
-            SELECT MAX(event_hour) AS event_hour
-            FROM gold_hourly_monitoring_features
-            WHERE client_site_id IN ({quoted_sites})
+            {latest_sql}
         )
         SELECT
             CAST(feature.event_hour AS VARCHAR) AS event_hour,

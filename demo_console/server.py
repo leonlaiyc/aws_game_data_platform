@@ -180,8 +180,13 @@ def partner_chat(question: str, session_id: str | None = None) -> tuple[int, dic
         timeout=60,
     )
     result["session_id"] = session_id
+    model_invoked = bool(result.get("model_invoked"))
     result["request"] = {
-        "service": "API Gateway + Lambda + Amazon Bedrock",
+        "service": (
+            "API Gateway + Lambda + Amazon Bedrock"
+            if model_invoked
+            else "API Gateway + Lambda + governed knowledge"
+        ),
         "identity": "client-operator-partner",
         "region": REGION,
         "duration_ms": round((time.perf_counter() - started) * 1000),

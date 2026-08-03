@@ -104,6 +104,42 @@ def run_query(sql: str, database: str, workgroup: str) -> str:
     return query_id
 
 
+def split_athena_statements(sql: str) -> list[str]:
+    """Split a DDL file without treating semicolons in comments as queries."""
+    statements = []
+    current = []
+    in_single_quote = False
+
+    for raw_line in sql.splitlines():
+        line = raw_line
+        if not in_single_quote and line.lstrip().startswith("--"):
+            continue
+
+        index = 0
+        while index < len(line):
+            char = line[index]
+            if char == "'":
+                if in_single_quote and index + 1 < len(line) and line[index + 1] == "'":
+                    current.extend((char, char))
+                    index += 2
+                    continue
+                in_single_quote = not in_single_quote
+            if char == ";" and not in_single_quote:
+                statement = "".join(current).strip()
+                if statement:
+                    statements.append(statement)
+                current = []
+            else:
+                current.append(char)
+            index += 1
+        current.append("\n")
+
+    statement = "".join(current).strip()
+    if statement:
+        statements.append(statement)
+    return statements
+
+
 def print_query_results(query_id: str, max_rows: int = 20):
     resp = athena.get_query_results(QueryExecutionId=query_id, MaxResults=max_rows + 1)
     rows = resp["ResultSet"]["Rows"]
@@ -197,7 +233,7 @@ def main():
         sql = template.substitute(bucket=bucket, min_date=min_date, max_date=max_date)
         # Athena only allows one statement per StartQueryExecution call, but each
         # DDL file has a DROP TABLE IF EXISTS followed by the CREATE statement.
-        statements = [s.strip() for s in sql.split(";") if s.strip()]
+        statements = split_athena_statements(sql)
         for statement in statements:
             code_lines = [ln for ln in statement.splitlines() if ln.strip() and not ln.strip().startswith("--")]
             label = code_lines[0][:60] if code_lines else statement[:60]

@@ -3,6 +3,8 @@
 import json
 import os
 from datetime import datetime, timezone
+from decimal import Decimal
+from urllib.parse import unquote
 
 import boto3
 
@@ -17,11 +19,17 @@ VALID_TRANSITIONS = {
 }
 
 
+def _json_default(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _response(status: int, body: dict) -> dict:
     return {
         "statusCode": status,
         "headers": {"Content-Type": "application/json"},
-        "body": json.dumps(body),
+        "body": json.dumps(body, default=_json_default),
     }
 
 
@@ -61,7 +69,7 @@ def handler(event, context):
         items.sort(key=lambda item: item.get("detected_at", ""), reverse=True)
         return _response(200, {"incidents": items})
 
-    incident_id = (event.get("pathParameters") or {}).get("incident_id")
+    incident_id = unquote((event.get("pathParameters") or {}).get("incident_id") or "")
     body = _parse_body(event)
     requested = body.get("status") if body else None
     if not incident_id or requested not in VALID_STATUS:

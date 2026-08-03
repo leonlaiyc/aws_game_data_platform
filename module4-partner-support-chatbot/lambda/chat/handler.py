@@ -267,9 +267,36 @@ def _guardrail_blocks_input(question: str) -> tuple:
         guardrailIdentifier=GUARDRAIL_ID,
         guardrailVersion=GUARDRAIL_VERSION,
         source="INPUT",
-        content=[{"text": {"text": question}}],
+        content=[{"text": {"text": _guardrail_input(question)}}],
     )
     return resp.get("action") == "GUARDRAIL_INTERVENED", resp
+
+
+def _guardrail_input(question: str) -> str:
+    """Redact credential values and neutralise schema labels before review.
+
+    The OtherPartnerData denied topic is about requests for another tenant's
+    information. A legitimate OAuth packet's ``partner_id`` field is not such
+    a request, but the topic classifier can confuse the label with the topic.
+    All surrounding text stays intact so prompt attacks are still evaluated.
+    """
+    credential = re.compile(
+        r'(?im)(["\']?(?:partner_id|client_secret)["\']?\s*[:=]\s*)'
+        r'("[^"]*"|\'[^\']*\'|[^\s&,}]+)'
+    )
+    redacted = credential.sub(lambda match: f'{match.group(1)}"[REDACTED]"', question)
+    return re.sub(r"(?i)\bpartner_id\b", "credential_id", redacted)
+
+
+def _is_documented_oauth_invalid_request(question: str) -> bool:
+    lowered = question.lower()
+    return (
+        "/oauth/token" in lowered
+        and "content-type" in lowered
+        and "application/json" in lowered
+        and "400" in lowered
+        and "invalid_request" in lowered
+    )
 
 
 def _strip_meta_references(text: str) -> str:
@@ -327,6 +354,8 @@ _CODE_OWNED_COPY = {
     copy.VALIDATION_FALLBACK_BODY,
     copy.ACKNOWLEDGMENT_INFO_REQUEST_ZH, copy.OUT_OF_SCOPE_BODY_ZH,
     copy.CLOSING_OUT_OF_SCOPE_ZH,
+    copy.ACKNOWLEDGMENT_OAUTH_ERROR_ZH, copy.OAUTH_INVALID_REQUEST_BODY_ZH,
+    copy.CLOSING_OAUTH_ERROR_ZH,
 }
 
 SESSION_TTL_SECONDS = 24 * 60 * 60
@@ -558,7 +587,12 @@ def handler(event, context):
                  "answer_body": copy.BLOCKED_RESPONSE, "closing": None}
         audit["validation"] = _validate(slots, "BLOCKED_CONTENT")
         print(json.dumps({"audit_track": True, **audit}))
-        result = {"category": "BLOCKED_CONTENT", "response": _render(slots), "ticket_id": None}
+        result = {
+            "category": "BLOCKED_CONTENT",
+            "response": _render(slots),
+            "ticket_id": None,
+            "model_invoked": False,
+        }
         if debug:
             result["audit"] = audit
         return {"statusCode": 200, "headers": {"Content-Type": "application/json"},
@@ -581,6 +615,7 @@ def handler(event, context):
                             if relevance["overall"] < DOMAIN_RELEVANCE_MIN
                             else "no domain anchor term present")
         if re.search(r"[\u3400-\u9fff]", question):
+            slots["greeting"] = None
             slots["acknowledgment"] = copy.ACKNOWLEDGMENT_INFO_REQUEST_ZH
             slots["answer_body"] = copy.OUT_OF_SCOPE_BODY_ZH
             slots["closing"] = copy.CLOSING_OUT_OF_SCOPE_ZH
@@ -588,6 +623,14 @@ def handler(event, context):
             slots["acknowledgment"] = _acknowledgment(question)
             slots["answer_body"] = copy.OUT_OF_SCOPE_BODY
             slots["closing"] = copy.CLOSING_OUT_OF_SCOPE
+    elif _is_documented_oauth_invalid_request(question):
+        category = "ANSWERED"
+        audit["trigger"] = "documented_oauth_invalid_request"
+        audit["model_invoked"] = False
+        slots["greeting"] = None
+        slots["acknowledgment"] = copy.ACKNOWLEDGMENT_OAUTH_ERROR_ZH
+        slots["answer_body"] = copy.OAUTH_INVALID_REQUEST_BODY_ZH
+        slots["closing"] = copy.CLOSING_OAUTH_ERROR_ZH
     else:
         clarification = _clarification_reason(question, relevance)
         if clarification:
@@ -674,7 +717,12 @@ def handler(event, context):
 
     print(json.dumps({"audit_track": True, **audit}))
 
-    result = {"category": category, "response": _render(slots), "ticket_id": ticket_id}
+    result = {
+        "category": category,
+        "response": _render(slots),
+        "ticket_id": ticket_id,
+        "model_invoked": audit["model_invoked"],
+    }
     # Provenance is an operator-facing guarantee, not a user-facing feature.
     # It is gated on the caller's IAM principal, never a request-body flag.
     if debug:

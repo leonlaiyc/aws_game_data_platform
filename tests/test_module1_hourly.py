@@ -1,6 +1,7 @@
 """Hourly monitoring consumes prepared same-hour features and publishes evidence."""
 import io
 import json
+from decimal import Decimal
 
 from conftest import REPO_ROOT, load_handler
 
@@ -45,6 +46,19 @@ class FakeSns:
         self.messages.append(kwargs)
 
 
+class FakeIncidents:
+    def __init__(self):
+        self.values = None
+
+    def update_item(self, **kwargs):
+        self.values = kwargs["ExpressionAttributeValues"]
+        assert not any(
+            isinstance(value, float)
+            for alert in self.values[":alerts"]
+            for value in alert.values()
+        )
+
+
 def _feature():
     row = {
         "event_hour": "2026-06-10 13:00:00.000",
@@ -69,8 +83,10 @@ def _feature():
 def test_hourly_check_uses_precomputed_bounds_and_publishes(monkeypatch):
     fake_s3 = FakeS3()
     fake_sns = FakeSns()
+    fake_incidents = FakeIncidents()
     monkeypatch.setattr(hourly, "s3", fake_s3)
     monkeypatch.setattr(hourly, "sns", fake_sns)
+    monkeypatch.setattr(hourly, "incidents", fake_incidents)
     monkeypatch.setattr(hourly, "_fetch_hourly_feature", lambda *_: _feature())
 
     result = hourly._check_hourly_site("site_b", "2026-06-10 13:00:00.000")
@@ -85,6 +101,7 @@ def test_hourly_check_uses_precomputed_bounds_and_publishes(monkeypatch):
     assert attrs["alert_type"]["StringValue"] == "hourly_data_anomaly"
     assert attrs["event_hour"]["StringValue"] == "2026-06-10 13:00:00.000"
     assert attrs["incident_id"]["StringValue"] == "site_b#2026-06-10T13"
+    assert fake_incidents.values[":alerts"][0]["baseline"] == Decimal("9.3")
     assert any(key.startswith("gold/anomaly_alerts/site_b_2026-06-10T13") for key in fake_s3.objects)
 
 

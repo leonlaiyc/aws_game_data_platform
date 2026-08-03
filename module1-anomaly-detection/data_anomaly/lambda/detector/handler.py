@@ -29,6 +29,7 @@ import math
 import os
 import time
 from datetime import date, timedelta
+from decimal import Decimal
 from statistics import mean, pstdev
 
 import boto3
@@ -73,6 +74,17 @@ RETENTION_DETECTOR_VERSION = "1.0"
 
 def _now_iso() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+def _dynamodb_numbers(value):
+    """Convert JSON-shaped float values to DynamoDB's native Decimal type."""
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, list):
+        return [_dynamodb_numbers(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _dynamodb_numbers(item) for key, item in value.items()}
+    return value
 
 
 def _ewma(series: list, alpha: float) -> float:
@@ -259,7 +271,7 @@ def _publish_hourly_alert(result: dict) -> None:
                 ":detected": "DETECTED",
                 ":detected_at": body["detected_at"],
                 ":evidence": key,
-                ":alerts": result["alerts"],
+                ":alerts": _dynamodb_numbers(result["alerts"]),
             },
         )
     sns.publish(

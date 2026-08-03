@@ -43,6 +43,7 @@ class FakeTable:
         return {"Items": [dict(self.item)]}
 
     def get_item(self, **kwargs):
+        assert kwargs["Key"]["incident_id"] == self.item["incident_id"]
         return {"Item": dict(self.item)}
 
     def update_item(self, **kwargs):
@@ -58,7 +59,7 @@ def test_operator_can_move_detected_incident_to_investigating(monkeypatch):
         event(
             "POST",
             {"status": "INVESTIGATING"},
-            "site_b#2026-06-10T11",
+            "site_b%232026-06-10T11",
         ),
         None,
     )

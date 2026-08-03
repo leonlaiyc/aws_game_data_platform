@@ -49,7 +49,7 @@ class Scene:
 
 
 SCENES = (
-    Scene(0, 15, "01 · 異常監控", "今天截至 13:00 的累積活躍人數為 2,180；過去 30 天相同時間平均為 3,650。", "m1-initial.png", accent=CORAL),
+    Scene(0, 15, "01 · 異常監控", "今天截至 13:00 的累積活躍人數為 124；過去 30 天相同時間平均為 177。", "m1-initial.png", accent=CORAL),
     Scene(15, 25, "01 · 異常監控", "系統已在 11:00 告警，負責人將處理狀態更新為排查中。", "m1-result.png", accent=CORAL),
     Scene(25, 40, "02 · 實驗治理", "中央控制台同時呈現執行中、需要處理與草稿實驗。", "m2-all.png", accent=AMBER),
     Scene(40, 53, "02 · 實驗治理", "SRM 先檢查分流；通過後才看 Guardrail，失敗時停止實驗並關閉 Allocation。", "m2-action.png", accent=CORAL),

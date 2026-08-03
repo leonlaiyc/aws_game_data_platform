@@ -7,11 +7,11 @@ let chatSession = null;
 const recordingMode = new URLSearchParams(window.location.search).has('recording');
 
 const recordingFixtures={
-  '/api/m1/incidents':{incidents:[{incident_id:'all_authorized#2026-06-10T11',status:'DETECTED',client_site_id:'all_authorized',event_hour:'2026-06-10 11:00:00.000',detected_at:'2026-06-10T11:05:00Z'}]},
-  '/api/m1/incidents/status':{incident:{incident_id:'all_authorized#2026-06-10T11',status:'INVESTIGATING',updated_at:'2026-06-10T11:12:00Z'}},
+  '/api/m1/incidents':{incidents:[{incident_id:'site_b#2026-06-15T03',status:'DETECTED',client_site_id:'site_b',event_hour:'2026-06-15 03:00:00.000',detected_at:'2026-08-03T07:57:44Z'}]},
+  '/api/m1/incidents/status':{incident:{incident_id:'site_b#2026-06-15T03',status:'INVESTIGATING',updated_at:'2026-08-03T07:59:47Z'}},
   '/api/m3/report':{comparison:{dau:{actual:91,baseline_avg_7d:205.6,pct_change:-55.7},sessions:{actual:89,baseline_avg_7d:201.1,pct_change:-55.7},new_players:{actual:30,baseline_avg_7d:26.4,pct_change:13.6}},evidence:{key:'gold/first_look_reports/site_b_2026-06-10.json',last_modified:'2026-08-02T01:02:00Z'}},
   '/api/m3/ask':{
-    diagnosis:{category:'diagnosis',answer:'今天截至下午 1:00，你有權限查看的所有站點共有 2,180 位活躍使用者；過去 30 天截至相同時間平均約有 3,650 位，目前少了約 40%。\n\n異常監控系統已於上午 11:00 發出告警，目前技術人員正在排查中。原因尚未確認。',scope:{mode:'all_authorised_sites',sites:['site_a','site_b','site_c']},request:{service:'IAM + API Gateway + governed analytics',identity:'all-authorised-sites',duration_ms:384,completed_at:'2026-08-03T01:04:00Z'}},
+    diagnosis:{category:'diagnosis',answer:'今天截至下午 1:00，你有權限查看的所有站點共有 124 位活躍使用者；過去 30 天截至相同時間平均約有 177 位，目前少了約 30%。\n\n異常監控系統已於上午 11:00 發出告警，目前技術人員正在排查中。原因尚未確認。',scope:{mode:'all_authorised_sites',sites:['site_a','site_b','site_c']},request:{service:'IAM + API Gateway + governed analytics',identity:'all-authorised-sites',duration_ms:384,completed_at:'2026-08-03T08:08:16Z'}},
     forecast:{category:'forecast_not_supported',answer:'目前系統可以分析已發生的數據變化，但尚未建立並驗證人數預測模型，因此無法判定明天是否會恢復。',request:{service:'IAM + API Gateway · deterministic boundary',identity:'all-authorised-sites',duration_ms:42,completed_at:'2026-08-03T01:05:00Z'}}
   },
   '/api/m2/experiments':{summary:{total:6,running:2,needs_action:2,draft:1},experiments:[
@@ -23,7 +23,7 @@ const recordingFixtures={
     {name:'workspace-home-test',experiment_id:'exp_06',client_site_id:'site_c',game_id:'product_06',state:'analyzed',health:'healthy',health_detail:'review ready',allocation_enabled:false,srm_status:'passed',total_exposed:1520}
   ],request:{completed_at:'2026-08-02T01:03:00Z'}},
   '/api/m4/chat':{
-    answered:{response:'這個 Token Request 使用了 JSON，但文件要求 application/x-www-form-urlencoded，而且缺少 grant_type=client_credentials。請調整 Content-Type 並補上 grant_type 後重新送出；partner_id 與 client_secret 可以沿用。',category:'ANSWERED',session_id:'recording-session',request:{service:'API Gateway + Lambda + Amazon Bedrock',identity:'client-operator-partner',duration_ms:642,completed_at:'2026-08-03T01:04:00Z'}},
+    answered:{response:'這個 Token Request 使用了 JSON，但文件要求 application/x-www-form-urlencoded，而且缺少 grant_type=client_credentials。請調整 Content-Type 並補上 grant_type 後重新送出；partner_id 與 client_secret 可以沿用。',category:'ANSWERED',model_invoked:false,session_id:'recording-session',request:{service:'API Gateway + Lambda + governed knowledge',identity:'client-operator-partner',duration_ms:642,completed_at:'2026-08-03T01:04:00Z'}},
     outOfScope:{response:'目前整合支援資料中沒有參展資訊，因此無法確認這次是否會參展。若需要進一步確認，請聯絡您的業務窗口。',category:'OUT_OF_SCOPE',session_id:'recording-session',request:{service:'API Gateway + Lambda · model not invoked',identity:'client-operator-partner',duration_ms:118,completed_at:'2026-08-03T01:05:00Z'}}
   }
 };
@@ -33,8 +33,8 @@ POST /oauth/token
 Content-Type: application/json
 
 {
-  "partner_id": "partner_demo",
-  "client_secret": "****",
+  "partner_id": "[REDACTED]",
+  "client_secret": "[REDACTED]",
   "environment": "sandbox"
 }
 
@@ -49,9 +49,9 @@ $$('.nav').forEach(button=>button.addEventListener('click',()=>{const id=button.
 $$('.mode-tab').forEach(tab=>tab.addEventListener('click',()=>{const screen=tab.closest('.screen');screen.querySelectorAll('.mode-tab').forEach(x=>x.classList.remove('active'));screen.querySelectorAll('.module-mode').forEach(x=>x.classList.remove('active'));tab.classList.add('active');screen.querySelector(`[data-panel="${tab.dataset.mode}"]`).classList.add('active');if(screen.id==='m1'&&tab.dataset.mode==='interface')requestAnimationFrame(()=>drawHourlyChart(currentMetric))}));
 
 const hourlySeries={
-  activeUsers:{title:'今日累積活躍人數',actual:[620,940,1240,1605,1900,2180],baseline:[890,1430,2020,2680,3220,3650],range:330},
-  sessions:{title:'今日累積工作階段',actual:[920,1430,1900,2460,2940,3420],baseline:[1320,2120,2970,3900,4720,5310],range:460},
-  processedEvents:{title:'今日累積處理量',actual:[3520,5980,8420,11860,15120,18920],baseline:[5210,8870,12640,17420,22110,26780],range:2200}
+  activeUsers:{title:'今日累積活躍人數',actual:[22,37,58,82,104,124],baseline:[29.9,59.7,88.3,118.1,148.0,177.1],range:25},
+  sessions:{title:'今日累積工作階段',actual:[19,32,50,72,91,106],baseline:[23.2,47.3,70.6,95.5,119.7,144.9],range:22},
+  processedEvents:{title:'今日累積處理量',actual:[209,327,513,735,929,1088],baseline:[237,477,716,966,1208,1460],range:220}
 };
 const hourlyLabels=['08','09','10','11','12','13'];
 let currentMetric='activeUsers';
@@ -82,3 +82,31 @@ experiments=structuredClone(recordingFixtures['/api/m2/experiments'].experiments
 requestAnimationFrame(()=>document.querySelector('.exp-row[data-experiment-id="exp_02"]')?.click());
 $('#chat-input').value=supportQuestions.packet;
 if(!recordingMode)fetch('/api/health').then(r=>r.json()).catch(()=>({status:'offline'}));
+
+async function prepareCaptureScene(scene){
+  const [moduleId,state='initial']=scene.split('-');
+  const nav=$(`.nav[data-screen="${moduleId}"]`);
+  if(!nav)return;
+  nav.click();
+  $(`#${moduleId} .mode-tab[data-mode="interface"]`)?.click();
+  if(scene==='m1-result'){
+    $('#start-investigation').click();
+    await new Promise(resolve=>setTimeout(resolve,80));
+  }
+  if(scene==='m3-result')await runAnalyticsQuestion('今天人數為何突然掉這麼多？');
+  if(scene==='m3-forecast'){
+    await runAnalyticsQuestion('今天人數為何突然掉這麼多？');
+    await runAnalyticsQuestion('明天人數就會回來嗎？');
+  }
+  if(scene==='m4-result')await runSupportQuestion(supportQuestions.packet);
+  if(scene==='m4-out-of-scope'){
+    await runSupportQuestion(supportQuestions.packet);
+    await runSupportQuestion(supportQuestions.exhibition);
+    $$('.scenario-button').forEach((button,index)=>button.classList.toggle('active',index===1));
+  }
+  window.scrollTo(0,0);
+  document.documentElement.dataset.captureReady=state;
+}
+
+const captureScene=new URLSearchParams(window.location.search).get('capture');
+if(recordingMode&&captureScene)setTimeout(()=>prepareCaptureScene(captureScene),50);
