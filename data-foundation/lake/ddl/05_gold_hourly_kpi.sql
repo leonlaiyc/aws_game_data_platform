@@ -19,6 +19,7 @@ SELECT
     client_site_id,
     game_id,
     player_id,
+    COUNT(*) AS processed_events,
     COUNT_IF(event_type = 'session_start') AS sessions,
     COUNT_IF(event_type = 'bet_settled') AS completed_interactions,
     ROUND(SUM(CASE WHEN event_type = 'bet_settled' THEN COALESCE(bet_amount_usd, 0.0) ELSE 0.0 END), 2)

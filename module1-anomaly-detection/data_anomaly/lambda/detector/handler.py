@@ -1,8 +1,11 @@
-"""Batch anomaly detection for daily business KPIs and mature retention cohorts.
+"""Scheduled anomaly detection for hourly operational KPIs, daily business
+KPIs, and mature retention cohorts.
 
 Three invocation modes share the same publication boundary:
-- Daily scheduled (``{"scheduled": true}``): checks DAU/GGR with the
-  existing EWMA control limits.
+- Hourly scheduled (``{"scheduled": true, "cadence": "hourly"}``): reads
+  precomputed same-hour baselines and control limits from Gold.
+- Explicit daily (``{"client_site_id", "as_of_date"}``): retains the
+  historical EWMA replay used by the original PoC.
 - Weekly scheduled (``{"scheduled": true, "cadence": "weekly"}``): pools
   fully matured registration cohorts by calendar week, then checks D1/D7
   retention with a two-proportion z-score. D7 cohorts are not evaluated until
@@ -44,6 +47,12 @@ METRICS = ["dau", "ggr_usd"]
 PUBLICATION_MANIFEST_KEY = "manifests/published/gold_daily_kpi.json"
 CONSUMPTION_MARKER_KEY = "manifests/consumed/data_anomaly.json"
 RETENTION_CONSUMPTION_MARKER_KEY = "manifests/consumed/retention_anomaly.json"
+HOURLY_PUBLICATION_MANIFEST_KEY = (
+    "manifests/published/gold_hourly_monitoring_features.json"
+)
+HOURLY_CONSUMPTION_MARKER_KEY = "manifests/consumed/hourly_data_anomaly.json"
+HOURLY_METRICS = ("active_users", "sessions", "processed_events")
+MIN_HOURLY_BASELINE_POINTS = 7
 
 RETENTION_METRICS = {
     "d1_retention_rate": "d1_retained",
@@ -187,6 +196,132 @@ def _publish_alert(result: dict):
             "as_of_date": {"DataType": "String", "StringValue": result["as_of_date"]},
         },
     )
+
+
+def _hourly_publication_manifest() -> dict:
+    obj = s3.get_object(Bucket=BUCKET, Key=HOURLY_PUBLICATION_MANIFEST_KEY)
+    manifest = json.loads(obj["Body"].read())
+    if manifest.get("table") != "gold_hourly_monitoring_features":
+        raise ValueError(f"unexpected hourly publication manifest: {manifest}")
+    if not manifest.get("published_through") or not manifest.get("published_at"):
+        raise ValueError("hourly monitoring publication manifest is incomplete")
+    return manifest
+
+
+def _discover_hourly_sites() -> list:
+    rows = fetch_all_rows(run_athena_query(
+        "SELECT DISTINCT client_site_id FROM gold_hourly_monitoring_features"
+    ))
+    return [row["client_site_id"] for row in rows]
+
+
+def _fetch_hourly_feature(site: str, event_hour: str | None = None) -> dict | None:
+    hour_filter = f"AND event_hour = TIMESTAMP '{event_hour}'" if event_hour else ""
+    rows = fetch_all_rows(run_athena_query(f"""
+        SELECT *
+        FROM gold_hourly_monitoring_features
+        WHERE client_site_id = '{site}' {hour_filter}
+        ORDER BY event_hour DESC
+        LIMIT 1
+    """))
+    return rows[0] if rows else None
+
+
+def _publish_hourly_alert(result: dict) -> None:
+    compact_hour = result["event_hour"].replace(" ", "T").replace(":00:00.000", "")
+    key = f"gold/anomaly_alerts/{result['client_site_id']}_{compact_hour}.json"
+    body = {**result, "detected_at": _now_iso(), "evidence_s3_key": key}
+    encoded = json.dumps(body).encode("utf-8")
+    s3.put_object(
+        Bucket=BUCKET,
+        Key=key,
+        Body=encoded,
+        ContentType="application/json",
+    )
+    sns.publish(
+        TopicArn=ALERTS_TOPIC_ARN,
+        Subject=f"Hourly anomaly: {result['client_site_id']} at {compact_hour}",
+        Message=encoded.decode("utf-8"),
+        MessageAttributes={
+            "alert_type": {
+                "DataType": "String",
+                "StringValue": "hourly_data_anomaly",
+            },
+            "schema_version": {"DataType": "String", "StringValue": "1"},
+            "client_site_id": {
+                "DataType": "String",
+                "StringValue": result["client_site_id"],
+            },
+            "as_of_date": {
+                "DataType": "String",
+                "StringValue": result["event_hour"][:10],
+            },
+            "event_hour": {
+                "DataType": "String",
+                "StringValue": result["event_hour"],
+            },
+        },
+    )
+
+
+def _check_hourly_site(site: str, event_hour: str | None = None) -> dict:
+    feature = _fetch_hourly_feature(site, event_hour)
+    if not feature:
+        return {"client_site_id": site, "event_hour": event_hour, "skipped": "no hourly data"}
+    result_hour = feature["event_hour"]
+    baseline_points = int(feature.get("baseline_points") or 0)
+    if baseline_points < MIN_HOURLY_BASELINE_POINTS:
+        return {
+            "client_site_id": site,
+            "event_hour": result_hour,
+            "skipped": "insufficient same-hour history",
+            "baseline_points": baseline_points,
+        }
+    alerts = []
+    for metric in HOURLY_METRICS:
+        actual = float(feature[metric])
+        baseline = float(feature[f"{metric}_baseline"])
+        lower = float(feature[f"{metric}_lower_bound"])
+        upper = float(feature[f"{metric}_upper_bound"])
+        if actual < lower or actual > upper:
+            alerts.append({
+                "metric": metric,
+                "actual": round(actual, 4),
+                "baseline": round(baseline, 4),
+                "lower_bound": round(lower, 4),
+                "upper_bound": round(upper, 4),
+                "deviation_pct": (
+                    round((actual - baseline) / baseline * 100, 2)
+                    if baseline else None
+                ),
+            })
+    result = {
+        "client_site_id": site,
+        "event_hour": result_hour,
+        "baseline_points": baseline_points,
+        "alerts": alerts,
+    }
+    if alerts:
+        _publish_hourly_alert(result)
+    return result
+
+
+def _run_hourly() -> dict:
+    publication = _hourly_publication_manifest()
+    if _already_processed(publication, HOURLY_CONSUMPTION_MARKER_KEY):
+        return {
+            "checked": [],
+            "skipped": "publication already processed",
+            "published_at": publication["published_at"],
+            "cadence": "hourly",
+        }
+    checked = [_check_hourly_site(site) for site in _discover_hourly_sites()]
+    _mark_processed(
+        publication,
+        HOURLY_CONSUMPTION_MARKER_KEY,
+        cadence="hourly",
+    )
+    return {"checked": checked, "cadence": "hourly"}
 
 
 def _latest_complete_retention_week(published_through: str) -> tuple[str, str]:
@@ -408,6 +543,8 @@ def _run_weekly_retention(publication: dict) -> dict:
 
 def handler(event, context):
     if event.get("scheduled"):
+        if event.get("cadence") == "hourly":
+            return _run_hourly()
         publication = _publication_manifest()
         if event.get("cadence") == "weekly":
             return _run_weekly_retention(publication)
@@ -424,4 +561,6 @@ def handler(event, context):
         _mark_processed(publication)
         return {"checked": checked}
 
+    if event.get("event_hour"):
+        return _check_hourly_site(event["client_site_id"], event["event_hour"])
     return _check_site(event["client_site_id"], event["as_of_date"])

@@ -89,15 +89,16 @@ fires the guardrail; see the verified demo output below.
 
 ## Capability B: first-look drill-down report
 
-Subscribed to the same SNS topic Module 1's `data_anomaly` and
+Subscribed to the same SNS topic Module 1's `hourly_data_anomaly`, `data_anomaly`, and
 `retention_anomaly` paths publish to
-(`aurora-games-anomaly-alerts`), reading `client_site_id`/`as_of_date` from the SNS message's
-`MessageAttributes` (a small, additive change to Module 1's publisher — see
+(`aurora-games-anomaly-alerts`), reading `client_site_id` and `event_hour` or `as_of_date` from
+the SNS message's `MessageAttributes` (an additive contract in Module 1's publisher — see
 `module1-anomaly-detection/data_anomaly/lambda/detector/handler.py`'s `_publish_alert`). On each
 alert:
 
-1. **Site-level baseline comparison** — today's DAU/GGR/sessions/new_players/deposits/withdrawals
-   vs. the trailing 7-day average, from `gold_daily_kpi`.
+1. **Site-level baseline comparison** — hourly alerts read actuals, same-hour baselines and normal
+   ranges already prepared in `gold_hourly_monitoring_features`; legacy daily alerts compare the
+   current day with the trailing 7-day average from `gold_daily_kpi`.
 2. **Per-game GGR breakdown** — deliberately reads `silver_events` directly rather than Gold,
    because `gold_daily_kpi` has no per-game grain. A documented, narrow exception to "always read
    from Gold": this is a one-off investigative drill-down, not a repeated dashboard metric that

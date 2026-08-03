@@ -92,8 +92,8 @@ stack and cannot be created by the default `cdk deploy --all`.
 
 ### KPI / retention anomaly path
 
-1. **[auto] Detect** — EventBridge runs daily DAU/GGR and weekly mature-cohort
-   retention checks against published Gold data.
+1. **[auto] Detect** — EventBridge runs hourly site-usage checks from prepared
+   same-hour baselines and weekly mature-cohort retention checks against published Gold data.
 2. **[auto] First look** — Module 1 publishes an SNS alert; Module 3 builds
    baseline, per-game, or retention evidence before an analyst starts.
 3. **[human] Investigate** — an analyst checks the evidence, business context,

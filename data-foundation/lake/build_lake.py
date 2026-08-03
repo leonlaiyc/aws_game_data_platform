@@ -31,6 +31,9 @@ DDL_DIR = LAKE_DIR / "ddl"
 QUERIES_DIR = LAKE_DIR / "queries"
 DAILY_KPI_PUBLICATION_MANIFEST = "manifests/published/gold_daily_kpi.json"
 HOURLY_KPI_PUBLICATION_MANIFEST = "manifests/published/gold_hourly_kpi.json"
+HOURLY_MONITORING_PUBLICATION_MANIFEST = (
+    "manifests/published/gold_hourly_monitoring_features.json"
+)
 GOVERNANCE_SETUP = (
     LAKE_DIR.parent / "governance" / "setup_client_isolation.py"
 )
@@ -177,9 +180,11 @@ def main():
     # marker that tells scheduled consumers it is safe to query.
     s3.delete_object(Bucket=bucket, Key=DAILY_KPI_PUBLICATION_MANIFEST)
     s3.delete_object(Bucket=bucket, Key=HOURLY_KPI_PUBLICATION_MANIFEST)
+    s3.delete_object(Bucket=bucket, Key=HOURLY_MONITORING_PUBLICATION_MANIFEST)
     clear_prefix(bucket, "silver/events/")
     clear_prefix(bucket, "gold/daily_kpi/")
     clear_prefix(bucket, "gold/hourly_kpi/")
+    clear_prefix(bucket, "gold/hourly_monitoring_features/")
     clear_prefix(bucket, "gold/cohort_retention/")
     clear_prefix(bucket, "athena-results/tables/")  # staging debris from any previously failed CTAS
 
@@ -200,7 +205,8 @@ def main():
             run_query(statement, database, workgroup)
     print(
         "DDL complete: bronze_events, silver_events, gold_daily_kpi, "
-        "gold_cohort_retention, gold_hourly_kpi."
+        "gold_cohort_retention, gold_hourly_kpi, "
+        "gold_hourly_monitoring_features."
     )
 
     print("\nRunning example queries ...")
@@ -223,6 +229,13 @@ def main():
         bucket,
         HOURLY_KPI_PUBLICATION_MANIFEST,
         "gold_hourly_kpi",
+        min_date,
+        max_date,
+    )
+    publish_completion_manifest(
+        bucket,
+        HOURLY_MONITORING_PUBLICATION_MANIFEST,
+        "gold_hourly_monitoring_features",
         min_date,
         max_date,
     )

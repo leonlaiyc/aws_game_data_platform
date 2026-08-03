@@ -58,6 +58,10 @@ event_simulator/  --(local JSONL)-->  S3 bronze/  --(Athena CTAS)-->  S3 silver/
    - `gold_cohort_retention` — registration_date x client_site_id grain: D1/D7 retention.
    - `gold_hourly_kpi` — event_hour x client_site_id x game_id x player_id grain: hourly sessions
      and normalized value metrics used by exposure-aware live experiment guardrails.
+   - `gold_hourly_monitoring_features` — event_hour x client_site_id grain: hourly active users,
+     sessions and processed events with a trailing same-hour baseline and normal range already
+     computed for Module 1. The detector reads one prepared row instead of rebuilding history at
+     alert time.
 
 ## Running it
 

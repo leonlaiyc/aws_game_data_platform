@@ -247,7 +247,11 @@ class AnalyticsAssistantStack(Stack):
             self.first_look_fn,
             filter_policy={
                 "alert_type": sns.SubscriptionFilter.string_filter(
-                    allowlist=["data_anomaly", "retention_anomaly"]
+                    allowlist=[
+                        "data_anomaly",
+                        "hourly_data_anomaly",
+                        "retention_anomaly",
+                    ]
                 ),
             },
             dead_letter_queue=sqs.Queue(

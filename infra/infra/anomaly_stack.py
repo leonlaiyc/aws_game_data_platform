@@ -20,10 +20,10 @@ MODULE1_DIR = REPO_ROOT / "module1-anomaly-detection"
 
 
 class AnomalyStack(Stack):
-    """Batch anomaly detection (data_anomaly) and rule-based arbitrage
+    """Hourly operational anomaly detection and rule-based risk detection.
     detection (arbitrage_detection) - both scheduled Lambdas reading only
-    from the shared Gold tables (gold_daily_kpi, gold_player_features,
-    silver_events), never recomputing their own aggregates. See
+    from shared, purpose-built Gold tables, never recomputing repeated
+    aggregates inside Lambda. See
     module1-anomaly-detection/README.md."""
 
     def __init__(self, scope: Construct, construct_id: str, lake_bucket: s3.IBucket, **kwargs) -> None:
@@ -35,7 +35,9 @@ class AnomalyStack(Stack):
             "AnomalyDetector",
             MODULE1_DIR / "data_anomaly" / "lambda",
             lake_bucket,
-            schedule_description="Daily EWMA anomaly check across all client sites",
+            schedule_description="Hourly operational anomaly check across all client sites",
+            schedule_hours=1,
+            scheduled_event={"scheduled": True, "cadence": "hourly"},
         )
         # Retention is intentionally weekly: daily cohorts are too small and
         # D7 outcomes are incomplete until seven days later. Reuse the same
@@ -69,7 +71,15 @@ class AnomalyStack(Stack):
 
         CfnOutput(self, "AlertsTopicArn", value=self.alerts_topic.topic_arn)
 
-    def _make_detector(self, name: str, lambda_dir: Path, lake_bucket: s3.IBucket, schedule_description: str) -> _lambda.Function:
+    def _make_detector(
+        self,
+        name: str,
+        lambda_dir: Path,
+        lake_bucket: s3.IBucket,
+        schedule_description: str,
+        schedule_hours: int = 24,
+        scheduled_event: dict | None = None,
+    ) -> _lambda.Function:
         layer = _lambda.LayerVersion(
             self,
             f"{name}CommonLayer",
@@ -120,8 +130,18 @@ class AnomalyStack(Stack):
         )
         self.alerts_topic.grant_publish(fn)
 
-        rule = events.Rule(self, f"{name}Schedule", description=schedule_description, schedule=events.Schedule.rate(Duration.hours(24)))
-        rule.add_target(targets.LambdaFunction(fn, event=events.RuleTargetInput.from_object({"scheduled": True})))
+        rule = events.Rule(
+            self,
+            f"{name}Schedule",
+            description=schedule_description,
+            schedule=events.Schedule.rate(Duration.hours(schedule_hours)),
+        )
+        rule.add_target(targets.LambdaFunction(
+            fn,
+            event=events.RuleTargetInput.from_object(
+                scheduled_event or {"scheduled": True}
+            ),
+        ))
 
         CfnOutput(self, f"{name}FunctionName", value=fn.function_name)
         return fn
