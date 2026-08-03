@@ -1,0 +1,43 @@
+1
+00:00:00,000 --> 00:00:09,000
+At 11:00 AM, the system detects that site_b's active-user count is below its normal range.
+
+2
+00:00:09,000 --> 00:00:17,000
+The system records the alert evidence and sends an on-call notification through SNS.
+
+3
+00:00:17,000 --> 00:00:25,000
+The on-call engineer begins investigating, and the incident moves to Investigating.
+
+4
+00:00:25,000 --> 00:00:35,000
+At 1:00 PM, the business team sees the decline and asks: Why did today's user count fall so much?
+
+5
+00:00:35,000 --> 00:00:50,000
+The assistant compares today's 124 users with the 30-day average of 177, then explains that an alert fired at 11:00 and engineers are investigating.
+
+6
+00:00:50,000 --> 00:01:00,000
+When asked whether usage will recover tomorrow, the assistant says there is no validated forecast model and does not speculate.
+
+7
+00:01:00,000 --> 00:01:15,000
+Managers can monitor every experiment's progress, health, traffic, and configuration in one view.
+
+8
+00:01:15,000 --> 00:01:30,000
+If a predefined SRM or guardrail stop condition is triggered, the system automatically stops the experiment and disables its traffic allocation.
+
+9
+00:01:30,000 --> 00:01:40,000
+The partner pastes the complete Token API request and its 400 error response.
+
+10
+00:01:40,000 --> 00:01:50,000
+Using the documentation, the assistant identifies an incorrect Content-Type and a missing grant_type.
+
+11
+00:01:50,000 --> 00:02:00,000
+Exhibition details are outside the integration knowledge base, so the system does not invent an answer and directs the partner to a sales contact.

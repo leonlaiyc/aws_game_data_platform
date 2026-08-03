@@ -1486,6 +1486,14 @@ blockquote {
   gap: 5px;
 }
 
+.demo-video figcaption .demo-caption-downloads {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  grid-auto-flow: column;
+  gap: 10px;
+}
+
 .demo-video figcaption b {
   color: #fff;
   font-size: 1.08rem;

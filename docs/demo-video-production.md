@@ -51,15 +51,15 @@ example `/?recording&capture=m1-initial` and
 `/?recording&capture=m4-out-of-scope`. Store the resulting PNGs under
 `demo_console/recording`.
 
-One command generates the MP4, poster, WebVTT, and SRT together:
+One command generates the MP4, poster, and Chinese and English WebVTT/SRT
+caption files together:
 
 ```powershell
 python -m pip install -r requirements-video.txt
 python scripts/render_operation_demo.py
 ```
 
-The MP4 is silent by design. Chinese subtitles are burned into the lower
-caption rail. Matching WebVTT/SRT files remain available for accessibility,
-but the browser caption track is not enabled by default because that would
-duplicate the burned-in subtitle. The operation UI remains visible above the
-caption rail throughout all four chapters.
+The MP4 is silent by design and contains no burned-in subtitles. The website
+uses the generated WebVTT tracks for selectable Chinese and English captions;
+matching SRT files are also available to download. The operation UI uses the
+full 16:9 frame throughout all four chapters.

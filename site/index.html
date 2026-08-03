@@ -484,78 +484,32 @@
               poster="video/demo-poster.png"
               aria-label="Two-minute AWS game data platform demo"
             >
-              <source src="video/demo-overview.zh-TW.mp4" type="video/mp4">
+              <source src="video/demo-overview.mp4" type="video/mp4">
               <track
                 kind="captions"
                 srclang="zh-TW"
                 label="繁體中文字幕"
                 src="video/demo-overview.zh-TW.vtt"
+                default
+              >
+              <track
+                kind="captions"
+                srclang="en"
+                label="English captions"
+                src="video/demo-overview.en.vtt"
               >
             </video>
             <figcaption>
               <span>
-                <b data-i18n="demoVideoTitle">實機操作字幕版 · 02:00</b>
-                <small data-i18n="demoVideoNote">2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本</small>
+                <b data-i18n="demoVideoTitle">實機操作 · 02:00</b>
+                <small data-i18n="demoVideoNote">2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕</small>
               </span>
-              <a href="video/demo-overview.zh-TW.srt" download data-i18n="demoVideoDownload">下載中文字幕</a>
+              <span class="demo-caption-downloads">
+                <a href="video/demo-overview.zh-TW.srt" download data-i18n="demoVideoDownloadZh">下載中文字幕</a>
+                <a href="video/demo-overview.en.srt" download data-i18n="demoVideoDownloadEn">Download English captions</a>
+              </span>
             </figcaption>
           </figure>
-
-          <div class="demo-layout reveal">
-            <div class="demo-chapters" role="tablist" aria-label="Demo chapters">
-              <button type="button" role="tab" aria-selected="true" data-demo="m1" aria-controls="demo-panel">
-                <span>00:05</span>
-                <b data-i18n="demoM1">M1 · Detect</b>
-                <small data-i18n="demoM1Time">23 sec</small>
-              </button>
-              <button type="button" role="tab" aria-selected="false" data-demo="m3" aria-controls="demo-panel">
-                <span>00:28</span>
-                <b data-i18n="demoM3">M3 · Investigate</b>
-                <small data-i18n="demoM3Time">22 sec</small>
-              </button>
-              <button type="button" role="tab" aria-selected="false" data-demo="m2" aria-controls="demo-panel">
-                <span>00:50</span>
-                <b data-i18n="demoM2">M2 · Experiment Ops</b>
-                <small data-i18n="demoM2Time">32 sec</small>
-              </button>
-              <button type="button" role="tab" aria-selected="false" data-demo="m4" aria-controls="demo-panel">
-                <span>01:22</span>
-                <b data-i18n="demoM4">M4 · 整合支援</b>
-                <small data-i18n="demoM4Time">27 sec</small>
-              </button>
-            </div>
-
-            <div class="demo-panel" id="demo-panel" role="tabpanel" tabindex="0">
-              <div class="terminal-bar">
-                <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
-                <small id="demo-window-title">M1 / VERIFIED DEMO OUTPUT</small>
-              </div>
-              <div class="demo-context">
-                <p><small data-i18n="demoPainLabel">PAIN</small><span id="demo-pain"></span></p>
-                <p><small data-i18n="demoResultLabel">RESULT</small><span id="demo-result"></span></p>
-              </div>
-              <pre id="demo-terminal" aria-live="polite"></pre>
-              <div class="demo-takeaway">
-                <p><small data-i18n="demoHumanLabel">HUMAN DECISION</small><span id="demo-human"></span></p>
-                <p><small id="demo-detail-label">SCAN &amp; ALERT WINDOW</small><span id="demo-detail"></span></p>
-              </div>
-            </div>
-          </div>
-
-          <div class="incident-loop reveal">
-            <span class="loop-step auto"><b>01</b><i data-i18n="loopDetect">Detect</i></span>
-            <em aria-hidden="true">→</em>
-            <span class="loop-step auto"><b>02</b><i data-i18n="loopFirstLook">First look</i></span>
-            <em aria-hidden="true">→</em>
-            <span class="loop-step human"><b>03</b><i data-i18n="loopInvestigate">Investigate</i></span>
-            <em aria-hidden="true">→</em>
-            <span class="loop-step human"><b>04</b><i data-i18n="loopAct">Act</i></span>
-            <em aria-hidden="true">→</em>
-            <span class="loop-step human-led"><b>05</b><i data-i18n="loopValidate">Validate</i></span>
-          </div>
-          <p class="loop-note reveal" data-i18n="loopNote">
-            這條閉環只適用 KPI／留存異常；已知品質訊號走獨立的 flagged records → human review；M2 只在適合以受控實驗驗證時介入。
-          </p>
         </div>
       </section>
 

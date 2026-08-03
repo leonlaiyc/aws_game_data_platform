@@ -112,9 +112,10 @@ const translations = {
     demoKicker: "FOUR CHAPTERS · TWO MINUTES",
     demoTitle: "兩分鐘實機操作：四組工作流實際運行",
     demoIntro: "實際開啟四組模組介面，操作問題觸發條件並呈現 AWS 自動處置結果。",
-    demoVideoTitle: "實機操作字幕版 · 02:00",
-    demoVideoNote: "2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本",
-    demoVideoDownload: "下載中文字幕",
+    demoVideoTitle: "實機操作 · 02:00",
+    demoVideoNote: "2026-08-02 實際操作 AWS 路徑 · 1080p · 無聲版本 · 可選中英文字幕",
+    demoVideoDownloadZh: "下載中文字幕",
+    demoVideoDownloadEn: "下載英文字幕",
     demoM1: "M1 · Detect",
     demoM1Time: "23 秒",
     demoM3: "M3 · Investigate",
@@ -312,9 +313,10 @@ const translations = {
     demoKicker: "FOUR CHAPTERS · TWO MINUTES",
     demoTitle: "Two-minute hands-on demo: four workflows in action.",
     demoIntro: "Open and operate all four module interfaces, trigger each scenario, and show the resulting AWS response.",
-    demoVideoTitle: "Hands-on subtitled cut · 02:00",
-    demoVideoNote: "AWS paths operated live on 2026-08-02 · 1080p · silent cut",
-    demoVideoDownload: "Download captions",
+    demoVideoTitle: "Hands-on demo · 02:00",
+    demoVideoNote: "AWS paths operated live on 2026-08-02 · 1080p · silent cut · Chinese and English captions",
+    demoVideoDownloadZh: "Download Chinese captions",
+    demoVideoDownloadEn: "Download English captions",
     demoM1: "M1 · Detect",
     demoM1Time: "23 sec",
     demoM3: "M3 · Investigate",
@@ -559,6 +561,9 @@ const announcer = document.querySelector(".language-announcer");
 const metaDescription = document.querySelector('meta[name="description"]');
 
 function renderDemo() {
+  if (demoButtons.length === 0) {
+    return;
+  }
   const chapter = demoChapters[activeLanguage][activeDemo];
   document.querySelector("#demo-window-title").textContent = chapter.title;
   document.querySelector("#demo-pain").textContent = chapter.pain;

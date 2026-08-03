@@ -60,12 +60,16 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert 'href="favicon-32.png"' in html
     assert 'href="favicon-192.png"' in html
     assert 'href="apple-touch-icon.png"' in html
-    assert 'src="video/demo-overview.zh-TW.mp4"' in html
+    assert 'src="video/demo-overview.mp4"' in html
     assert 'src="video/demo-overview.zh-TW.vtt"' in html
+    assert 'src="video/demo-overview.en.vtt"' in html
     caption_track = html.split("<track", 1)[1].split(">", 1)[0]
-    assert "default" not in caption_track
+    assert "default" in caption_track
     assert 'href="video/demo-overview.zh-TW.srt"' in html
+    assert 'href="video/demo-overview.en.srt"' in html
     assert 'poster="video/demo-poster.png"' in html
+    assert 'class="demo-layout reveal"' not in html
+    assert 'class="incident-loop reveal"' not in html
     assert {
         "problemsTitle",
         "architectureTitle",
@@ -86,7 +90,7 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     } <= (
         parser.translation_keys
     )
-    assert re.findall(r'data-demo="(m[1-4])"', html) == ["m1", "m3", "m2", "m4"]
+    assert not re.findall(r'data-demo="(m[1-4])"', html)
     assert "IAM_ALLOWED_PRINCIPALS" in html
     assert "2026-06-10" in html
     assert "DAU 91" in html
@@ -139,7 +143,7 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "一套雲端系統架構",
         "解決四個實際營運痛點",
         "以 Serverless 為主的設計",
-        "實機操作字幕版 · 02:00",
+        "實機操作 · 02:00",
         "2026-08-02 實際操作 AWS 路徑",
         "gold_hourly_kpi",
     ):
@@ -212,9 +216,12 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     width, height = struct.unpack(">II", header[16:24])
     assert width >= 1200 and 1.8 < width / height < 2.0
 
-    video = SITE / "video" / "demo-overview.zh-TW.mp4"
+    video = SITE / "video" / "demo-overview.mp4"
     assert 500_000 < video.stat().st_size < 50_000_000
     assert b"ftyp" in video.read_bytes()[:64]
     assert (SITE / "video" / "demo-overview.zh-TW.vtt").read_text(
+        encoding="utf-8"
+    ).startswith("WEBVTT\n")
+    assert (SITE / "video" / "demo-overview.en.vtt").read_text(
         encoding="utf-8"
     ).startswith("WEBVTT\n")

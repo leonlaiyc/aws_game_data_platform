@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CAPTURE_DIR = ROOT / "demo_console" / "recording"
 OUTPUT_DIR = ROOT / "site" / "video"
 WIDTH, HEIGHT = 1920, 1080
-SCREEN_WIDTH, SCREEN_HEIGHT = 1728, 972
+SCREEN_WIDTH, SCREEN_HEIGHT = WIDTH, HEIGHT
 SCREEN_X = (WIDTH - SCREEN_WIDTH) // 2
 FPS = 24
 
@@ -41,6 +41,7 @@ class Scene:
     end: float
     chapter: str
     caption: str
+    caption_en: str
     capture: str | None = None
     click: tuple[int, int] | None = None
     card_title: str | None = None
@@ -49,17 +50,17 @@ class Scene:
 
 
 SCENES = (
-    Scene(0, 9, "01 · 異常監控", "上午 11:00，系統偵測到 site_b 活躍人數低於正常範圍。", "m1-initial.png", accent=CORAL),
-    Scene(9, 17, "01 · 異常監控", "系統建立告警證據，並透過 SNS 發布值班通知。", "m1-initial.png", accent=CORAL),
-    Scene(17, 25, "01 · 異常監控", "值班人員開始排查，事件進入處理中（排查中）。", "m1-result.png", accent=CORAL),
-    Scene(25, 35, "02 · 分析助理", "下午 1:00，業務看到人數下降，直接詢問：今天人數為何掉這麼多？", "m3-initial.png"),
-    Scene(35, 50, "02 · 分析助理", "助理比較今天 124 人與過去 30 天平均 177 人，並說明 11:00 已告警、技術人員正在排查。", "m3-result.png"),
-    Scene(50, 60, "02 · 分析助理", "再問明天是否恢復時，助理說明尚無經過驗證的預測模型，不猜測未來。", "m3-forecast.png", accent=CORAL),
-    Scene(60, 75, "03 · 實驗治理", "管理者能在同一畫面掌握每個實驗的進度、健康狀態、流量與配置。", "m2-all.png", accent=AMBER),
-    Scene(75, 90, "03 · 實驗治理", "若觸發預先設定的 SRM 或 Guardrail 停止條件，系統會自動停止實驗並關閉流量配置。", "m2-action.png", accent=CORAL),
-    Scene(90, 100, "04 · 整合支援", "合作夥伴直接貼上完整 Token API Request 與 400 錯誤回應。", "m4-input.png"),
-    Scene(100, 110, "04 · 整合支援", "助理依文件找出 Content-Type 錯誤，並指出缺少 grant_type。", "m4-result.png"),
-    Scene(110, 120, "04 · 整合支援", "參展資訊不在整合知識庫中；系統不編造答案，改為引導聯絡業務窗口。", "m4-out-of-scope.png", accent=CORAL),
+    Scene(0, 9, "01 · 異常監控", "上午 11:00，系統偵測到 site_b 活躍人數低於正常範圍。", "At 11:00 AM, the system detects that site_b's active-user count is below its normal range.", "m1-initial.png", accent=CORAL),
+    Scene(9, 17, "01 · 異常監控", "系統建立告警證據，並透過 SNS 發布值班通知。", "The system records the alert evidence and sends an on-call notification through SNS.", "m1-initial.png", accent=CORAL),
+    Scene(17, 25, "01 · 異常監控", "值班人員開始排查，事件進入處理中（排查中）。", "The on-call engineer begins investigating, and the incident moves to Investigating.", "m1-result.png", accent=CORAL),
+    Scene(25, 35, "02 · 分析助理", "下午 1:00，業務看到人數下降，直接詢問：今天人數為何掉這麼多？", "At 1:00 PM, the business team sees the decline and asks: Why did today's user count fall so much?", "m3-initial.png"),
+    Scene(35, 50, "02 · 分析助理", "助理比較今天 124 人與過去 30 天平均 177 人，並說明 11:00 已告警、技術人員正在排查。", "The assistant compares today's 124 users with the 30-day average of 177, then explains that an alert fired at 11:00 and engineers are investigating.", "m3-result.png"),
+    Scene(50, 60, "02 · 分析助理", "再問明天是否恢復時，助理說明尚無經過驗證的預測模型，不猜測未來。", "When asked whether usage will recover tomorrow, the assistant says there is no validated forecast model and does not speculate.", "m3-forecast.png", accent=CORAL),
+    Scene(60, 75, "03 · 實驗治理", "管理者能在同一畫面掌握每個實驗的進度、健康狀態、流量與配置。", "Managers can monitor every experiment's progress, health, traffic, and configuration in one view.", "m2-all.png", accent=AMBER),
+    Scene(75, 90, "03 · 實驗治理", "若觸發預先設定的 SRM 或 Guardrail 停止條件，系統會自動停止實驗並關閉流量配置。", "If a predefined SRM or guardrail stop condition is triggered, the system automatically stops the experiment and disables its traffic allocation.", "m2-action.png", accent=CORAL),
+    Scene(90, 100, "04 · 整合支援", "合作夥伴直接貼上完整 Token API Request 與 400 錯誤回應。", "The partner pastes the complete Token API request and its 400 error response.", "m4-input.png"),
+    Scene(100, 110, "04 · 整合支援", "助理依文件找出 Content-Type 錯誤，並指出缺少 grant_type。", "Using the documentation, the assistant identifies an incorrect Content-Type and a missing grant_type.", "m4-result.png"),
+    Scene(110, 120, "04 · 整合支援", "參展資訊不在整合知識庫中；系統不編造答案，改為引導聯絡業務窗口。", "Exhibition details are outside the integration knowledge base, so the system does not invent an answer and directs the partner to a sales contact.", "m4-out-of-scope.png", accent=CORAL),
 )
 
 
@@ -100,27 +101,12 @@ def add_cursor(draw: ImageDraw.ImageDraw, point: tuple[int, int], accent: str) -
     draw.polygon(((x + 12, y + 14), (x + 39, y + 43), (x + 22, y + 48)), fill=INK)
 
 
-def add_footer(draw: ImageDraw.ImageDraw, scene: Scene) -> None:
-    top = SCREEN_HEIGHT
-    draw.rectangle((0, top, WIDTH, HEIGHT), fill="#071420")
-    draw.line((0, top, WIDTH, top), fill=LINE, width=2)
-    draw.text((SCREEN_X, top + 18), scene.chapter, font=font(22, True), fill=scene.accent)
-    caption_font = font(31, True)
-    caption_lines = fit_text(draw, scene.caption, caption_font, WIDTH - SCREEN_X * 2 - 280)
-    for index, line in enumerate(caption_lines[:2]):
-        draw.text((SCREEN_X + 300, top + 13 + index * 39), line, font=caption_font, fill=INK)
-    progress = scene.end / 120
-    draw.rectangle((0, HEIGHT - 8, WIDTH, HEIGHT), fill="#162c3d")
-    draw.rectangle((0, HEIGHT - 8, round(WIDTH * progress), HEIGHT), fill=scene.accent)
-
-
 def render_capture(scene: Scene) -> Image.Image:
     image = Image.new("RGB", (WIDTH, HEIGHT), BG)
     image.paste(capture_image(scene.capture or ""), (SCREEN_X, 0))
     draw = ImageDraw.Draw(image)
     if scene.click:
         add_cursor(draw, scene.click, scene.accent)
-    add_footer(draw, scene)
     return image
 
 
@@ -142,7 +128,6 @@ def render_card(scene: Scene) -> Image.Image:
     draw.line((250, 600, 1668, 600), fill=LINE, width=2)
     draw.text((250, 640), "LIVE AWS · ap-northeast-1", font=font(24, True), fill=scene.accent)
     draw.text((1668, 640), "LEON LAI · 2026", font=font(24, True), fill=INK, anchor="ra")
-    add_footer(draw, scene)
     return image
 
 
@@ -156,13 +141,15 @@ def timestamp(seconds: float, srt: bool) -> str:
 
 
 def write_captions() -> None:
-    srt_lines: list[str] = []
-    vtt_lines = ["WEBVTT", ""]
-    for index, scene in enumerate(SCENES, start=1):
-        srt_lines.extend((str(index), f"{timestamp(scene.start, True)} --> {timestamp(scene.end, True)}", scene.caption, ""))
-        vtt_lines.extend((f"{timestamp(scene.start, False)} --> {timestamp(scene.end, False)}", scene.caption, ""))
-    (OUTPUT_DIR / "demo-overview.zh-TW.srt").write_text("\n".join(srt_lines), encoding="utf-8")
-    (OUTPUT_DIR / "demo-overview.zh-TW.vtt").write_text("\n".join(vtt_lines), encoding="utf-8")
+    for language, caption_field in (("zh-TW", "caption"), ("en", "caption_en")):
+        srt_lines: list[str] = []
+        vtt_lines = ["WEBVTT", ""]
+        for index, scene in enumerate(SCENES, start=1):
+            caption = getattr(scene, caption_field)
+            srt_lines.extend((str(index), f"{timestamp(scene.start, True)} --> {timestamp(scene.end, True)}", caption, ""))
+            vtt_lines.extend((f"{timestamp(scene.start, False)} --> {timestamp(scene.end, False)}", caption, ""))
+        (OUTPUT_DIR / f"demo-overview.{language}.srt").write_text("\n".join(srt_lines), encoding="utf-8")
+        (OUTPUT_DIR / f"demo-overview.{language}.vtt").write_text("\n".join(vtt_lines), encoding="utf-8")
 
 
 def resolve_ffmpeg() -> str:
@@ -192,7 +179,7 @@ def main() -> None:
             manifest_lines.append(f"file '{last_frame.as_posix()}'")
         manifest = temp / "scenes.txt"
         manifest.write_text("\n".join(manifest_lines), encoding="utf-8")
-        output = OUTPUT_DIR / "demo-overview.zh-TW.mp4"
+        output = OUTPUT_DIR / "demo-overview.mp4"
         subprocess.run(
             [
                 resolve_ffmpeg(), "-y", "-f", "concat", "-safe", "0", "-i", str(manifest),
