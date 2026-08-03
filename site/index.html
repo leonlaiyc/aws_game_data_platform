@@ -68,7 +68,7 @@
             <em data-i18n="heroTitle2">解決四個實際營運痛點。</em>
           </h1>
           <p class="hero-lede" data-i18n="heroLede">
-            以 Serverless 為主的設計，建構於資料共用、權限邊界與成本控制之上，解決異常偵測、實驗運營、臨時分析與技術文件指引問題。
+            以 Serverless 為主的設計，建構於資料共用、權限邊界與成本控制之上，解決異常偵測、實驗運營、臨時分析與合作夥伴整合支援問題。
           </p>
           <div class="hero-actions">
             <a class="button button-primary" href="#architecture">
@@ -176,11 +176,11 @@
           <article class="problem-card reveal">
             <div class="problem-topline">
               <span class="module-token">M4</span>
-              <span data-i18n="m4Short">技術文件指引</span>
+              <span data-i18n="m4Short">整合支援</span>
             </div>
-            <h3 data-i18n="p4Title">重複性文件查找消耗整合與開發資源。</h3>
+            <h3 data-i18n="p4Title">重複的整合問題消耗支援與工程資源。</h3>
             <p data-i18n="p4Body">
-              不同時區的合作夥伴經常反覆查找相似的 API 驗證、Webhook 與環境設定；常見問題需要重複說明，資訊不足的案件則缺少結構化脈絡才轉交工程團隊。
+              不同時區的合作夥伴經常詢問相似的 API 驗證、Webhook、環境設定、服務更新與維護資訊；常見問題需要反覆回覆，複雜案件則占用工程團隊時間。
             </p>
           </article>
         </div>
@@ -290,13 +290,13 @@
                 </div>
               </section>
 
-              <section class="knowledge-lane" aria-label="Separate knowledge path">
+              <section class="knowledge-lane" aria-label="Separate integration support path">
                 <div class="knowledge-source"><small>CURATED DOCUMENTS</small><b>Versioned integration guidance</b></div>
                 <i aria-hidden="true">→</i>
                 <article class="knowledge-agent">
-                  <header><b>M4</b><div><small>KNOWLEDGE</small><h4 data-i18n="architectureM4Title">身份隔離的技術文件助理</h4></div></header>
+                  <header><b>M4</b><div><small>INTEGRATION SUPPORT</small><h4 data-i18n="architectureM4Title">身份隔離的整合支援</h4></div></header>
                   <p>IAM → Relevance → Bedrock Guardrails → Code validator</p>
-                  <span data-i18n="architectureM4Body">IAM 身份先選定可讀文件範圍；相關性與 code validator 通過才回覆，否則澄清或建立 OPEN ticket。</span>
+                    <span data-i18n="architectureM4Body">IAM 身份先限定可用的支援知識；問題通過範圍與安全檢查後才產生回答，資訊不足時要求澄清，不支援的問題則拒絕回答或建立 OPEN ticket。</span>
                 </article>
                 <i aria-hidden="true">→</i>
                 <div class="knowledge-output"><small>DELIVERY</small><b>Answer / Clarify / OPEN ticket</b><span data-i18n="architectureM4Branch">不讀取 Gold tables · SNS/SQS 僅作帳號內稽核</span></div>
@@ -311,7 +311,7 @@
                   <span><b>IP</b><i>Integration</i></span>
                 </div>
                 <i aria-hidden="true">⇄</i>
-                <div class="interface-group"><small>GOVERNED INTERFACES</small><b>Dashboard · API · Reports · Knowledge assistant</b></div>
+                <div class="interface-group"><small>GOVERNED INTERFACES</small><b>Dashboard · API · Reports · Integration support</b></div>
                 <i aria-hidden="true">→</i>
                 <div class="decision-group"><small>HUMAN-OWNED OUTCOMES</small><b>Investigate · Decide · Escalate · Validate</b></div>
               </section>
@@ -438,22 +438,22 @@
             <header>
               <span class="workflow-index">04</span>
               <div>
-                <small>M4 · KNOWLEDGE</small>
-                <h3 data-i18n="wf4Title">RAG-style 技術文件助理</h3>
+                <small>M4 · INTEGRATION SUPPORT</small>
+                <h3 data-i18n="wf4Title">受治理的整合支援</h3>
               </div>
             </header>
             <div class="workflow-grid">
               <div>
                 <small data-i18n="beforeLabel">原本怎麼做</small>
-                <p data-i18n="wf4Before">整合團隊重複查找與說明技術文件；資訊不足時，問題缺乏結構化脈絡就轉給工程師。</p>
+                <p data-i18n="wf4Before">合作夥伴反覆詢問相似的整合與服務資訊；複雜問題常在缺少結構化脈絡時直接占用工程資源。</p>
               </div>
               <div>
                 <small data-i18n="systemLabel">系統接手</small>
-                <p data-i18n="wf4System">系統先依 IAM 權限選定可讀取的文檔庫，經相關性門檻過濾後將合格文檔交給 AWS Bedrock 產生解答；若文檔資料不足，則請使用者澄清說明或自動開單轉人工處理。</p>
+                <p data-i18n="wf4System">系統先以 IAM 確認合作夥伴身份，再檢查問題是否屬於可支援範圍。合格問題由受限制的知識內容與 AWS Bedrock 產生回答；資訊不足時要求澄清，範圍外問題則明確拒絕。</p>
               </div>
               <div>
                 <small data-i18n="humanLabel">人保留決策</small>
-                <p data-i18n="wf4Human">當文檔無法回答、AI 回覆未通過安全驗證，或案件需要產品／工程判斷時，系統會建立 OPEN ticket 供人工接手。目前 PoC 只將工單存進 DynamoDB，尚未串接 Email、Slack 或 CRM 通知。</p>
+                <p data-i18n="wf4Human">只有需要產品／工程判斷、或安全驗證未通過的案件才建立 OPEN ticket 供人工接手。目前 PoC 將工單存進 DynamoDB，尚未串接 Email、Slack 或 CRM 通知。</p>
               </div>
               <div class="operating-detail">
                 <small data-i18n="wf4RagLabel">RAG 路徑與上線準備</small>
@@ -521,7 +521,7 @@
               </button>
               <button type="button" role="tab" aria-selected="false" data-demo="m4" aria-controls="demo-panel">
                 <span>01:22</span>
-                <b data-i18n="demoM4">M4 · Knowledge</b>
+                <b data-i18n="demoM4">M4 · 整合支援</b>
                 <small data-i18n="demoM4Time">27 sec</small>
               </button>
             </div>
