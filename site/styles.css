@@ -2030,6 +2030,18 @@ footer a {
   text-decoration: none;
 }
 
+.footer-meta {
+  display: grid;
+  gap: 5px;
+  text-align: center;
+}
+
+.footer-meta small {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 1.02rem;
+  line-height: 1.45;
+}
+
 .language-announcer {
   position: fixed;
   width: 1px;

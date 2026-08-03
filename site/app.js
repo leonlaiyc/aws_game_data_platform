@@ -185,6 +185,7 @@ const translations = {
     exploreRepo: "Explore the repository",
     backTop: "回到頂部",
     footerNote: "Synthetic data · Verified PoC · Public repository",
+    analyticsNotice: "本站使用 Google Analytics 進行彙總流量與互動統計，不收集表單資料。",
     languageChanged: "已切換為繁體中文",
   },
   en: {
@@ -373,6 +374,7 @@ const translations = {
     exploreRepo: "Explore the repository",
     backTop: "Back to top",
     footerNote: "Synthetic data · Verified PoC · Public repository",
+    analyticsNotice: "This site uses Google Analytics for aggregate traffic and interaction measurement; it does not collect form data.",
     languageChanged: "Language changed to English",
   },
 };
@@ -382,6 +384,12 @@ let activeLanguage = "zh";
 const languageButtons = [...document.querySelectorAll("[data-lang]")];
 const announcer = document.querySelector(".language-announcer");
 const metaDescription = document.querySelector('meta[name="description"]');
+
+function trackEvent(name, parameters = {}) {
+  if (typeof window.gtag === "function") {
+    window.gtag("event", name, parameters);
+  }
+}
 
 function applyLanguage(language, announce = true) {
   activeLanguage = language;
@@ -412,6 +420,7 @@ function applyLanguage(language, announce = true) {
 
   if (announce) {
     announcer.textContent = copy.languageChanged;
+    trackEvent("language_switch", { language });
   }
 }
 
@@ -428,6 +437,47 @@ document.addEventListener("keydown", (event) => {
 
 const storedLanguage = localStorage.getItem("leon-portfolio-language");
 applyLanguage(storedLanguage === "en" ? "en" : "zh", false);
+
+const demoVideo = document.querySelector("#demo video");
+if (demoVideo) {
+  const videoTitle = "AWS data platform operation demo";
+
+  demoVideo.addEventListener(
+    "play",
+    () => trackEvent("video_start", { video_title: videoTitle }),
+    { once: true },
+  );
+  demoVideo.addEventListener(
+    "ended",
+    () => trackEvent("video_complete", { video_title: videoTitle }),
+    { once: true },
+  );
+  demoVideo.textTracks.addEventListener("change", () => {
+    const activeTrack = [...demoVideo.textTracks].find((track) => track.mode === "showing");
+    trackEvent("caption_change", {
+      caption_language: activeTrack?.language || "off",
+      video_title: videoTitle,
+    });
+  });
+}
+
+document.querySelectorAll(".demo-caption-downloads a").forEach((link) => {
+  link.addEventListener("click", () => {
+    trackEvent("caption_download", {
+      caption_language: link.getAttribute("href").includes(".en.") ? "en" : "zh-TW",
+      file_name: link.getAttribute("href").split("/").pop(),
+    });
+  });
+});
+
+document.querySelectorAll('a[href^="https://"]').forEach((link) => {
+  link.addEventListener("click", () => {
+    trackEvent("outbound_click", {
+      link_domain: new URL(link.href).hostname,
+      link_url: link.href,
+    });
+  });
+});
 
 const progress = document.querySelector(".scroll-progress span");
 const navigationLinks = [...document.querySelectorAll("nav a")];

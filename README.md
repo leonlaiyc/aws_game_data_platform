@@ -5,9 +5,9 @@
 [![CI](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml/badge.svg)](https://github.com/leonlaiyc/aws_game_data_platform/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/)
+[**Explore the project walkthrough →**](https://leonlaiyc.github.io/aws_game_data_platform/?utm_source=github&utm_medium=referral&utm_campaign=portfolio)
 
-[**Watch the two-minute captioned operation demo →**](https://leonlaiyc.github.io/aws_game_data_platform/#demo)
+[**Watch the two-minute captioned operation demo →**](https://leonlaiyc.github.io/aws_game_data_platform/?utm_source=github&utm_medium=referral&utm_campaign=portfolio#demo)
 
 This project connects cloud data and AI capabilities to four recurring
 operating pain points in B2B game analytics, then validates the resulting AWS

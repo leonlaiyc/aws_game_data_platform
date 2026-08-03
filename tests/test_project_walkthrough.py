@@ -88,6 +88,18 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert "169 automated tests" in readme
     assert "169 automated tests" in production
     assert "Verification date: 2026-08-03" in production
+    assert "G-7T6Q37M71H" in html
+    assert "googletagmanager.com/gtag/js" in html
+    assert "utm_source=github&utm_medium=referral&utm_campaign=portfolio" in readme
+    for event_name in (
+        "language_switch",
+        "video_start",
+        "video_complete",
+        "caption_change",
+        "caption_download",
+        "outbound_click",
+    ):
+        assert event_name in javascript
     for document in (readme, production):
         assert "demo-overview.zh-TW.mp4" not in document
         assert "168 tests" not in document
