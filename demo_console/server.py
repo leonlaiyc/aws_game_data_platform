@@ -17,7 +17,7 @@ import webbrowser
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 import boto3
 from botocore.exceptions import ClientError
@@ -29,7 +29,7 @@ sys.path.insert(0, str(REPO_ROOT / "demo_lib"))
 sys.path.insert(0, str(REPO_ROOT / "module2-experimentation-platform" / "demo"))
 sys.path.insert(0, str(REPO_ROOT / "module2-experimentation-platform" / "dashboard"))
 
-from signed_request import assume, signed_post  # noqa: E402
+from signed_request import assume, signed_post, signed_request  # noqa: E402
 import demo_lib as experiment_lib  # noqa: E402
 from view_model import build_view_model  # noqa: E402
 
@@ -106,6 +106,25 @@ def run_anomaly_scan() -> dict:
     return result
 
 
+def incidents_snapshot() -> tuple[int, dict]:
+    outputs = stack_outputs(ANOMALY_STACK)
+    return signed_request(
+        role_session("aurora-games-operator"),
+        "GET",
+        f"{outputs['IncidentApiUrl']}incidents",
+    )
+
+
+def update_incident_status(incident_id: str, status: str) -> tuple[int, dict]:
+    outputs = stack_outputs(ANOMALY_STACK)
+    encoded_id = quote(incident_id, safe="")
+    return signed_post(
+        role_session("aurora-games-operator"),
+        f"{outputs['IncidentApiUrl']}incidents/{encoded_id}/status",
+        {"status": status},
+    )
+
+
 def latest_first_look() -> dict:
     bucket = stack_outputs(FOUNDATION_STACK)["LakeBucketName"]
     raw = s3.get_object(Bucket=bucket, Key=REPORT_KEY)["Body"].read()
@@ -117,6 +136,25 @@ def latest_first_look() -> dict:
         "completed_at": datetime.now(timezone.utc).isoformat(),
     }
     return report
+
+
+def analytics_ask(question: str) -> tuple[int, dict]:
+    outputs = stack_outputs(ASSISTANT_STACK)
+    started = time.perf_counter()
+    status, result = signed_post(
+        role_session("aurora-games-operator"),
+        f"{outputs['AskApiUrl']}ask",
+        {"question": question},
+        timeout=60,
+    )
+    result["request"] = {
+        "service": "IAM + API Gateway + governed analytics",
+        "identity": "all-authorised-sites",
+        "region": REGION,
+        "duration_ms": round((time.perf_counter() - started) * 1000),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    return status, result
 
 
 def experiments_snapshot() -> dict:
@@ -144,7 +182,7 @@ def partner_chat(question: str, session_id: str | None = None) -> tuple[int, dic
     result["session_id"] = session_id
     result["request"] = {
         "service": "API Gateway + Lambda + Amazon Bedrock",
-        "identity": "integration-partner",
+        "identity": "client-operator-partner",
         "region": REGION,
         "duration_ms": round((time.perf_counter() - started) * 1000),
         "completed_at": datetime.now(timezone.utc).isoformat(),
@@ -181,6 +219,10 @@ class ConsoleHandler(BaseHTTPRequestHandler):
             if path == "/api/m3/report":
                 self._json(200, latest_first_look())
                 return
+            if path == "/api/m1/incidents":
+                status, result = incidents_snapshot()
+                self._json(status, result)
+                return
             if path == "/api/m2/experiments":
                 self._json(200, experiments_snapshot())
                 return
@@ -206,12 +248,29 @@ class ConsoleHandler(BaseHTTPRequestHandler):
             if path == "/api/m1/run":
                 self._json(200, run_anomaly_scan())
                 return
+            if path == "/api/m1/incidents/status":
+                incident_id = str(body.get("incident_id", "")).strip()
+                status_value = str(body.get("status", "")).strip()
+                if not incident_id or not status_value:
+                    self._json(400, {"error": "incident_id and status are required"})
+                    return
+                status, result = update_incident_status(incident_id, status_value)
+                self._json(status, result)
+                return
             if path == "/api/m4/chat":
                 question = str(body.get("question", "")).strip()
                 if not question:
                     self._json(400, {"error": "question is required"})
                     return
                 status, result = partner_chat(question, body.get("session_id"))
+                self._json(status, result)
+                return
+            if path == "/api/m3/ask":
+                question = str(body.get("question", "")).strip()
+                if not question:
+                    self._json(400, {"error": "question is required"})
+                    return
+                status, result = analytics_ask(question)
                 self._json(status, result)
                 return
             self._json(404, {"error": "not found"})

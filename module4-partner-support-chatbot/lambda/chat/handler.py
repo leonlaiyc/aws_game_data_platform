@@ -325,6 +325,8 @@ _CODE_OWNED_COPY = {
     copy.CLOSING_NORMAL, copy.CLOSING_CLARIFICATION, copy.CLOSING_OUT_OF_SCOPE,
     copy.CLOSING_ESCALATION, copy.BLOCKED_RESPONSE, copy.OUT_OF_SCOPE_BODY,
     copy.VALIDATION_FALLBACK_BODY,
+    copy.ACKNOWLEDGMENT_INFO_REQUEST_ZH, copy.OUT_OF_SCOPE_BODY_ZH,
+    copy.CLOSING_OUT_OF_SCOPE_ZH,
 }
 
 SESSION_TTL_SECONDS = 24 * 60 * 60
@@ -578,9 +580,14 @@ def handler(event, context):
         audit["trigger"] = (f"relevance {relevance['overall']} < {DOMAIN_RELEVANCE_MIN}"
                             if relevance["overall"] < DOMAIN_RELEVANCE_MIN
                             else "no domain anchor term present")
-        slots["acknowledgment"] = _acknowledgment(question)
-        slots["answer_body"] = copy.OUT_OF_SCOPE_BODY
-        slots["closing"] = copy.CLOSING_OUT_OF_SCOPE
+        if re.search(r"[\u3400-\u9fff]", question):
+            slots["acknowledgment"] = copy.ACKNOWLEDGMENT_INFO_REQUEST_ZH
+            slots["answer_body"] = copy.OUT_OF_SCOPE_BODY_ZH
+            slots["closing"] = copy.CLOSING_OUT_OF_SCOPE_ZH
+        else:
+            slots["acknowledgment"] = _acknowledgment(question)
+            slots["answer_body"] = copy.OUT_OF_SCOPE_BODY
+            slots["closing"] = copy.CLOSING_OUT_OF_SCOPE
     else:
         clarification = _clarification_reason(question, relevance)
         if clarification:

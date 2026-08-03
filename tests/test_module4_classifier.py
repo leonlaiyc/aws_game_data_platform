@@ -153,6 +153,18 @@ class TestSlotOwnership:
              "answer_body": "", "closing": handler.copy.CLOSING_NORMAL}, "ANSWERED")
         assert "empty_answer_body_when_answering" in result["problems"]
 
+    def test_chinese_out_of_scope_copy_is_code_owned(self):
+        result = handler._validate(
+            {
+                "greeting": None,
+                "acknowledgment": handler.copy.ACKNOWLEDGMENT_INFO_REQUEST_ZH,
+                "answer_body": handler.copy.OUT_OF_SCOPE_BODY_ZH,
+                "closing": handler.copy.CLOSING_OUT_OF_SCOPE_ZH,
+            },
+            "OUT_OF_SCOPE",
+        )
+        assert result["passed"] is True
+
 
 class TestMetaReferenceStripping:
     @pytest.mark.parametrize("text", [

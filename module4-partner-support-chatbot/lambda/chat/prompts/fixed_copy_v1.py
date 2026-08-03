@@ -55,6 +55,10 @@ OUT_OF_SCOPE_BODY = (
     "That's outside what I can help with."
 )
 
+ACKNOWLEDGMENT_INFO_REQUEST_ZH = "我了解你想確認這項資訊。"
+OUT_OF_SCOPE_BODY_ZH = "目前整合支援資料中沒有這項資訊，因此無法確認。"
+CLOSING_OUT_OF_SCOPE_ZH = "若需要進一步確認，請聯絡您的業務窗口。"
+
 # Used when output validation fails - a pure-template response with escalation,
 # so a structurally broken reply is never shown to a partner.
 VALIDATION_FALLBACK_BODY = (
