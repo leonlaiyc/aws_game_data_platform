@@ -21,6 +21,15 @@ This is the state layer `orchestration/`'s Step Functions state machine drives t
   `gold/experiment_exposures/dt=YYYY-MM-DD/` for Athena monitoring and
   analysis.
 
+The experiment exporter intentionally overwrites the current snapshot; it is
+not a durable state-transition log. DynamoDB Streams is a change-delivery
+mechanism with temporary retention, not permanent history. At this PoC scale,
+the lowest-complexity upgrade is for the existing stream consumer to also write
+each change under a unique, sequence-numbered S3 key. At larger volume,
+EventBridge Pipes or the consumer Lambda can batch records through Data
+Firehose before S3. An archive should only be described as tamper-resistant
+when its bucket permissions and S3 Object Lock retention are configured too.
+
 Automated state changes (SRM result, guardrail auto-stop, analysis, readout) are written straight
 to DynamoDB by `orchestration/`'s Step Functions state machine or its Lambdas — not through this
 API. API Gateway is for external/human CRUD; internal service-to-service transitions go directly

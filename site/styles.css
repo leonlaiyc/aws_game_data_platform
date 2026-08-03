@@ -184,7 +184,7 @@ blockquote {
   position: relative;
   padding: 10px 11px;
   color: rgba(255, 255, 255, 0.68);
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-decoration: none;
@@ -2243,7 +2243,7 @@ footer a {
 @media (max-width: 1060px) {
   .site-header nav a {
     padding-inline: 7px;
-    font-size: 0.65rem;
+    font-size: 0.78rem;
   }
 
   .hero {

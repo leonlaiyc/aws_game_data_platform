@@ -174,6 +174,7 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert html.count('<article class="evidence-card ') == 2
 
     for readability_rule in (
+        ".site-header nav a {\n  position: relative;\n  padding: 10px 11px;\n  color: rgba(255, 255, 255, 0.68);\n  font-size: 0.9rem;",
         ".workflow-grid p {\n  margin: 0;\n  color: var(--ink-soft);\n  font-size: 0.98rem;",
         ".workflow-grid small {\n  display: block;\n  margin-bottom: 12px;\n  color: var(--teal);\n  font-family: var(--mono);\n  font-size: 1.06rem;",
         ".service-node span {\n  margin-top: 10px;\n  color: rgba(255, 255, 255, 0.68);\n  font-size: 0.98rem;",
@@ -183,6 +184,9 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
         "font-size: clamp(3.4rem, 7vw, 6.8rem);",
     ):
         assert readability_rule in stylesheet
+
+    assert "設定 row filter，不代表租戶真的被隔離。" in html
+    assert "看得到 row filter，不代表租戶真的被隔離。" not in html
 
     for reference in parser.references:
         if reference.startswith("#"):
