@@ -271,6 +271,7 @@ view on localhost.
 | M4 daily cost quota | Existing DynamoDB session-table conditional update | No new table | 50 valid requests/UTC day/audience before Guardrails or inference; 1,000-character input cap |
 | M4 stage throttle | API Gateway request rate | None | 0.1 request/second, burst 2; bounds invalid as well as valid traffic |
 | Outcome measurement | Existing CloudWatch structured log bytes | No custom metric | Negligible at PoC request volume |
+| M1 incident status | DynamoDB on-demand reads/writes plus one IAM-protected API request per manual transition | No provisioned throughput | Negligible at demo scale; normally one write when detected and at most two operator updates |
 
 Athena bills by bytes scanned with a 10 MB minimum per query. At 18 minimum
 queries this path scans about 180 MB/month, roughly `$0.0009` using AWS's

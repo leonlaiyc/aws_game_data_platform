@@ -1,8 +1,8 @@
-"""Render the two-minute subtitle-first demo from real browser captures.
+"""Render the two-minute operation-only demo from browser captures.
 
 The source screenshots in demo_console/recording are produced by operating the
-localhost console against the deployed AWS stacks. This renderer only adds the
-chapter timeline, click marker, captions and opening/closing cards.
+localhost console. Architecture views are intentionally excluded: this video
+shows only the four user-facing functions and their governed outcomes.
 """
 
 from __future__ import annotations
@@ -49,17 +49,16 @@ class Scene:
 
 
 SCENES = (
-    Scene(0, 5, "AWS OPERATIONS DEMO", "接下來兩分鐘，直接操作四個真實介面與 AWS 工作流。", card_title="真實介面，真實 AWS 回覆", card_subtitle="異常偵測 · 第一眼分析 · 實驗治理 · 夥伴支援", accent=AMBER),
-    Scene(5, 12, "01 · 異常偵測", "選定 Site B 與日期，點擊執行異常掃描。", "m1-initial.png", (1115, 202), accent=CORAL),
-    Scene(12, 28, "01 · 異常偵測", "Lambda 查詢 Athena 歷史基準：DAU 91，低於 EWMA 204.5，偏離 5.8σ。", "m1-result.png", accent=CORAL),
-    Scene(28, 35, "02 · 第一眼分析", "告警已透過 SNS 觸發分析流程；現在讀取最新 S3 報告。", "m3-initial.png", (1110, 202)),
-    Scene(35, 50, "02 · 第一眼分析", "報告列出站點與資金指標變化，並保留 S3 路徑與更新時間。", "m3-result.png"),
-    Scene(50, 57, "03 · 實驗治理", "切換到營運控制台，從中央 Registry 同步跨站實驗。", "m2-initial.png", (1110, 202), accent=AMBER),
-    Scene(57, 66, "03 · 實驗治理", "目前共有 15 組實驗，其中 6 組需要營運處理。", "m2-all.png", accent=AMBER),
-    Scene(66, 82, "03 · 實驗治理", "篩選需要處理：Guardrail 或 SRM 觸發後，系統停止實驗並關閉 Allocation。", "m2-action.png", (392, 362), accent=CORAL),
-    Scene(82, 93, "04 · 夥伴支援", "以 game-provider-partner 身分提問：啟動權杖端點在哪裡？", "m4-input.png", (1145, 664)),
-    Scene(93, 109, "04 · 夥伴支援", "問題缺少環境資訊，系統先追問 Sandbox 或 Production，避免提供錯誤設定。", "m4-result.png"),
-    Scene(109, 120, "VERIFIED AWS POC", "四個實際營運痛點，都由同一套 Serverless 治理邊界支撐。", card_title="從操作結果，回到可驗證的系統設計", card_subtitle="IAM 隔離 · 成本控制 · 可追溯證據 · 自動化測試", accent=AMBER),
+    Scene(0, 15, "01 · 異常監控", "今天截至 13:00 的累積活躍人數為 124；過去 30 天相同時間平均為 177。", "m1-initial.png", accent=CORAL),
+    Scene(15, 25, "01 · 異常監控", "系統已在 11:00 告警，負責人將處理狀態更新為排查中。", "m1-result.png", accent=CORAL),
+    Scene(25, 40, "02 · 實驗治理", "中央控制台同時呈現執行中、需要處理與草稿實驗。", "m2-all.png", accent=AMBER),
+    Scene(40, 53, "02 · 實驗治理", "SRM 先檢查分流；通過後才看 Guardrail，失敗時停止實驗並關閉 Allocation。", "m2-action.png", accent=CORAL),
+    Scene(53, 65, "03 · 分析助理", "營運人員直接詢問：今天人數為何突然掉這麼多？", "m3-initial.png"),
+    Scene(65, 78, "03 · 分析助理", "回答只呈現 30 天比較、下降幅度與目前排查進度，原因未確認。", "m3-result.png"),
+    Scene(78, 88, "03 · 分析助理", "追問明天是否恢復時，系統說明沒有經過驗證的預測模型，不猜測答案。", "m3-forecast.png", accent=CORAL),
+    Scene(88, 99, "04 · 整合支援", "合作夥伴直接貼上完整 Token API Request 與 400 錯誤回應。", "m4-input.png"),
+    Scene(99, 110, "04 · 整合支援", "助理依文件找出 Content-Type 錯誤，並指出缺少 grant_type。", "m4-result.png"),
+    Scene(110, 120, "04 · 整合支援", "參展資訊不在整合知識庫中；系統不編造答案，改為引導聯絡業務窗口。", "m4-out-of-scope.png", accent=CORAL),
 )
 
 
@@ -176,7 +175,7 @@ def resolve_ffmpeg() -> str:
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     write_captions()
-    with tempfile.TemporaryDirectory(prefix="aurora-operation-demo-") as temp_name:
+    with tempfile.TemporaryDirectory(prefix="leon-operation-demo-") as temp_name:
         temp = Path(temp_name)
         manifest_lines: list[str] = []
         last_frame: Path | None = None

@@ -55,6 +55,20 @@ OUT_OF_SCOPE_BODY = (
     "That's outside what I can help with."
 )
 
+ACKNOWLEDGMENT_INFO_REQUEST_ZH = "我了解你想確認這項資訊。"
+OUT_OF_SCOPE_BODY_ZH = "目前整合支援資料中沒有這項資訊，因此無法確認。"
+CLOSING_OUT_OF_SCOPE_ZH = "若需要進一步確認，請聯絡您的業務窗口。"
+
+ACKNOWLEDGMENT_OAUTH_ERROR_ZH = "我看到這筆 Token Request 回傳 400 invalid_request。"
+OAUTH_INVALID_REQUEST_BODY_ZH = (
+    "這個請求使用了 JSON，但文件要求 application/x-www-form-urlencoded，"
+    "而且缺少 grant_type=client_credentials。"
+)
+CLOSING_OAUTH_ERROR_ZH = (
+    "請調整 Content-Type 並補上 grant_type 後重新送出；"
+    "partner_id 與 client_secret 欄位可以沿用。"
+)
+
 # Used when output validation fails - a pure-template response with escalation,
 # so a structurally broken reply is never shown to a partner.
 VALIDATION_FALLBACK_BODY = (

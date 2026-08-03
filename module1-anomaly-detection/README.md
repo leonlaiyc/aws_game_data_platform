@@ -1,9 +1,10 @@
 # Module 1 — Anomaly & Arbitrage Detection
 
 Latest local increment (deployment pending): the detector now runs an hourly
-site-usage check from precomputed same-hour baselines, while the mature-cohort
-retention check remains weekly. Both send hits through the same first-look
-workflow.
+check on each day's cumulative usage through the latest complete hour, compared
+with the previous 30 complete dates at the same cutoff. Alerts also create a
+minimal incident record that an IAM-authorised operator can move through
+`DETECTED → INVESTIGATING → RESOLVED`.
 
 ## Pain Point
 
@@ -28,7 +29,7 @@ Three components, in increasing order of "how real-time":
 
 | | Reads from | Cadence | Signal |
 |---|---|---|---|
-| [`data_anomaly/`](data_anomaly/) | `gold_hourly_monitoring_features` | Hourly (EventBridge) | Prepared normal range for active users, sessions and processed events per site |
+| [`data_anomaly/`](data_anomaly/) | `gold_hourly_monitoring_features` | Hourly (EventBridge) | Prepared cumulative-to-cutoff actuals and 30-day same-cutoff normal range per site |
 | [`data_anomaly/`](data_anomaly/) | `gold_daily_kpi` | Daily (EventBridge) | EWMA-based control limit on DAU/GGR per site |
 | [`data_anomaly/`](data_anomaly/) | `gold_cohort_retention` | Weekly (same Lambda, EventBridge) | Mature weekly D1/D7 retention versus a pooled, sample-weighted baseline |
 | [`arbitrage_detection/`](arbitrage_detection/) | `silver_events` (device fan-out) + `gold_player_features` (behavior) | Daily (EventBridge) | Shared-device fan-out **combined with** abnormal cash-out ratio |
@@ -36,6 +37,9 @@ Three components, in increasing order of "how real-time":
 
 All three publish to SNS on a hit and write their evidence to S3 (`gold/anomaly_alerts/`,
 `gold/flagged_players/`) so findings are Athena-queryable, not just an email that scrolls away.
+Hourly alerts additionally persist their current handling status in the
+on-demand `aurora-games-anomaly-incidents` DynamoDB table. The status API is
+protected by IAM and only permits forward lifecycle transitions.
 
 The weekly retention path waits until D7 outcomes are mature, compares only
 complete Monday–Sunday cohorts, requires at least four baseline weeks and a

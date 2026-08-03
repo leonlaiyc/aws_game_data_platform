@@ -29,6 +29,8 @@ MODULE3_DIR = REPO_ROOT / "module3-analytics-assistant"
 AS_OF_DATE = "2026-06-29"
 DATA_MIN_DATE = "2026-05-01"
 DATA_MAX_DATE = "2026-06-29"
+REPLAY_EVENT_HOUR = "2026-06-15 05:00:00.000"
+BUSINESS_TIMEZONE_OFFSET_HOURS = "8"
 
 ANOMALY_ALERTS_TOPIC_NAME = "aurora-games-anomaly-alerts"  # owned by AuroraGamesAnomalyStack (Module 1)
 
@@ -116,8 +118,11 @@ class AnalyticsAssistantStack(Stack):
                 "AS_OF_DATE": AS_OF_DATE,
                 "DATA_MIN_DATE": DATA_MIN_DATE,
                 "DATA_MAX_DATE": DATA_MAX_DATE,
+                "REPLAY_EVENT_HOUR": REPLAY_EVENT_HOUR,
+                "BUSINESS_TIMEZONE_OFFSET_HOURS": BUSINESS_TIMEZONE_OFFSET_HOURS,
                 "LAKE_BUCKET_NAME": lake_bucket.bucket_name,
                 "ANALYTICS_TICKETS_TABLE_NAME": analytics_tickets_table.table_name,
+                "ANOMALY_INCIDENTS_TABLE_NAME": "aurora-games-anomaly-incidents",
                 "OPERATOR_PRINCIPAL_PATTERN": OPERATOR_ROLE_NAME,
             },
             timeout=Duration.seconds(30),
@@ -138,6 +143,14 @@ class AnalyticsAssistantStack(Stack):
         )
         self._grant_lake_read(self.ask_answer_fn, lake_bucket)
         analytics_tickets_table.grant_write_data(self.ask_answer_fn)
+        self.ask_answer_fn.add_to_role_policy(
+            iam.PolicyStatement(
+                actions=["dynamodb:GetItem", "dynamodb:Scan"],
+                resources=[
+                    f"arn:aws:dynamodb:{self.region}:{self.account}:table/aurora-games-anomaly-incidents"
+                ],
+            )
+        )
         self.ask_answer_fn.add_to_role_policy(
             iam.PolicyStatement(actions=["bedrock:InvokeModel"],
                                  resources=[f"arn:aws:bedrock:{self.region}::foundation-model/amazon.nova-lite-v1:0"])

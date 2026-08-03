@@ -1,8 +1,8 @@
 """Keeps an Athena-queryable snapshot of every experiment in S3, driven by
 DynamoDB Streams. One JSON file per experiment_id, overwritten on every
 change - this is a "current state" export for dashboarding, not an event
-log (the DynamoDB table itself, plus its stream, is the append-only history
-if that's ever needed).
+log. DynamoDB Streams retains change records only temporarily, so durable
+history requires a separate append-only S3 archive.
 """
 import json
 import os

@@ -1,5 +1,6 @@
 """Scheduled detectors consume explicit transform publications exactly once."""
 import io
+import importlib.util
 import json
 
 import pytest
@@ -147,7 +148,26 @@ def test_hourly_monitoring_baseline_is_precomputed_and_published():
 
     assert "COUNT(*) AS processed_events" in hourly_ddl
     assert "CREATE TABLE gold_hourly_monitoring_features" in ddl
-    assert "ROWS BETWEEN 7 PRECEDING AND 1 PRECEDING" in ddl
+    assert "ROWS BETWEEN 30 PRECEDING AND 1 PRECEDING" in ddl
+    assert "fact.event_hour <= cutoff.event_hour" in ddl
     assert "active_users_lower_bound" in ddl
     assert 'clear_prefix(bucket, "gold/hourly_monitoring_features/")' in builder
     assert '"manifests/published/gold_hourly_monitoring_features.json"' in builder
+
+
+def test_lake_ddl_splitter_ignores_semicolons_in_comments_and_literals():
+    script = REPO_ROOT / "data-foundation" / "lake" / "build_lake.py"
+    spec = importlib.util.spec_from_file_location("lake_builder", script)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    statements = module.split_athena_statements(
+        "-- prepared features; do not execute this comment\n"
+        "DROP TABLE IF EXISTS sample;\n"
+        "CREATE TABLE sample AS SELECT 'a;b' AS value;\n"
+    )
+
+    assert statements == [
+        "DROP TABLE IF EXISTS sample",
+        "CREATE TABLE sample AS SELECT 'a;b' AS value",
+    ]

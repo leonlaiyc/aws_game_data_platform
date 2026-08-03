@@ -32,6 +32,7 @@ import re
 import time
 import uuid
 from datetime import date
+from decimal import Decimal
 
 import boto3
 import diagnostics
@@ -53,6 +54,10 @@ GUARDRAIL_VERSION = os.environ["GUARDRAIL_VERSION"]
 AS_OF_DATE = os.environ["AS_OF_DATE"]           # this project's data is a fixed historical simulation, not live
 DATA_MIN_DATE = os.environ["DATA_MIN_DATE"]
 DATA_MAX_DATE = os.environ["DATA_MAX_DATE"]
+REPLAY_EVENT_HOUR = os.environ.get("REPLAY_EVENT_HOUR", "")
+BUSINESS_TIMEZONE_OFFSET_HOURS = int(
+    os.environ.get("BUSINESS_TIMEZONE_OFFSET_HOURS", "0")
+)
 LAKE_BUCKET_NAME = os.environ.get("LAKE_BUCKET_NAME", "")
 ANALYTICS_TICKETS_TABLE_NAME = os.environ.get(
     "ANALYTICS_TICKETS_TABLE_NAME", ""
@@ -60,6 +65,14 @@ ANALYTICS_TICKETS_TABLE_NAME = os.environ.get(
 analytics_tickets = (
     dynamodb.Table(ANALYTICS_TICKETS_TABLE_NAME)
     if ANALYTICS_TICKETS_TABLE_NAME
+    else None
+)
+ANOMALY_INCIDENTS_TABLE_NAME = os.environ.get(
+    "ANOMALY_INCIDENTS_TABLE_NAME", ""
+)
+anomaly_incidents = (
+    dynamodb.Table(ANOMALY_INCIDENTS_TABLE_NAME)
+    if ANOMALY_INCIDENTS_TABLE_NAME
     else None
 )
 PUBLICATION_MANIFEST_KEY = "manifests/published/gold_daily_kpi.json"
@@ -139,8 +152,8 @@ Rules:
   ambiguous - ask exactly one targeted clarifying question.
 - "no_template_match": clearly an analytics question, but not one of the metrics listed above.
 - "diagnose": the user asks WHY a recent KPI dropped, whether a site/game has a problem, or asks
-  for a first-look investigation. Resolve client_site_id and end_date; metric and game_id may be
-  null because the deterministic diagnostic compares multiple KPIs and all games.
+  for a first-look investigation. Resolve end_date. client_site_id may be null; null means aggregate
+  every site permitted by the authenticated identity. metric and game_id may also be null.
 - "answerable": ONLY when metric, client_site_id, start_date, and end_date are ALL confidently
   determined. game_id is optional; extract it when the question names a game. Interpret relative
   time expressions (e.g. "last week") relative to the reference date.
@@ -173,7 +186,7 @@ def _validate_slots(
         as_of_date = parsed.get("end_date")
         game_id = parsed.get("game_id")
         if (
-            site not in VALID_CLIENT_SITES
+            (site is not None and site not in VALID_CLIENT_SITES)
             or not (as_of_date and _DATE_RE.match(as_of_date))
             or (game_id is not None and game_id not in VALID_GAMES)
         ):
@@ -181,10 +194,10 @@ def _validate_slots(
                 **parsed,
                 "category": "needs_clarification",
                 "clarification_question": (
-                    "Which client site and date should I investigate?"
+                    "Which date should I investigate?"
                 ),
                 "reasoning": (
-                    "diagnostic request needs a whitelisted site and one date"
+                    "diagnostic request needs one complete date and an optional whitelisted site"
                 ),
             }
         window = data_window or {
@@ -335,8 +348,96 @@ def _automation_outcome(category: str) -> dict:
             "scope_blocked": "scope_refused",
             "out_of_scope": "out_of_scope_refused",
             "blocked": "guardrail_blocked",
+            "forecast_not_supported": "forecast_boundary_explained",
         }.get(category, "unknown"),
         "requires_human": category == "no_template_match",
+    }
+
+
+_FORECAST_RE = re.compile(
+    r"(明天|未來|下週|下个月|下個月).*(回來|恢復|回升|成長|多少|會不會|是否)|"
+    r"(will|forecast|predict).*(tomorrow|next|recover)",
+    re.IGNORECASE,
+)
+_USAGE_DROP_RE = re.compile(
+    r"(今天|今日).*(人數|使用者|活躍).*(為何|为什么|為什麼|怎麼|怎么|突然|掉|下降)|"
+    r"why.*(active users|usage).*(drop|down)",
+    re.IGNORECASE,
+)
+
+
+def _is_forecast_question(question: str) -> bool:
+    return bool(_FORECAST_RE.search(question))
+
+
+def _is_usage_drop_question(question: str) -> bool:
+    return bool(_USAGE_DROP_RE.search(question))
+
+
+def _latest_incident(sites: list[str]) -> dict | None:
+    if anomaly_incidents is None:
+        return None
+    items = anomaly_incidents.scan(Limit=100).get("Items", [])
+    eligible = [item for item in items if item.get("client_site_id") in sites]
+    return max(eligible, key=lambda item: item.get("detected_at", ""), default=None)
+
+
+def _clock_label(event_hour: str) -> str:
+    match = re.search(r"[T ](\d{2}):(\d{2})", event_hour or "")
+    if not match:
+        return event_hour or "最新完整時段"
+    hour = (int(match.group(1)) + BUSINESS_TIMEZONE_OFFSET_HOURS) % 24
+    minute = match.group(2)
+    period = "上午" if hour < 12 else "下午"
+    display_hour = hour if 1 <= hour <= 12 else (12 if hour in {0, 12} else hour - 12)
+    return f"{period} {display_hour}:{minute}"
+
+
+def _business_usage_diagnosis(caller_scope: list | None) -> dict:
+    sites = sorted(caller_scope or VALID_CLIENT_SITES)
+    evidence = (
+        diagnostics.authorised_scope_cumulative_comparison(
+            sites, REPLAY_EVENT_HOUR
+        )
+        if REPLAY_EVENT_HOUR
+        else diagnostics.authorised_scope_cumulative_comparison(sites)
+    )
+    comparison = evidence.get("comparison", {}).get("active_users", {})
+    if not comparison or evidence.get("baseline_points", 0) < 30:
+        return {
+            "category": "no_template_match",
+            "answer": "目前沒有足夠的 30 天完整資料，因此無法提供可靠比較。",
+        }
+
+    actual = round(comparison["actual"])
+    baseline = round(comparison["baseline_avg_30d"])
+    pct_drop = abs(comparison.get("pct_change") or 0)
+    cutoff = _clock_label(evidence["event_hour"])
+    incident = _latest_incident(sites)
+    incident_sentence = "目前尚未產生對應告警，系統會在下一次排程繼續檢查。"
+    if incident:
+        status = incident.get("status")
+        status_text = {
+            "DETECTED": "發出告警，等待負責人開始排查",
+            "INVESTIGATING": "發出告警，目前技術人員正在排查中",
+            "RESOLVED": "發出告警，目前已標記為處理完成",
+        }.get(status, "發出告警")
+        incident_sentence = (
+            f"異常監控系統已於{_clock_label(incident.get('event_hour', ''))} {status_text}。"
+        )
+
+    scope_label = "你有權限查看的所有站點"
+    answer = (
+        f"今天截至{cutoff}，{scope_label}共有 {actual:,} 位活躍使用者；"
+        f"過去 30 天截至相同時間平均約有 {baseline:,} 位，目前少了約 {pct_drop:.0f}%。\n\n"
+        f"{incident_sentence}原因尚未確認。"
+    )
+    return {
+        "category": "diagnosis",
+        "answer": answer,
+        "scope": {"mode": "all_authorised_sites", "sites": sites},
+        "query_evidence": evidence,
+        "incident": incident,
     }
 
 
@@ -384,10 +485,20 @@ def _caller_scope(event) -> list:
     raise ScopeResolutionError(f"caller identity is not mapped to any tenant scope: {arn or '<none>'}")
 
 
+def _json_default(value):
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else float(value)
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _response(result: dict, status: int = 200) -> dict:
     # API Gateway's LambdaIntegration defaults to proxy mode, which requires
     # this exact statusCode/body envelope rather than a raw application dict.
-    return {"statusCode": status, "headers": {"Content-Type": "application/json"}, "body": json.dumps(result)}
+    return {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(result, default=_json_default),
+    }
 
 
 def _persist_analytics_ticket(
@@ -455,6 +566,37 @@ def handler(event, context):
             status=403,
         )
 
+    # These two high-value business questions have deterministic outcomes.
+    # They do not need a model to decide whether forecasting exists or to
+    # rewrite code-owned numbers into a technical incident report.
+    if _is_forecast_question(question):
+        result = {
+            "category": "forecast_not_supported",
+            "answer": (
+                "目前系統可以分析已發生的數據變化，但尚未建立並驗證人數預測模型，"
+                "因此無法判定明天是否會恢復。"
+            ),
+        }
+        _audit_log(
+            question,
+            {"category": "forecast_not_supported"},
+            {"caller_scope": caller_scope, **_automation_outcome(result["category"])},
+        )
+        return _response(result)
+
+    if _is_usage_drop_question(question):
+        result = _business_usage_diagnosis(caller_scope)
+        _audit_log(
+            question,
+            {"category": "diagnose", "scope_mode": "all_authorised_sites"},
+            {
+                "caller_scope": caller_scope,
+                "final_category": result["category"],
+                **_automation_outcome(result["category"]),
+            },
+        )
+        return _response(result)
+
     data_window = _data_window()
     resp = bedrock.converse(
         modelId=MODEL_ID,
@@ -488,6 +630,7 @@ def handler(event, context):
     if (
         category in {"answerable", "diagnose"}
         and caller_scope
+        and parsed.get("client_site_id") is not None
         and parsed["client_site_id"] not in caller_scope
     ):
         category = "scope_blocked"
@@ -510,6 +653,18 @@ def handler(event, context):
                   "answer": f"That's a great analytics question, but it's outside what I can answer directly today. "
                              f"I've routed it to our analytics team - ticket {ticket_id}."}
     elif category == "diagnose":
+        if parsed.get("client_site_id") is None:
+            result = _business_usage_diagnosis(caller_scope)
+            _audit_log(
+                question,
+                parsed,
+                {
+                    "caller_scope": caller_scope,
+                    "final_category": result["category"],
+                    **_automation_outcome(result["category"]),
+                },
+            )
+            return _response(result)
         diagnosis = _run_diagnosis(
             parsed["client_site_id"],
             parsed["end_date"],
