@@ -43,6 +43,9 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     production = (ROOT / "docs" / "demo-video-production.md").read_text(
         encoding="utf-8"
     )
+    teardown = (ROOT / "docs" / "aws-teardown-evidence.md").read_text(
+        encoding="utf-8"
+    )
 
     parser = _SiteParser()
     parser.feed(html)
@@ -66,6 +69,7 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert "http://" not in html
     assert "http://" not in javascript
     assert "Leon Lai" in html
+    assert "AWS Architecture Portfolio" in html
     assert 'href="favicon.ico"' in html
     assert 'href="favicon-32.png"' in html
     assert 'href="favicon-192.png"' in html
@@ -88,6 +92,8 @@ def test_project_walkthrough_is_self_contained_bilingual_and_publishable() -> No
     assert "169 automated tests" in readme
     assert "169 automated tests" in production
     assert "Verification date: 2026-08-03" in production
+    assert "Teardown completed on **2026-08-05" in teardown
+    assert "Pending execution" not in teardown
     assert "G-7T6Q37M71H" in html
     assert "googletagmanager.com/gtag/js" in html
     assert "utm_source=github&utm_medium=referral&utm_campaign=portfolio" in readme

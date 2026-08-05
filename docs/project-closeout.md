@@ -1,14 +1,15 @@
 # Project Closeout and Intentional Boundaries
 
-Status: **external-facing v1 / latest increment locally verified and deployment
-pending** (2026-07-31).
+Status: **external-facing v1 / AWS paths verified / runtime intentionally retired**
+(2026-08-05). See [AWS PoC teardown evidence](aws-teardown-evidence.md).
 
 The repository now connects cloud data and AI capabilities to the four
 recurring operating pains it was created for without turning into an AWS
 service catalogue. "External-facing v1" means the code, tests, infrastructure
 templates, cost controls, bilingual walkthrough, demos, and honest boundaries
 are publishable. It does not mean production-ready, and it does not authorise a
-new AWS deployment.
+new AWS deployment. The final PoC paths were exercised on AWS by 2026-08-03 and
+the runtime resources were torn down on 2026-08-05 to eliminate idle cost.
 
 ## What is implemented
 

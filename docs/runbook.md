@@ -1,5 +1,9 @@
 # Operations Runbook
 
+> **Lifecycle status (2026-08-05):** The verified PoC runtime has been torn down. This runbook is
+> retained as operational and redeployment evidence; there are no active `AuroraGames*` alarms or
+> workload stacks. See [AWS PoC teardown evidence](aws-teardown-evidence.md).
+
 Every alarm in `AuroraGamesObservabilityStack` publishes to one topic,
 `aurora-games-ops-alerts`. This page says what each one means and what to do about it. An alarm
 without a documented response is a notification, not an alert.

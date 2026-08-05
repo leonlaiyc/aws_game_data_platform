@@ -1,5 +1,9 @@
 # Project Constraints and Definition of Done
 
+Lifecycle status: the constraints governed the verified AWS PoC through 2026-08-03. Runtime
+resources were intentionally torn down on 2026-08-05; they apply again before any redeployment.
+See [AWS PoC teardown evidence](aws-teardown-evidence.md).
+
 These are delivery constraints, not optional recommendations. A feature is not
 `Done` unless it satisfies the relevant checks below.
 

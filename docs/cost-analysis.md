@@ -1,5 +1,11 @@
 # Cost Analysis
 
+> **Lifecycle status (2026-08-05):** The verified AWS PoC was intentionally
+> torn down after the operation demo and evidence capture. See
+> [AWS PoC teardown evidence](aws-teardown-evidence.md). The figures below are
+> historical measured/modelled evidence, not the cost of a currently running
+> deployment.
+
 ## Headline
 
 At this project's scale the data plane costs cents, but the platform has a deliberate

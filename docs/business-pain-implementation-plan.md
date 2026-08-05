@@ -1,6 +1,9 @@
 # Business-Pain Implementation Plan
 
-Status: **locally verified / deployment pending** (2026-07-30).
+Status: **implemented, AWS-verified, and intentionally retired**. This was the
+2026-07-30 implementation plan; its final operation paths were exercised on
+AWS by 2026-08-03 and the PoC runtime was torn down on 2026-08-05. See
+[AWS PoC teardown evidence](aws-teardown-evidence.md).
 
 This plan is intentionally narrower than a service catalogue. Work is accepted
 only when it addresses one of the four stated operating pains and does not add

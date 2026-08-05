@@ -9,6 +9,10 @@ Baseline rows below were checked against the deployed account. Controls added on
 2026-07-29; remaining production gaps are still stated explicitly.
 Where a control is missing it says so, rather than being quietly upgraded to "not applicable".
 
+Lifecycle note: the verified PoC runtime was intentionally torn down on 2026-08-05. The controls
+below document the exercised deployment and the requirements for any future redeployment; see
+[AWS PoC teardown evidence](aws-teardown-evidence.md).
+
 ---
 
 ## Part 1 — Threat model

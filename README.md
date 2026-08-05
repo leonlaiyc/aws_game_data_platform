@@ -149,7 +149,8 @@ from authenticated identity rather than a request body.
 
 - **Business first:** each service must map to an operating problem.
 - **Cost first:** default resources are request-priced or scale to zero; the
-  steady-state gross model is under **USD 2/month**, with a USD 5 budget alert.
+  deployed steady-state gross model was under **USD 2/month** with a USD 5
+  budget alert, then the PoC was intentionally torn down after verification.
 - **Identity owns scope:** tenant or audience scope is never trusted from the
   request body.
 - **Code owns facts:** SQL, numbers, risk evidence, routing, and disclosure are
@@ -162,6 +163,7 @@ from authenticated identity rather than a request body.
 - [Architecture and service trade-offs](ARCHITECTURE.md)
 - [Rendered Mermaid diagrams](diagrams/)
 - [Cost model and 100× projection](docs/cost-analysis.md)
+- [AWS deployment and teardown evidence](docs/aws-teardown-evidence.md)
 - [Threat model and SLOs](docs/threat-model.md)
 - [Project closeout and intentional boundaries](docs/project-closeout.md)
 - [Designs changed by testing](docs/what-i-got-wrong-first.md)
@@ -172,9 +174,10 @@ from authenticated identity rather than a request body.
 - **169 automated tests** plus Python compilation and CDK assertion coverage.
 - **Eight default stacks** synthesize without Kinesis, NAT Gateway, RDS,
   OpenSearch, or provisioned compute.
-- The earlier baseline was deployed and exercised against AWS on 2026-07-29.
-  The latest cost-safe increment is locally/CI verified and was not redeployed,
-  so no new AWS cost was created during closeout.
+- The baseline was deployed on 2026-07-29 and the final recorded operation
+  paths were exercised against AWS by 2026-08-03.
+- The verified PoC runtime was fully torn down on 2026-08-05; see the
+  [teardown evidence](docs/aws-teardown-evidence.md).
 - All entities and data are fictional. See [SECURITY.md](SECURITY.md).
 
 <details>
