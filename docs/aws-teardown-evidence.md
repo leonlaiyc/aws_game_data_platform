@@ -47,6 +47,8 @@ fixtures, offline tests, and recorded demonstration are the durable evidence.
 
 The CDK bootstrap stack (`CDKToolkit`) is not part of this project teardown. It
 is account-level deployment tooling and may be reused by future CDK projects.
+Its deploy-time S3 asset cache was nevertheless purged after both completed
+PoCs were retired; the bootstrap bucket and ECR repository are empty.
 
 ## Post-teardown verification
 
@@ -67,14 +69,45 @@ Teardown completed on **2026-08-05 11:00 (Asia/Taipei)**.
   from disposable workload stacks.
 - The only long-lived access key for the separately created
   `aurora-games-cdk` IAM user was deleted and independently confirmed invalid.
-  The user has no Console login profile. Its inert IAM user object and attached
-  policy could not be removed by the available SSO deployment role because
-  that role intentionally has no IAM-user administration permission; final
-  metadata deletion requires the account root user or another identity with
-  `iam:DeleteUser` and related user-policy permissions.
+  A root-authorized follow-up then detached its remaining policy and deleted
+  the inert user object. A final IAM inventory returned zero IAM users.
 - The account-level `CDKToolkit` stack was deliberately retained and was not
   counted as a project workload resource.
 
+## Account-wide and earlier-PoC follow-up
+
+A root-authorized account sweep completed on **2026-08-05 11:39
+(Asia/Taipei)**. It covered all 17 enabled AWS Regions rather than only the
+Tokyo deployment Region.
+
+- The earlier semiconductor PoC's `ManufacturingAnomalyStack` was already in
+  `DELETE_COMPLETE`. Its final two orphaned Lambda log groups (3,751 bytes in
+  total, last used on 2026-07-19) were explicitly deleted.
+- No active semiconductor/manufacturing resources were found by service
+  inventory, resource-name, or tag searches.
+- No workload resources were found in CloudFormation (apart from
+  `CDKToolkit`), EC2/EBS, NAT Gateway, VPC Endpoint, ELB, RDS, OpenSearch,
+  Redshift, ElastiCache, Kinesis, ECS/EKS, SageMaker, EFS/FSx, MSK, DMS,
+  Lambda, DynamoDB, API Gateway, EventBridge, Step Functions, SNS/SQS, Glue,
+  Athena, Backup, CodeBuild/CodePipeline, Amplify, or Bedrock Knowledge Bases.
+- Additional checks found no customer-managed KMS keys, Advanced SSM
+  parameters, QuickSight subscription, CloudTrail event data stores, AWS
+  Config recorders, GuardDuty/Macie resources, VPN/Transit Gateway/Client VPN,
+  Directory Service, WorkSpaces, Transfer Family, Batch, Cognito user pools,
+  AppSync APIs, ACM certificates, or WAF web ACLs.
+- The shared CDK bootstrap S3 bucket contained 181 cached deployment objects
+  (113,589,734 bytes). All current and historical object versions, delete
+  markers, and multipart uploads were removed. Its ECR repository contained
+  zero images.
+- The account-wide USD 5 CloudWatch billing alarm and its confirmed email SNS
+  subscription remain enabled as a cost-safety control. They are not workload
+  resources.
+
+The only intentional AWS infrastructure left is the empty `CDKToolkit`
+bootstrap, the IAM Identity Center/SSO access path, AWS-managed service-linked
+roles, and the USD 5 billing alert. These are account administration and safety
+controls, not executable resources from either PoC.
+
 Result: no executable, scheduled, storage, observability, or API resource from
-the PoC remains billable. The public portfolio is now evidence-backed and
-static, while the AWS implementation remains reproducible from source.
+either PoC remains active. The public portfolio is now evidence-backed and
+static, while the AWS implementations remain reproducible from source.
